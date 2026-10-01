@@ -42,6 +42,15 @@ const edits = { v: 1, global: {}, pages: { 'page2.html': {
   },
 } } };
 fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(edits));
+// A page that reveals elements on scroll by adding a class (the mechanism used by real client sites).
+fs.writeFileSync(S + '/site/reveal.html', `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>r</title>
+<script src="cms/cms-kit.js" data-admin-origin="http://localhost:9002"></script>
+<style>.js .reveal{opacity:0;transition:opacity .3s}.js .reveal.is-visible{opacity:1}section{min-height:900px}</style>
+<script>document.documentElement.classList.add('js')</script></head>
+<body><main><section><h2 class="reveal">ראשון</h2></section><section id="two"><h2 class="reveal">שני</h2><p class="reveal">פסקה</p></section><section><h2 class="reveal">שלישי</h2></section></main>
+<script>var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');io.unobserve(e.target)}})},{threshold:.1});
+document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});</script></body></html>`);
+fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...edits, pages: { ...edits.pages, 'reveal.html': { layout: [{ op: 'dup', src: '#two', id: 'cp9' }], els: { '@cp9>h2:nth-of-type(1)': { t: 'שני – עותק' } } } } }));
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/page2.html?cms-edit=1"></iframe>
 <script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
 window.post=(m)=>document.getElementById('f').contentWindow.postMessage(m,'http://localhost:9001');</script></body></html>`);
@@ -84,11 +93,24 @@ try {
   ok(small < 20 && small >= 11, 'public: size scales with the viewport on phones (' + small + 'px)');
   await pg.setViewportSize({ width: 1280, height: 800 });
 
+  /* ---------- scroll-reveal pages: a copy must not stay invisible ---------- */
+  await pg.goto('http://localhost:9001/reveal.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+  await pg.evaluate(() => document.querySelector('[data-cms-id="cp9"]').scrollIntoView());
+  await pg.waitForTimeout(900);
+  const copyOpacity = await pg.locator('[data-cms-id="cp9"] h2').evaluate((e) => getComputedStyle(e).opacity);
+  ok(copyOpacity === '1', 'reveal pages: the copy becomes visible when it is scrolled into view (opacity ' + copyOpacity + ')');
+  await pg.goto('http://localhost:9001/reveal.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+  await pg.waitForTimeout(3000);
+  const farOpacity = await pg.locator('[data-cms-id="cp9"] p').evaluate((e) => getComputedStyle(e).opacity);
+  ok(farOpacity === '1', 'reveal pages: a copy far below the fold is not left invisible (fallback), opacity ' + farOpacity);
+
   /* ---------- edit mode ---------- */
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 2, 'edit: kit reports its version');
+  ok(ready.version === 3, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);

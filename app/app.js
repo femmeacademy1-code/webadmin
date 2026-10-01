@@ -569,7 +569,8 @@ async function viewEditor(siteId) {
       current && h('div', {}, h('button', { class: 'link', onclick: onReset }, 'איפוס לפונט המקורי')));
   }
 
-  const NEED_KIT = 2;   // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
+  const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
+  const LATEST_KIT = 3;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -747,7 +748,7 @@ async function viewEditor(siteId) {
       $('#notice') && $('#notice').remove();
       sendToFrame();
       if (E.tab !== 'sel' || kitTooOld()) renderInsp();
-      if (kitTooOld()) kitUpdateNotice();
+      if (kitTooOld() || (me.user.role === 'owner' && E.kitVersion < LATEST_KIT)) kitUpdateNotice();
     } else if (d.type === 'cms-sections') {
       E.sections = d.sections || [];
       if (E.tab === 'struct') renderInsp();
@@ -773,12 +774,13 @@ async function viewEditor(siteId) {
   function kitUpdateNotice() {
     if ($('#notice')) return;
     $('#frame-wrap').append(h('div', { class: 'notice', id: 'notice' },
-      h('div', {}, h('b', {}, 'יש גרסה חדשה של ערכת העריכה. '), me.user.role === 'owner' ? 'עדכנו אותה באתר כדי לקבל עיצוב טקסט, שכפול והזזה של קטעים.' : 'פנו לסוכנות כדי לעדכן אותה באתר.'),
+      h('div', {}, h('b', {}, 'יש גרסה חדשה של ערכת העריכה. '), me.user.role === 'owner' ? 'עדכנו אותה באתר כדי לקבל את כל האפשרויות והתיקונים האחרונים.' : 'פנו לסוכנות כדי לעדכן אותה באתר.'),
       me.user.role === 'owner' && h('button', { class: 'btn primary small', onclick: async (ev) => {
         ev.currentTarget.disabled = true;
         try { await api('POST', `/admin/sites/${siteId}/connect`); toast('עודכן. האתר יתפרסם בעוד כדקה – אז רעננו את העורך.'); $('#notice') && $('#notice').remove(); }
         catch (e) { toast(e.message, true); }
-      } }, 'עדכון עכשיו')));
+      } }, 'עדכון עכשיו'),
+      !kitTooOld() && h('button', { class: 'btn ghost small', onclick: () => $('#notice') && $('#notice').remove() }, 'אחר כך')));
   }
 
   function loadFrame() {

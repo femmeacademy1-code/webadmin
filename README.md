@@ -84,7 +84,7 @@
 ```bash
 node --test tests/worker.test.mjs          # בדיקות שרת: הרשאות, ולידציה, חיבור אתר (48)
 NODE_PATH=$(npm root -g) node tests/kit.mjs # בדיקות ערכת העריכה בדפדפן, בשני origins (25)
-NODE_PATH=$(npm root -g) node tests/layout.mjs # עיצוב טקסט ופעולות מבנה: שכפול, הזזה, הסתרה (22)
+NODE_PATH=$(npm root -g) node tests/layout.mjs # עיצוב טקסט ופעולות מבנה: שכפול, הזזה, הסתרה, עותקים באתרי scroll-reveal (24)
 NODE_PATH=$(npm root -g) node tests/e2e.mjs # תרחיש מלא: חיבור אתר, יצירת לקוח, עריכה, פרסום (דורש playwright)
 ```
 

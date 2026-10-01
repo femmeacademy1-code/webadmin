@@ -45,11 +45,12 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 2;
+  var KIT_VERSION = 3;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
   var origOrder = new Map();                        // parent -> original child order (to undo moves)
+  var mirrors = [];                                 // observers keeping a copy's classes in sync with its original
 
   /* ---------- helpers ---------- */
   function safeHref(u) { return /^(https?:\/\/|mailto:|tel:|#|\/|\.\/|\.\.\/|[\w-]+(\/|\.html|$))/i.test(u) && !/^\s*(javascript|data|vbscript):/i.test(u); }
@@ -283,7 +284,42 @@
     var s = snapOf(el);
     if (!(prop in s.style)) s.style[prop] = [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)];
   }
+  // Many sites reveal elements on scroll by adding a class (is-visible, aos-animate…) to the elements that
+  // existed at load. A copy made later is never observed by that script, so it would stay invisible.
+  // Mirror the original's class list onto the copy, and as a last resort un-hide copies after a few seconds.
+  function mirrorClasses(a, b) {
+    var pairs = [];
+    (function walk(x, y) {
+      pairs.push([x, y]);
+      for (var i = 0; i < x.children.length && i < y.children.length; i++) walk(x.children[i], y.children[i]);
+    })(a, b);
+    if (window.MutationObserver) {
+      pairs.forEach(function (p) {
+        var mo = new MutationObserver(function () {
+          var cls = p[0].getAttribute('class');
+          if (cls !== p[1].getAttribute('class')) cls == null ? p[1].removeAttribute('class') : p[1].setAttribute('class', cls);
+        });
+        mo.observe(p[0], { attributes: true, attributeFilter: ['class'] });
+        mirrors.push(mo);
+      });
+    }
+    var REVEAL = /reveal|fade|anim|aos|appear|enter|in-view|scroll/i;
+    function unhide(y) {
+      if (!y.isConnected || !REVEAL.test(y.getAttribute('class') || '')) return;
+      if (getComputedStyle(y).opacity === '0' && !isHidden(y)) { y.style.setProperty('opacity', '1', 'important'); y.style.setProperty('transform', 'none', 'important'); }
+    }
+    if (window.IntersectionObserver) {       // the page's own observer never saw the copy, so watch it ourselves
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { setTimeout(function () { unhide(en.target); }, 350); io.unobserve(en.target); } });
+      }, { threshold: 0.05 });
+      pairs.forEach(function (p) { if (REVEAL.test(p[1].getAttribute('class') || '')) io.observe(p[1]); });
+      mirrors.push({ disconnect: function () { io.disconnect(); } });
+    }
+    setTimeout(function () { pairs.forEach(function (p) { unhide(p[1]); }); }, 2500);
+  }
   function revertLayout() {
+    mirrors.forEach(function (mo) { mo.disconnect(); });
+    mirrors = [];
     Array.prototype.forEach.call(document.querySelectorAll('[' + CID + ']'), function (c) { if (c.parentNode) c.parentNode.removeChild(c); });
     origOrder.forEach(function (nodes, p) {
       var known = new Set(nodes);
@@ -365,6 +401,7 @@
       });
       c.setAttribute(CID, op.id);
       src.parentNode.insertBefore(c, src.nextSibling);
+      mirrorClasses(src, c);
       return true;
     }
     var el = resolve(op.key);
