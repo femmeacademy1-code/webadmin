@@ -226,10 +226,16 @@ test('connect adds kit + empty edits + one script tag after <meta charset>, idem
   assert.ok(repo.files['cms/cms-kit.js'].equals(KIT));
   assert.equal(JSON.parse(repo.files['cms/edits.json']).v, 1);
   const home = repo.files['index.html'].toString();
-  assert.match(home, /<meta charset="utf-8">\n<script src="cms\/cms-kit\.js" data-admin-origin="https:\/\/cms\.test"><\/script>/);
-  assert.match(repo.files['sub/page.html'].toString(), /<head>\n<script src="\.\.\/cms\/cms-kit\.js"/);
+  assert.match(home, /<meta charset="utf-8">\n<script src="cms\/cms-kit\.js\?v=[0-9a-f]{10}" data-admin-origin="https:\/\/cms\.test"><\/script>/);
+  assert.match(repo.files['sub/page.html'].toString(), /<head>\n<script src="\.\.\/cms\/cms-kit\.js\?v=[0-9a-f]{10}"/);
   await call('POST', '/api/admin/sites/demo/connect', { cookie: owner });
   assert.equal(repo.files['index.html'].toString().match(/cms-kit\.js/g).length, 1, 'no duplicate tag');
+  // a tag written by an older connect (no ?v=) is upgraded in place, and the version changes when the kit changes
+  const old = repo.files['index.html'].toString().replace(/\?v=[0-9a-f]{10}/, '');
+  repo.files['index.html'] = Buffer.from(old);
+  await call('POST', '/api/admin/sites/demo/connect', { cookie: owner });
+  assert.match(repo.files['index.html'].toString(), /cms-kit\.js\?v=[0-9a-f]{10}"/);
+  assert.equal(repo.files['index.html'].toString().match(/cms-kit\.js/g).length, 1);
 });
 
 test('site/user input validation', async () => {

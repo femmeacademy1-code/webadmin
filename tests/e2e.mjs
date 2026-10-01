@@ -120,7 +120,7 @@ try {
   await pg.click('button:has-text("חיבור לעריכה")');
   await pg.waitForFunction(() => document.querySelector('#toast').textContent.includes('חובר'), null, { timeout: 8000 });
   const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
-  ok(/<meta charset="utf-8">\n<script src="cms\/cms-kit\.js" data-admin-origin="http:\/\/localhost:9002">/.test(html), 'connect: script tag added to the site HTML');
+  ok(/<meta charset="utf-8">\n<script src="cms\/cms-kit\.js\?v=[0-9a-f]{10}" data-admin-origin="http:\/\/localhost:9002">/.test(html), 'connect: script tag added to the site HTML');
   ok(fs.existsSync(path.join(SITE, 'cms/cms-kit.js')) && fs.existsSync(path.join(SITE, 'cms/edits.json')), 'connect: kit + empty edits committed');
   await shot('02-admin-sites');
 

@@ -244,8 +244,9 @@ async function saveUser(req, env, username) {
 }
 
 /* ---------------- connect a site: add the kit + one script tag, once ---------------- */
-function addKitTag(html, prefix, origin) {
-  const tag = `<script src="${prefix}cms/cms-kit.js" data-admin-origin="${origin}"></script>`;
+// `ver` (a hash of the kit file) is part of the URL, so a new kit is never served from an old browser/CDN cache.
+function addKitTag(html, prefix, origin, ver) {
+  const tag = `<script src="${prefix}cms/cms-kit.js?v=${ver}" data-admin-origin="${origin}"></script>`;
   const existing = /<script[^>]*cms\/cms-kit\.js[^>]*><\/script>/i;
   if (existing.test(html)) return html.replace(existing, tag);
   const charset = html.match(/<meta[^>]*charset[^>]*>/i);
@@ -263,7 +264,10 @@ async function connectSite(req, env, url, id) {
 
   const kit = await env.ASSETS.fetch(new Request(new URL('/kit/cms-kit.js', url)));
   if (!kit.ok) throw new HttpError(500, 'קובץ ערכת העריכה לא נמצא בשרת');
-  const files = [{ path: p(site, 'cms/cms-kit.js'), text: await kit.text() }];
+  const kitText = await kit.text();
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(kitText));
+  const ver = [...new Uint8Array(digest)].slice(0, 5).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const files = [{ path: p(site, 'cms/cms-kit.js'), text: kitText }];
 
   if (!(await gh.getFile(site.repo, p(site, EDITS_PATH), site.branch))) {
     files.push({ path: p(site, EDITS_PATH), text: JSON.stringify(EMPTY_EDITS, null, 2) + '\n' });
@@ -272,7 +276,7 @@ async function connectSite(req, env, url, id) {
     const f = await gh.getFile(site.repo, p(site, page), site.branch);
     if (!f) throw new HttpError(422, `העמוד ${page} לא נמצא בריפו`);
     const depth = page.split('/').length - 1;
-    files.push({ path: p(site, page), text: addKitTag(f.text, '../'.repeat(depth), origin) });
+    files.push({ path: p(site, page), text: addKitTag(f.text, '../'.repeat(depth), origin, ver) });
   }
   await gh.commit(site.repo, site.branch, files, 'חיבור מערכת העריכה לאתר');
   return json({ ok: true, files: files.map((f) => f.path) });
