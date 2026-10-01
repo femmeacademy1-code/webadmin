@@ -14,9 +14,12 @@ const HEX = /^#[0-9a-f]{6}$/;
 const FAMILY = /^[A-Za-z0-9 ]{1,60}$/;
 const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@.,=&%_-]{1,300}$/;
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
-const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;
+const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;                  // images
+const FILE_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(pdf|docx?|xlsx?|pptx?|zip)$/;     // downloadable files
+const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider']);
+const VIDEO_ID = { youtube: /^[A-Za-z0-9_-]{6,20}$/, vimeo: /^\d{5,12}$/ };
 
-export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, images: 12, ops: 300 };
+export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, file: 10_000_000, images: 12, ops: 300 };
 
 function str(v, max, what) {
   if (typeof v !== 'string') bad(`${what}: ערך לא תקין`);
@@ -93,6 +96,18 @@ function layout(ops) {
       ids.add(op.id);
       return { op: 'dup', src: key(op.src), id: op.id };
     }
+    if (op.op === 'add') {
+      if (typeof op.id !== 'string' || !OP_ID.test(op.id) || ids.has(op.id)) bad('מזהה אלמנט לא תקין');
+      ids.add(op.id);
+      if (!ADD_TYPES.has(op.type)) bad('סוג אלמנט לא מותר');
+      const added = { op: 'add', after: key(op.after), id: op.id, type: op.type };
+      if (op.type === 'video') {
+        const v = op.p;
+        if (!v || !VIDEO_ID[v.provider] || typeof v.vid !== 'string' || !VIDEO_ID[v.provider].test(v.vid)) bad('קישור הסרטון לא תקין (YouTube או Vimeo בלבד)');
+        added.p = { provider: v.provider, vid: v.vid };
+      } else if (op.p != null) bad('פרמטרים לא מותרים');
+      return added;
+    }
     if (op.op === 'move') {
       if (op.dir !== 1 && op.dir !== -1) bad('כיוון הזזה לא תקין');
       return { op: 'move', key: key(op.key), dir: op.dir };
@@ -139,20 +154,33 @@ export function validateEdits(input) {
   return out;
 }
 
+const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
+// First bytes of a file must match its extension, so a renamed page or script is never accepted as a document.
+function magicOk(ext, head) {
+  if (ext === 'jpg') return head.startsWith('\xff\xd8\xff');
+  if (ext === 'png') return head.startsWith('\x89PNG');
+  if (ext === 'webp') return head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP';
+  if (ext === 'pdf') return head.startsWith('%PDF-');
+  if (['docx', 'xlsx', 'pptx', 'zip'].includes(ext)) return head.startsWith('PK\x03\x04');
+  if (['doc', 'xls', 'ppt'].includes(ext)) return head.startsWith('\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1');
+  return false;
+}
+
+/** Images and downloadable documents uploaded alongside the edits. */
 export function validateImages(images) {
   if (images == null) return [];
-  if (!Array.isArray(images) || images.length > LIMITS.images) bad('יותר מדי תמונות בבת אחת');
+  if (!Array.isArray(images) || images.length > LIMITS.images) bad('יותר מדי קבצים בבת אחת');
   return images.map((im) => {
-    if (!im || !UPLOAD.test(im.path || '')) bad('נתיב תמונה לא מותר');
-    if (typeof im.base64 !== 'string' || im.base64.length > LIMITS.image * 1.4) bad('התמונה גדולה מדי');
-    const head = atob(im.base64.slice(0, 24));
-    const ext = im.path.split('.').pop();
-    const okMagic =
-      (ext === 'jpg' && head.startsWith('\xff\xd8\xff')) ||
-      (ext === 'png' && head.startsWith('\x89PNG')) ||
-      (ext === 'webp' && head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP');
-    if (!okMagic) bad('הקובץ אינו תמונה תקינה');
-    return { path: im.path, base64: im.base64 };
+    const p = im && im.path;
+    const isImage = UPLOAD.test(p || '');
+    if (!isImage && !FILE_UPLOAD.test(p || '')) bad('נתיב קובץ לא מותר');
+    const limit = isImage ? LIMITS.image : LIMITS.file;
+    if (typeof im.base64 !== 'string' || !B64.test(im.base64) || im.base64.length > limit * 1.4) bad(isImage ? 'התמונה גדולה מדי' : 'הקובץ גדול מדי (עד 10MB)');
+    let head = '';
+    try { head = atob(im.base64.slice(0, 16)); } catch { bad('קובץ לא תקין'); }
+    const ext = p.split('.').pop();
+    if (!magicOk(ext, head)) bad(isImage ? 'הקובץ אינו תמונה תקינה' : 'תוכן הקובץ אינו תואם לסוג שלו');
+    return { path: p, base64: im.base64 };
   });
 }
 
@@ -189,4 +217,4 @@ export function validateUser(u, partial = false) {
   }
   return out;
 }
-export const PATHS = { UPLOAD };
+export const PATHS = { UPLOAD, FILE_UPLOAD };

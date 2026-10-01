@@ -51,6 +51,26 @@ fs.writeFileSync(S + '/site/reveal.html', `<!DOCTYPE html><html lang="he" dir="r
 <script>var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('is-visible');io.unobserve(e.target)}})},{threshold:.1});
 document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});</script></body></html>`);
 fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...edits, pages: { ...edits.pages, 'reveal.html': { layout: [{ op: 'dup', src: '#two', id: 'cp9' }], els: { '@cp9>h2:nth-of-type(1)': { t: 'שני – עותק' } } } } }));
+// Adding elements: a page with a button, a paragraph, a heading and a list to take styling from.
+fs.writeFileSync(S + '/site/add.html', `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>a</title>
+<script src="cms/cms-kit.js" data-admin-origin="http://localhost:9002"></script>
+<style>.btn{display:inline-block;padding:8px 20px;background:#52725a;color:#fff}.title{color:#123456}.lead{font-size:20px}</style></head>
+<body><main><section id="s"><h2 class="title reveal">כותרת קיימת</h2><p class="lead reveal">פסקה קיימת עם טקסט ארוך מספיק</p><a class="btn primary" href="/go">לדף</a>
+<ul id="list"><li class="item">פריט</li></ul></section></main></body></html>`);
+const P = 'body>main:nth-of-type(1)>section:nth-of-type(1)';
+fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')), pages: { ...JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')).pages, 'add.html': {
+  layout: [
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'b1', type: 'button' },
+    { op: 'add', after: '@b1', id: 'f1', type: 'file' },
+    { op: 'add', after: '#s>h2:nth-of-type(1)', id: 'v1', type: 'video', p: { provider: 'youtube', vid: 'dQw4w9WgXcQ' } },
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'im1', type: 'image' },
+    { op: 'add', after: '#s>h2:nth-of-type(1)', id: 'h1x', type: 'heading' },
+    { op: 'add', after: '#list>li:nth-of-type(1)', id: 'li1', type: 'text' },
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'd1', type: 'divider' },
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'vm1', type: 'video', p: { provider: 'vimeo', vid: '123456789' } },
+  ],
+  els: { '@b1': { t: 'התקשרו', href: 'tel:0501234567' }, '@f1': { t: 'חוברת', href: 'cms/uploads/a.pdf' }, '@im1': { src: 'https://example.com/x.png', alt: 'תיאור' }, '@h1x': { t: 'כותרת שהוספתי' } },
+} } }));
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/page2.html?cms-edit=1"></iframe>
 <script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
 window.post=(m)=>document.getElementById('f').contentWindow.postMessage(m,'http://localhost:9001');</script></body></html>`);
@@ -93,6 +113,25 @@ try {
   ok(small < 20 && small >= 11, 'public: size scales with the viewport on phones (' + small + 'px)');
   await pg.setViewportSize({ width: 1280, height: 800 });
 
+  /* ---------- adding elements ---------- */
+  await pg.goto('http://localhost:9001/add.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide') && document.querySelector('[data-cms-add="button"]'), null, { timeout: 5000 });
+  const btn = await pg.locator('[data-cms-add="button"]').evaluate((e) => ({ tag: e.tagName, cls: e.className, href: e.getAttribute('href'), text: e.textContent, prev: e.previousElementSibling && e.previousElementSibling.className }));
+  ok(btn.tag === 'A' && btn.cls === 'btn primary' && btn.href === 'tel:0501234567' && btn.text === 'התקשרו', 'add button: takes the page\'s button styling, link and text: ' + JSON.stringify(btn));
+  const file = await pg.locator('[data-cms-add="file"]').evaluate((e) => ({ cls: e.className, href: e.getAttribute('href'), dl: e.hasAttribute('download'), prev: e.previousElementSibling.getAttribute('data-cms-add') }));
+  ok(file.cls === 'btn primary' && file.href === 'cms/uploads/a.pdf' && file.dl && file.prev === 'button', 'add file: download link next to the button, same styling: ' + JSON.stringify(file));
+  const vid = await pg.locator('[data-cms-add="video"] iframe').first().evaluate((e) => ({ src: e.src, allow: e.getAttribute('allow'), rp: e.getAttribute('referrerpolicy') }));
+  ok(vid.src === 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ' && /fullscreen/.test(vid.allow) && vid.rp === 'strict-origin-when-cross-origin', 'add video: privacy-enhanced YouTube embed: ' + JSON.stringify(vid));
+  ok(await pg.locator('iframe[src="https://player.vimeo.com/video/123456789"]').count() === 1, 'add video: Vimeo embed');
+  const img = await pg.locator('[data-cms-add="image"]').evaluate((e) => ({ src: e.getAttribute('src'), alt: e.alt }));
+  ok(img.src === 'https://example.com/x.png' && img.alt === 'תיאור', 'add image: src and alt come from the edits');
+  const hd = await pg.locator('[data-cms-add="heading"]').evaluate((e) => ({ tag: e.tagName, cls: e.className, text: e.textContent }));
+  ok(hd.tag === 'H2' && hd.cls === 'title' && hd.text === 'כותרת שהוספתי', 'add heading: same tag/class as the page\'s heading, without the scroll-reveal class: ' + JSON.stringify(hd));
+  ok(await pg.locator('#list [data-cms-add="text"]').evaluate((e) => e.tagName === 'LI' && e.className === 'item'), 'add text inside a list becomes a list item with the list\'s styling');
+  ok(await pg.locator('[data-cms-add="divider"]').evaluate((e) => e.tagName === 'HR'), 'add divider');
+  ok(await pg.locator('[data-cms-add="text"], [data-cms-add="heading"]').first().evaluate((e) => getComputedStyle(e).opacity === '1'), 'added elements are visible (no leftover reveal classes)');
+  ok(await pg.locator('script, [onclick], [onload]').evaluateAll((els) => els.filter((e) => e.closest('[data-cms-id]')).length === 0), 'added elements contain no scripts or inline handlers');
+
   /* ---------- scroll-reveal pages: a copy must not stay invisible ---------- */
   await pg.goto('http://localhost:9001/reveal.html');
   await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
@@ -110,7 +149,7 @@ try {
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 3, 'edit: kit reports its version');
+  ok(ready.version === 4, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);
@@ -155,6 +194,24 @@ try {
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-subtree-map-result'));
   const map = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-subtree-map-result'));
   ok(map.reqId === 7 && map.pairs.some((p) => p[0] === B + '>h2:nth-of-type(1)' && p[1] === '@cp1>h2:nth-of-type(1)') && map.pairs[0][1] === '@cp1', 'edit: subtree map pairs original and copy elements');
+
+  // adding elements in edit mode
+  await pg.evaluate(() => { window.__msgs = []; });
+  const addEdits = (await (await fetch('http://localhost:9001/cms/edits.json')).json());
+  await pg.evaluate((e) => { document.getElementById('f').src = 'http://localhost:9001/add.html?cms-edit=1'; window.__msgs = []; }, null);
+  await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
+  await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), addEdits);
+  await pg.waitForTimeout(500);
+  await pg.evaluate(() => { window.__msgs = []; });
+  await fr.locator('[data-cms-add="video"]').first().click({ position: { x: 40, y: 40 } });
+  await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-select' && m.unit));
+  sel = await pg.evaluate(() => window.__msgs.filter((m) => m.type === 'cms-select').pop().unit);
+  ok(sel.added === 'video' && /^youtube:/.test(sel.vid) && sel.clone === 'v1', 'edit: an added video is selectable (iframes do not swallow clicks): ' + sel.vid);
+  await pg.evaluate(() => { window.__msgs = []; window.post({ type: 'cms-edits', edits: { v: 1, global: {}, pages: {} }, assets: {} }); });
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('[data-cms-add]').count() === 0, 'edit: clearing the layout removes every added element');
+  await pg.evaluate(() => { document.getElementById('f').src = 'http://localhost:9001/page2.html?cms-edit=1'; window.__msgs = []; });
+  await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
 
   // removing the layout restores the original page live
   await pg.evaluate(() => window.post({ type: 'cms-edits', edits: { v: 1, global: {}, pages: {} }, assets: {} }));

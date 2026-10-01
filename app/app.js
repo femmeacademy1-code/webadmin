@@ -320,8 +320,43 @@ async function processImage(file) {
   const path = `cms/uploads/${Date.now().toString(36)}-${slug(file.name)}.${png ? 'png' : 'jpg'}`;
   return { path, dataUrl, base64: dataUrl.split(',')[1], uploaded: false };
 }
-const pickFile = () => new Promise((res) => {
-  const i = h('input', { type: 'file', accept: 'image/*' });
+const DOC_EXT = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip'];
+const MAX_DOC = 10 * 1024 * 1024;
+
+async function processDocument(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!DOC_EXT.includes(ext)) throw new Error('סוג הקובץ לא נתמך. אפשר: PDF, Word, Excel, PowerPoint או ZIP.');
+  if (file.size > MAX_DOC) throw new Error('הקובץ גדול מדי (עד 10MB). אפשר לדחוס אותו או להעלות אותו לשירות אחסון ולהדביק קישור.');
+  const base64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const name = file.name.replace(/\.[^.]+$/, '');
+  return { path: `cms/uploads/${Date.now().toString(36)}-${slug(file.name)}.${ext}`, base64, dataUrl: null, uploaded: false, name };
+}
+
+// YouTube / Vimeo links in any common form -> {provider, vid}; anything else is refused.
+function parseVideoUrl(input) {
+  let u;
+  try { u = new URL(String(input).trim()); } catch { return null; }
+  const host = u.hostname.replace(/^www\./, '').replace(/^m\./, '');
+  const seg = u.pathname.split('/').filter(Boolean);
+  let id = null;
+  if (host === 'youtu.be') id = seg[0];
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') id = u.searchParams.get('v') || (['embed', 'shorts', 'live', 'v'].includes(seg[0]) ? seg[1] : null);
+  if (id && /^[A-Za-z0-9_-]{6,20}$/.test(id)) return { provider: 'youtube', vid: id };
+  let vid = null;
+  if (host === 'vimeo.com') vid = seg.find((x) => /^\d{5,12}$/.test(x));
+  else if (host === 'player.vimeo.com' && seg[0] === 'video') vid = seg[1];
+  if (vid && /^\d{5,12}$/.test(vid)) return { provider: 'vimeo', vid };
+  return null;
+}
+const videoUrlOf = (v) => (v.provider === 'vimeo' ? `https://vimeo.com/${v.vid}` : `https://www.youtube.com/watch?v=${v.vid}`);
+
+const pickFile = (accept = 'image/*') => new Promise((res) => {
+  const i = h('input', { type: 'file', accept });
   i.addEventListener('change', () => res(i.files[0] || null));
   i.click();
 });
@@ -422,20 +457,50 @@ async function viewEditor(siteId) {
     frameSend({ type: 'cms-select-key', key: '@' + id });
     return id;
   }
-  // Removing a copy = removing its duplicate op, plus everything that referred to it (nested copies, edits, moves).
+  // Add a new element (image, button, video, file, text, heading, divider) right after `afterKey`.
+  async function addElement(afterKey, type, { p, spec } = {}) {
+    const id = newId();
+    mutate(() => {
+      layoutOps().push({ op: 'add', after: afterKey, id, type, ...(p ? { p } : {}) });
+      if (spec) els()['@' + id] = spec;
+    }, { force: true });
+    sendToFrame();
+    await sleep(150);
+    frameSend({ type: 'cms-select-key', key: '@' + id });
+    return id;
+  }
+  function askVideoUrl() {
+    return new Promise((resolve) => {
+      const input = h('input', { type: 'text', dir: 'ltr', placeholder: 'https://www.youtube.com/watch?v=…' });
+      const err = h('p', { class: 'error', hidden: true });
+      const done = (v) => { dlg.close(); dlg.remove(); resolve(v); };
+      const dlg = h('dialog', {}, h('h2', {}, 'הוספת סרטון'),
+        h('p', { class: 'muted' }, 'הדביקו קישור לסרטון מ-YouTube או מ-Vimeo.'), input, err,
+        h('menu', {}, h('button', { class: 'btn ghost', onclick: () => done(null) }, 'ביטול'),
+          h('button', { class: 'btn primary', onclick: () => {
+            const v = parseVideoUrl(input.value);
+            if (!v) { err.textContent = 'הקישור לא תקין. אפשר רק YouTube או Vimeo.'; err.hidden = false; return; }
+            done(v);
+          } }, 'הוספה')));
+      dlg.addEventListener('cancel', () => done(null));
+      document.body.append(dlg); dlg.showModal(); input.focus();
+    });
+  }
+  // Removing a copy / an added element = removing its op, plus everything that referred to it (nested copies, edits, moves).
   function deleteCopy(id) {
     mutate(() => {
       const gone = new Set([id]);
       const ops = layoutOps();
       const copyOf = (k) => { const m = /^@([a-z0-9]+)/.exec(k || ''); return m ? m[1] : null; };
       const inGone = (k) => gone.has(copyOf(k));
+      const creates = (o) => o.op === 'dup' || o.op === 'add';
       let grew = true;
       while (grew) {
         grew = false;
-        for (const o of ops) if (o.op === 'dup' && !gone.has(o.id) && inGone(o.src)) { gone.add(o.id); grew = true; }
+        for (const o of ops) if (creates(o) && !gone.has(o.id) && inGone(o.src || o.after)) { gone.add(o.id); grew = true; }
       }
       const pg = E.edits.pages[E.page];
-      pg.layout = ops.filter((o) => !(o.op === 'dup' && gone.has(o.id)) && !inGone(o.key));
+      pg.layout = ops.filter((o) => !(creates(o) && gone.has(o.id)) && !inGone(o.key));
       for (const k of Object.keys(pg.els)) if (inGone(k)) delete pg.els[k];
     }, { force: true });
     E.unit = null;
@@ -448,7 +513,7 @@ async function viewEditor(siteId) {
     const f = $('#frame');
     if (!E.ready || !f || !f.contentWindow) return;
     const assets = {};
-    E.pending.forEach((v, k) => { assets[k] = v.dataUrl; });
+    E.pending.forEach((v, k) => { if (v.dataUrl) assets[k] = v.dataUrl; });
     f.contentWindow.postMessage({ type: 'cms-edits', edits: E.edits, assets }, siteOrigin);
   }
   function changed(opts = {}) {
@@ -570,7 +635,8 @@ async function viewEditor(siteId) {
   }
 
   const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
-  const LATEST_KIT = 3;    // newest kit; older sites keep working, the owner is just offered the update
+  const ADD_KIT = 4;       // first kit version that can add elements
+  const LATEST_KIT = 4;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -616,9 +682,54 @@ async function viewEditor(siteId) {
         h('button', { class: 'btn small mint', disabled: old, title: 'יוצר עותק זהה מיד אחרי האלמנט הזה', onclick: () => duplicateEl(u.key) }, '⎘ שכפול'),
         isText && h('button', { class: 'btn small mint', disabled: old, onclick: () => duplicateEl(u.key, { newText: 'טקסט חדש' }) }, '＋ הוספת טקסט כזה מתחת'),
         h('button', { class: 'btn small', disabled: old, onclick: () => { toggleHide(u.key); } }, u.hidden ? '👁 הצגה' : '🚫 הסתרה'),
-        u.clone && h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, '✕ מחיקת העותק')),
+        u.clone && h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, u.added ? '✕ מחיקת האלמנט' : '✕ מחיקת העותק')),
       h('button', { class: 'link', onclick: () => frameSend({ type: 'cms-select-parent' }) }, '⬆ בחירת האלמנט שמעל (למשל כל הקטע)'),
       h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'));
+  }
+
+  function addSection(u) {
+    const old = E.ready && E.kitVersion < ADD_KIT;
+    const guard = (fn) => async () => { try { await fn(); } catch (e) { toast(e.message, true); } };
+    const btn = (label, title, fn) => h('button', { class: 'btn small', disabled: old, title, onclick: guard(fn) }, label);
+    return h('div', { class: 'sect' }, h('h4', {}, 'הוספת אלמנט מתחת'),
+      old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
+      h('div', { class: 'btnrow' },
+        btn('🖼 תמונה', 'העלאת תמונה מהמחשב', async () => {
+          const f = await pickFile(); if (!f) return;
+          toast('מעבד תמונה…');
+          const im = await processImage(f); E.pending.set(im.path, im);
+          await addElement(u.key, 'image', { spec: { src: im.path, alt: '' } });
+          toast('התמונה נוספה. לחצו "פרסום באתר" כדי לשמור.');
+        }),
+        btn('🔘 כפתור', 'כפתור עם קישור, בעיצוב הכפתורים של האתר', () => addElement(u.key, 'button', { spec: { t: 'לחצו כאן', href: '#' } })),
+        btn('▶ סרטון', 'סרטון מ-YouTube או Vimeo', async () => {
+          const v = await askVideoUrl(); if (!v) return;
+          await addElement(u.key, 'video', { p: v });
+        }),
+        btn('📄 קובץ להורדה', 'PDF, Word, Excel, PowerPoint או ZIP (עד 10MB)', async () => {
+          const f = await pickFile('.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip'); if (!f) return;
+          toast('מכין את הקובץ…');
+          const d = await processDocument(f); E.pending.set(d.path, d);
+          await addElement(u.key, 'file', { spec: { t: 'הורדה: ' + d.name, href: d.path } });
+          toast('הקובץ נוסף. לחצו "פרסום באתר" כדי לשמור.');
+        }),
+        btn('T טקסט', 'פסקה חדשה', () => addElement(u.key, 'text')),
+        btn('H כותרת', 'כותרת חדשה', () => addElement(u.key, 'heading')),
+        btn('— מפריד', 'קו מפריד', () => addElement(u.key, 'divider'))),
+      h('span', { class: 'help' }, 'האלמנט החדש מופיע מיד אחרי האלמנט הנבחר ומקבל את העיצוב של האתר.'));
+  }
+
+  function videoField(u) {
+    const cur = u.vid ? { provider: u.vid.split(':')[0], vid: u.vid.split(':')[1] } : null;
+    const input = h('input', { type: 'text', dir: 'ltr', value: cur ? videoUrlOf(cur) : '' });
+    const msg = h('span', { class: 'help' }, 'YouTube או Vimeo בלבד.');
+    input.addEventListener('change', () => {
+      const v = parseVideoUrl(input.value);
+      if (!v) { msg.textContent = 'הקישור לא תקין. אפשר רק YouTube או Vimeo.'; msg.className = 'help error'; return; }
+      msg.textContent = 'הסרטון עודכן.'; msg.className = 'help';
+      mutate(() => { const op = layoutOps().find((o) => o.op === 'add' && o.id === u.clone); if (op) op.p = v; }, { force: true });
+    });
+    return h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'קישור לסרטון'), input, msg);
   }
 
   function inspStructure() {
@@ -646,6 +757,7 @@ async function viewEditor(siteId) {
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
     out.push(h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, kindName)));
 
+    if (u.added === 'video') out.push(videoField(u));
     if (u.kind === 'text' || u.kind === 'node') {
       const cur = u.kind === 'text' ? (spec.t ?? u.text) : ((spec.n || {})[u.idx] ?? u.text);
       const ta = h('textarea', { rows: 4 }); ta.value = cur;
@@ -692,9 +804,11 @@ async function viewEditor(siteId) {
         style.push(fontPicker('פונט לאלמנט הזה', spec.font, (f) => setSpec(u.key, { font: f }, { force: true }), () => { setSpec(u.key, { font: undefined }, { force: true }); renderInsp(); }, u.font));
       }
     }
-    if (u.kind !== 'image' && u.kind !== 'bg') out.push(fmtSection(u, spec));
-    if (style.length) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
+    const plainBox = u.added === 'video' || u.added === 'divider';   // nothing to format on these
+    if (u.kind !== 'image' && u.kind !== 'bg' && !plainBox) out.push(fmtSection(u, spec));
+    if (style.length && !plainBox) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
     out.push(elementSection(u));
+    out.push(addSection(u));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));
     }

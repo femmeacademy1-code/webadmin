@@ -45,7 +45,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 3;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible
+  var KIT_VERSION = 4;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -388,7 +388,88 @@
   }
   function remember(p) { if (!origOrder.has(p)) origOrder.set(p, Array.prototype.slice.call(p.childNodes)); }
   function isHidden(el) { return el.hasAttribute('data-cms-hidden') || el.style.getPropertyValue('display') === 'none'; }
+  /* ---------- adding elements (a fixed list of safe templates; the page's own styling is reused) ---------- */
+  var REVEAL_TOKEN = /reveal|fade|aos|animate|appear|in-view|^is-/i;
+  function cleanClass(c) { return String(c || '').split(/\s+/).filter(function (x) { return x && !REVEAL_TOKEN.test(x); }).join(' '); }
+  function shown(e) { return !!(e.offsetWidth || e.offsetHeight) && !e.closest('[data-cms-ui]') && !e.hasAttribute(CID); }
+  // The closest existing element of a kind, preferring one in the same section, so the new one looks native.
+  function findModel(selector, near, avoid) {
+    var scope = near.closest('section, main') || document.body;
+    var pick = function (root) {
+      var list = Array.prototype.filter.call(root.querySelectorAll(selector), function (e) { return shown(e) && !(avoid && e.closest(avoid)); });
+      return list[0] || null;
+    };
+    return pick(scope) || pick(document.body);
+  }
+  function blockOf(el) {
+    while (el.parentElement && el !== document.body) {
+      var d = getComputedStyle(el).display;
+      if (d === 'inline' || d === 'contents') el = el.parentElement; else break;
+    }
+    return el;
+  }
+  var BTN_SEL = 'a.btn, a[class*="btn"], a[class*="button"], a[class*="cta"], button[class*="btn"], button[class*="button"]';
+  function make(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function buildAdded(op, after) {
+    var t = op.type, target = blockOf(after), el, m;
+    if (t === 'button' || t === 'file') {
+      m = findModel(BTN_SEL, after, 'nav, footer');
+      el = make('a', m ? cleanClass(m.className) : '', t === 'file' ? 'הורדת קובץ' : 'לחצו כאן');
+      el.setAttribute('href', '#');
+      if (t === 'file') el.setAttribute('download', '');
+      if (!m) el.setAttribute('style', 'display:inline-block;padding:10px 22px;border-radius:8px;background:#47454D;color:#fff;text-decoration:none;font-weight:700;margin:8px 0');
+      if (after.matches('a, button')) target = after;          // next to an existing button, in the same row
+    } else if (t === 'text') {
+      var inList = target.parentNode && /^(UL|OL)$/.test(target.parentNode.tagName);
+      m = findModel(inList ? 'li' : 'p', after, 'nav, footer, header');
+      el = make(inList ? 'li' : 'p', m ? cleanClass(m.className) : '', 'טקסט חדש');
+    } else if (t === 'heading') {
+      m = findModel('h2, h3', after);
+      el = make(m ? m.tagName.toLowerCase() : 'h2', m ? cleanClass(m.className) : '', 'כותרת חדשה');
+    } else if (t === 'image') {
+      el = document.createElement('img');
+      el.setAttribute('alt', '');
+      el.setAttribute('style', 'display:block;max-width:100%;height:auto;margin:16px auto');
+    } else if (t === 'divider') {
+      m = findModel('hr', after);
+      el = make('hr', m ? cleanClass(m.className) : '');
+      if (!m) el.setAttribute('style', 'border:0;border-top:1px solid rgba(0,0,0,.2);margin:24px 0');
+    } else if (t === 'video' && op.p) {
+      var src = op.p.provider === 'vimeo' ? 'https://player.vimeo.com/video/' + op.p.vid : 'https://www.youtube-nocookie.com/embed/' + op.p.vid;
+      el = make('div', '');
+      el.setAttribute('style', 'position:relative;width:100%;max-width:800px;aspect-ratio:16/9;margin:16px auto');
+      el.setAttribute('data-cms-vid', op.p.provider + ':' + op.p.vid);
+      var f = document.createElement('iframe');
+      f.setAttribute('src', src);
+      f.setAttribute('title', 'סרטון');
+      f.setAttribute('loading', 'lazy');
+      f.setAttribute('allow', 'accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+      f.setAttribute('allowfullscreen', '');
+      f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      f.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;border:0');
+      el.appendChild(f);
+    } else return null;
+    el.setAttribute(CID, op.id);
+    el.setAttribute('data-cms-add', t);
+    return { el: el, target: target };
+  }
+
   function doOp(op) {
+    if (op.op === 'add') {
+      var base = resolve(op.after);
+      if (!base || !base.parentNode) return false;
+      if (q('[' + CID + '="' + op.id + '"]')) return true;
+      var made = buildAdded(op, base);
+      if (!made || !made.target.parentNode) return false;
+      remember(made.target.parentNode);
+      made.target.parentNode.insertBefore(made.el, made.target.nextSibling);
+      return true;
+    }
     if (op.op === 'dup') {
       var src = resolve(op.src);
       if (!src || !src.parentNode) return false;
@@ -479,7 +560,8 @@
   ui.textContent = '[data-cms-hover]{outline:2px dashed #B85150!important;outline-offset:2px;cursor:pointer!important}' +
     '[data-cms-sel]{outline:3px solid #B85150!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(184,81,80,.18)!important}' +
     '[contenteditable]{outline:3px solid #47454D!important;outline-offset:2px;cursor:text!important}' +
-    '[data-cms-hidden]{opacity:.28!important;outline:2px dashed #837D82!important;outline-offset:2px}';
+    '[data-cms-hidden]{opacity:.28!important;outline:2px dashed #837D82!important;outline-offset:2px}' +
+    'iframe{pointer-events:none!important}';
   document.head.appendChild(ui);
 
   var hoverEl = null, selEl = null;
@@ -529,7 +611,8 @@
       u: /underline/.test(cs.textDecorationLine), st: /line-through/.test(cs.textDecorationLine),
       al: /^(left|right|center|justify)$/.test(cs.textAlign) ? cs.textAlign : 'right',
       canUp: !!visibleSibling(el, -1), canDown: !!visibleSibling(el, 1),
-      clone: el.getAttribute(CID) || null, hidden: isHidden(el)
+      clone: el.getAttribute(CID) || null, hidden: isHidden(el),
+      added: el.getAttribute('data-cms-add') || null, vid: el.getAttribute('data-cms-vid') || null
     };
     if (u.kind === 'text') info.text = getText(el);
     if (u.kind === 'node') info.text = el.childNodes[u.idx].nodeValue;

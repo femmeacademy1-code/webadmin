@@ -170,6 +170,7 @@ try {
 
   // text colour of the heading
   await fr.locator('.hero h1').click();
+  await pg.waitForFunction(() => document.querySelector('.insp-body textarea')?.value === 'קטלוג הקיץ החדש');   // the inspector now shows the heading
   await pg.waitForSelector('.insp-body .colorrow input[type=color]');
   await pg.locator('.insp-body .colorrow input[type=color]').first().evaluate((e) => { e.value = '#b85150'; e.dispatchEvent(new Event('input', { bubbles: true })); });
   await pg.waitForTimeout(300);
@@ -280,6 +281,59 @@ try {
   ok(true, 'select parent: moves the selection to the containing element');
   await pg.click('.insp-tabs button:has-text("עריכה")');
 
+  /* adding elements: button, video, file, image */
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button:has-text("🔘 כפתור")');
+  await pg.click('button:has-text("🔘 כפתור")');
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.waitForTimeout(300);
+  const nb = await fr.locator('[data-cms-add="button"]').evaluate((e) => ({ cls: e.className, text: e.textContent }));
+  ok(/\bbtn\b/.test(nb.cls) && /btn-primary/.test(nb.cls) && nb.text === 'לחצו כאן', 'add button: new button copies the site\'s button classes: ' + JSON.stringify(nb));
+  await pg.fill('.insp-body textarea', 'התקשרו עכשיו');
+  await pg.locator('.insp-body input[dir=ltr]').first().fill('tel:0501234567');
+  await pg.waitForTimeout(300);
+  ok(await fr.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && (await fr.locator('[data-cms-add="button"]').innerText()) === 'התקשרו עכשיו', 'add button: text and link editable');
+
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button:has-text("▶ סרטון")');
+  await pg.click('button:has-text("▶ סרטון")');
+  await pg.waitForSelector('dialog[open] input');
+  await pg.fill('dialog[open] input', 'https://example.com/not-a-video');
+  await pg.click('dialog[open] button:has-text("הוספה")');
+  ok(await pg.locator('dialog[open] .error').isVisible(), 'add video: a link that is not YouTube/Vimeo is refused');
+  await pg.fill('dialog[open] input', 'https://youtu.be/dQw4w9WgXcQ?si=xyz');
+  await pg.click('dialog[open] button:has-text("הוספה")');
+  await pg.waitForSelector('.insp-body label:has-text("קישור לסרטון")');
+  await pg.waitForTimeout(300);
+  ok(await fr.locator('[data-cms-add="video"] iframe').getAttribute('src') === 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', 'add video: short YouTube link becomes a privacy-enhanced embed');
+  await pg.locator('.insp-body label:has-text("קישור לסרטון") input').fill('https://vimeo.com/123456789');
+  await pg.locator('.insp-body label:has-text("קישור לסרטון") input').dispatchEvent('change');
+  await pg.waitForTimeout(300);
+  ok(await fr.locator('[data-cms-add="video"] iframe').getAttribute('src') === 'https://player.vimeo.com/video/123456789', 'add video: the link can be changed to Vimeo afterwards');
+
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button:has-text("📄 קובץ להורדה")');
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
+  const [fc2] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button:has-text("📄 קובץ להורדה")')]);
+  await fc2.setFiles({ name: 'חוברת מידע.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.waitForTimeout(500);
+  const fl = await fr.locator('[data-cms-add="file"]').evaluate((e) => ({ href: e.getAttribute('href'), dl: e.hasAttribute('download'), text: e.textContent }));
+  ok(/^cms\/uploads\/.+\.pdf$/.test(fl.href) && fl.dl && fl.text.includes('חוברת מידע'), 'add file: PDF upload becomes a download link named after the file: ' + JSON.stringify(fl));
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button:has-text("🖼 תמונה")');
+  await pg.locator('.insp-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
+  await shot('06c-add-elements');
+  const [fc3] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button:has-text("🖼 תמונה")')]);
+  await fc3.setFiles({ name: 'extra.jpg', mimeType: 'image/jpeg', buffer: jpg });
+  await pg.waitForSelector('.insp-body textarea, .insp-body .thumb');
+  await pg.waitForTimeout(800);
+  ok((await fr.locator('[data-cms-add="image"]').getAttribute('src')).startsWith('data:image/'), 'add image: uploaded image appears right away');
+  // delete the added image again (counts as "delete the element")
+  await pg.click('button:has-text("✕ מחיקת האלמנט")');
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('[data-cms-add="image"]').count() === 0, 'delete: an added element can be removed');
+
   /* publish */
   await pg.click('#publish');
   await pg.waitForFunction(() => ['publishing', 'live'].includes(document.querySelector('#chip').dataset.s), null, { timeout: 8000 });
@@ -305,32 +359,41 @@ try {
   await pub.waitForTimeout(400);
   ok(await pub.locator('.hero h1').innerText() === 'קטלוג הקיץ החדש', 'public site: new heading');
   ok(await pub.locator('.hero h2').innerText() === 'מתאים לכל עונה', 'public site: inline-typed subtitle');
-  ok(await pub.locator('.hero .btn-primary').getAttribute('href') === 'tel:0501234567', 'public site: link');
+  ok(await pub.locator('.hero .btn-primary:not([data-cms-add])').getAttribute('href') === 'tel:0501234567', 'public site: link');
   ok((await pub.locator('.hero-fig img').getAttribute('src')).includes('cms/uploads/'), 'public site: uploaded image path');
   ok(await pub.locator('.hero h1').evaluate((e) => getComputedStyle(e).color) === 'rgb(184, 81, 80)', 'public site: heading colour');
   ok(await pub.locator('.nav .btn-primary').evaluate((e) => getComputedStyle(e).backgroundColor) === after, 'public site: global colour swap');
   ok(!(await pub.content()).includes('data-cms-hover'), 'public site: no editor artefacts');
   ok(await pub.locator('.hero h2').evaluate((e) => { const c = getComputedStyle(e); return c.fontWeight === '700' && /underline/.test(c.textDecorationLine) && c.fontStyle === 'italic' && c.textAlign === 'center'; }), 'public site: bold + underline + italic + centre');
   ok(await pub.locator('section.sec h2', { hasText: 'למה' }).count() === 2, 'public site: duplicated section appears twice');
-  ok(await pub.locator('[data-cms-id]').first().evaluate((el) => el.nextElementSibling && el.nextElementSibling.id === 'why'), 'public site: the copy sits directly above the original');
-  ok((await pub.locator('[data-cms-id] h2').first().innerText()).includes('העותק') && (await pub.locator('#why h2').innerText()).includes('למה לבחור'), 'public site: copy and original have separate text');
+  ok(await pub.locator('[data-cms-id]:not([data-cms-add])').first().evaluate((el) => el.nextElementSibling && el.nextElementSibling.id === 'why'), 'public site: the copy sits directly above the original');
+  ok((await pub.locator('[data-cms-id]:not([data-cms-add]) h2').first().innerText()).includes('העותק') && (await pub.locator('#why h2').innerText()).includes('למה לבחור'), 'public site: copy and original have separate text');
   ok(await pub.locator('#why .why-item p', { hasText: 'פסקה חדשה שהלקוח הוסיף' }).count() === 1, 'public site: client-added paragraph');
   ok(!(await pub.locator('#included').isVisible()), 'public site: hidden section is not shown');
+  ok(await pub.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && /btn-primary/.test(await pub.locator('[data-cms-add="button"]').getAttribute('class')), 'public site: added button with its link and the site\'s styling');
+  ok(await pub.locator('[data-cms-add="video"] iframe').getAttribute('src') === 'https://player.vimeo.com/video/123456789', 'public site: added video');
+  const fhref = await pub.locator('[data-cms-add="file"]').getAttribute('href');
+  ok(/^cms\/uploads\/.+\.pdf$/.test(fhref) && fs.readFileSync(path.join(SITE, fhref)).slice(0, 5).toString() === '%PDF-', 'public site: download link points to the committed PDF: ' + fhref);
+  ok(await pub.locator('[data-cms-add="image"]').count() === 0, 'public site: the deleted image is gone');
+  const saved2 = JSON.parse(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')).pages['index.html'];
+  ok(saved2.layout.some((o) => o.op === 'add' && o.type === 'video' && o.p.vid === '123456789') && !saved2.layout.some((o) => o.type === 'image'), 'edits.json: add ops saved, deleted image op removed');
   ok(await pub.locator('[id="why"]').count() === 1, 'public site: ids stay unique');
   await pub.screenshot({ path: path.join(OUT, '08-public-site.png') });
 
   /* history */
   await pg.click('button:has-text("גרסאות קודמות")');
-  await pg.waitForSelector('.history li');
-  ok(await pg.locator('.history li').count() >= 2, 'history lists commits');
+  await pg.waitForSelector('.history li:has-text("הנוכחית")');   // wait for the real list, not the loading row
+  const histN = await pg.locator('.history li').count(); ok(histN >= 2, 'history lists commits: ' + histN + ' ' + (await pg.locator('.history').innerText()).replace(/\n/g, ' | '));
   await pg.click('dialog button:has-text("סגירה")');
 
   /* mobile: a fresh phone-sized session, logging in as the client */
   const mctx = await browser.newContext({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
   await mctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '/* hebrew */' }));
   const mp = await mctx.newPage();
+  globalThis.__mp = mp;
   await mp.goto('http://localhost:9002/');
   await mp.fill('#u', 'dana'); await mp.fill('#p', pw); await mp.click('button[type=submit]');
+  await mp.waitForSelector('.card:has-text("Alternative Dream")', { timeout: 20000 });
   await mp.click('text=עריכת האתר');
   await mp.waitForSelector('.mobile-switch');
   const mfr = mp.frameLocator('#frame');
@@ -350,6 +413,7 @@ try {
   console.log('FAIL exception: ' + e.message.split('\n').slice(0, 3).join(' | '));
   process.exitCode = 1;
   await shot('zz-failure').catch(() => {});
+  if (globalThis.__mp) { await globalThis.__mp.screenshot({ path: path.join(OUT, 'zz-failure-mobile.png') }).catch(() => {}); console.log('mobile page text:', (await globalThis.__mp.locator('body').innerText().catch(() => '?')).replace(/\\n/g, ' | ').slice(0, 300)); }
 }
 console.log(errs.length ? 'JS ERRORS:\n' + errs.join('\n') : 'no JS errors');
 console.log(fails || process.exitCode ? 'RESULT: FAILED' : 'RESULT: ALL PASSED', '— screenshots in', OUT);

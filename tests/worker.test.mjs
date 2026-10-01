@@ -324,3 +324,84 @@ test('structure ops never widen what can be written: still only edits.json + upl
   await putEditsBody(client, withPage({ layout: [{ op: 'dup', src: '#a', id: 'cp1' }, { op: 'hide', key: '#b' }] }));
   assert.deepEqual(commits[0].paths, ['cms/edits.json']);
 });
+
+/* ---------- adding elements and uploading documents ---------- */
+const b64 = (bytes) => Buffer.from(bytes).toString('base64');
+const PDF = b64('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n');
+const ZIP = b64([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0, 0, 0, 0, 0]);
+const OLE = b64([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
+const putWith = (client, edits, images) => call('PUT', '/api/sites/demo/edits', { cookie: client, body: { edits, images } });
+const addOp = (o) => withPage({ layout: [{ op: 'add', after: '#a', id: 'n1', type: 'button', ...o }] });
+
+test('accepts every element type that can be added, and keeps the video parameters', async () => {
+  const { client } = await setup();
+  const types = ['text', 'heading', 'image', 'button', 'file', 'divider'];
+  const layout = types.map((type, i) => ({ op: 'add', after: '#a', id: 'e' + i + 'xyz', type }));
+  layout.push({ op: 'add', after: '@e0xyz', id: 'yt1', type: 'video', p: { provider: 'youtube', vid: 'dQw4w9WgXcQ' } });
+  layout.push({ op: 'add', after: '#a', id: 'vm1', type: 'video', p: { provider: 'vimeo', vid: '123456789', evil: '<script>' } });
+  const r = await putWith(client, withPage({ layout, els: { '@e3xyz': { t: 'לחצו', href: 'tel:0501234567' } } }));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(repo.files['cms/edits.json']).pages['index.html'].layout;
+  assert.equal(saved.length, 8);
+  assert.deepEqual(saved[7].p, { provider: 'vimeo', vid: '123456789' }, 'unknown video parameters dropped');
+  assert.equal(saved[0].type, 'text');
+});
+
+for (const [name, o] of Object.entries({
+  'unknown type (script)': { type: 'script' }, 'unknown type (html)': { type: 'html' }, 'type missing': { type: undefined },
+  'video without parameters': { type: 'video' },
+  'video from another site': { type: 'video', p: { provider: 'evil', vid: 'abcdefghij' } },
+  'youtube id with injection': { type: 'video', p: { provider: 'youtube', vid: 'a"onload=alert(1)' } },
+  'youtube id as url': { type: 'video', p: { provider: 'youtube', vid: 'https://youtu.be/abc' } },
+  'vimeo id not numeric': { type: 'video', p: { provider: 'vimeo', vid: '12ab34' } },
+  'parameters on a button': { type: 'button', p: { href: 'javascript:alert(1)' } },
+  'id too short': { id: 'a' }, 'id with symbols': { id: 'x"y>' },
+  'after key with injection': { after: 'a{}</style>' },
+})) {
+  test('rejects add op: ' + name, async () => {
+    const { client } = await setup();
+    assert.equal((await putWith(client, addOp(o))).status, 400);
+    assert.equal(commits.length, 0);
+  });
+}
+
+test('accepts documents (pdf, zip-based office files, legacy office files) and commits them under cms/uploads', async () => {
+  const { client } = await setup();
+  const images = [
+    { path: 'cms/uploads/brochure.pdf', base64: PDF }, { path: 'cms/uploads/list.xlsx', base64: ZIP },
+    { path: 'cms/uploads/old.doc', base64: OLE }, { path: 'cms/uploads/bundle.zip', base64: ZIP },
+  ];
+  const r = await putWith(client, withPage({ els: { '@f': { href: 'cms/uploads/brochure.pdf' } } }), images);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(commits[0].paths.sort(), ['cms/edits.json', 'cms/uploads/bundle.zip', 'cms/uploads/brochure.pdf', 'cms/uploads/list.xlsx', 'cms/uploads/old.doc'].sort());
+  assert.equal(Buffer.from(repo.files['cms/uploads/brochure.pdf']).toString().slice(0, 5), '%PDF-');
+});
+
+for (const [name, im] of Object.entries({
+  'html page renamed to .pdf': { path: 'cms/uploads/a.pdf', base64: b64('<html><script>alert(1)</script></html>') },
+  'script renamed to .docx': { path: 'cms/uploads/a.docx', base64: b64('alert(1);') },
+  'pdf bytes with a .zip name': { path: 'cms/uploads/a.zip', base64: PDF },
+  'zip bytes with a .pdf name': { path: 'cms/uploads/a.pdf', base64: ZIP },
+  'html file': { path: 'cms/uploads/a.html', base64: b64('<html>') },
+  'svg file': { path: 'cms/uploads/a.svg', base64: b64('<svg onload=alert(1)>') },
+  'javascript file': { path: 'cms/uploads/a.js', base64: b64('alert(1)') },
+  'executable': { path: 'cms/uploads/a.exe', base64: b64('MZ') },
+  'double extension': { path: 'cms/uploads/a.pdf.html', base64: PDF },
+  'path traversal': { path: 'cms/uploads/../../index.html', base64: PDF },
+  'outside uploads': { path: 'docs/a.pdf', base64: PDF },
+  'not base64': { path: 'cms/uploads/a.pdf', base64: '%PDF-1.4 <script>' },
+  'too large (11MB)': { path: 'cms/uploads/a.pdf', base64: PDF + 'A'.repeat(Math.ceil(11_000_000 * 1.4)) },
+})) {
+  test('rejects upload: ' + name, async () => {
+    const { client } = await setup();
+    const r = await putWith(client, withPage({}), [im]);
+    assert.equal(r.status, 400, name + ' -> ' + JSON.stringify(r.data));
+    assert.equal(commits.length, 0);
+  });
+}
+
+test('too many uploads in one go is rejected', async () => {
+  const { client } = await setup();
+  const images = Array.from({ length: 13 }, (_, i) => ({ path: `cms/uploads/f${i}.pdf`, base64: PDF }));
+  assert.equal((await putWith(client, withPage({}), images)).status, 400);
+});
