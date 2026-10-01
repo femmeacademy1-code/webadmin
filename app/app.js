@@ -625,7 +625,8 @@ async function viewEditor(siteId) {
   function loadFrame() {
     E.ready = false; E.unit = null; E.palette = [];
     const f = $('#frame');
-    f.src = new URL(E.page, site.url).href + '?cms-edit=1';
+    // The unique parameter bypasses stale CDN/browser caches (GitHub Pages caches pages for ~10 minutes).
+    f.src = new URL(E.page, site.url).href + '?cms-edit=1&_=' + Date.now();
     $('#notice') && $('#notice').remove();
     setTimeout(() => {
       if (E.ready || !$('#frame-wrap')) return;
