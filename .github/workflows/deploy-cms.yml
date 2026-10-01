@@ -1,0 +1,35 @@
+# Deploys the Femme Digital CMS to Cloudflare Workers.
+# One-time setup is described in README.md.
+name: Deploy CMS to Cloudflare
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', 'worker/**', 'tests/**']
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test tests/worker.test.mjs
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy
+          secrets: |
+            ADMIN_PASSWORD
+            SESSION_SECRET
+            GITHUB_TOKEN
+        env:
+          ADMIN_PASSWORD: ${{ secrets.CMS_ADMIN_PASSWORD }}
+          SESSION_SECRET: ${{ secrets.CMS_SESSION_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.CMS_GITHUB_TOKEN }}

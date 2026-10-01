@@ -1,0 +1,27 @@
+# Femme Digital CMS — Cloudflare Worker (free plan is enough).
+name = "femme-cms"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# The branded admin app + the editing kit that gets copied into each site.
+[assets]
+directory = "../app"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+# Users and sites live here.  Create it once:  npx wrangler kv namespace create CMS
+# then paste the printed id below.
+[[kv_namespaces]]
+binding = "CMS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+ADMIN_USER = "admin"
+# Optional: the public address of the admin app, e.g. "https://cms.femme-digital.com".
+# Used as the allowed parent origin inside client sites. Defaults to the address you visit.
+# ADMIN_ORIGIN = "https://cms.femme-digital.com"
+
+# Secrets (set with `npx wrangler secret put NAME`, never in this file):
+#   ADMIN_PASSWORD   password of the agency owner login
+#   SESSION_SECRET   long random string used to sign login cookies
+#   GITHUB_TOKEN     fine-grained token with Contents: Read and write on the client repos

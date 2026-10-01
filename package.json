@@ -1,0 +1,11 @@
+{
+  "name": "femme-cms",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/worker.test.mjs",
+    "test:kit": "node tests/kit.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "deploy": "cd worker && wrangler deploy"
+  }
+}
