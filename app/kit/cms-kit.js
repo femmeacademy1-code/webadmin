@@ -6,8 +6,10 @@
  *  - Edit mode:    only inside the admin app's iframe (?cms-edit=1 + data-admin-origin match).
  *                  Lets the editor click any text / image / box and live-preview changes via postMessage.
  *
- * Edits are keyed by a stable DOM path (body>main:nth-of-type(1)>h1:nth-of-type(1)), so only
- * content can change — never structure.
+ * Edits are keyed by a stable DOM path (body>main:nth-of-type(1)>h1:nth-of-type(1)).
+ * Every element is stamped with its ORIGINAL path on load, so edits stay attached to the right
+ * element even after blocks are moved or duplicated. Structure changes are limited to three safe
+ * operations — duplicate, move up/down among siblings, hide — stored as an ordered list.
  */
 (function () {
   'use strict';
@@ -43,6 +45,11 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
+  var KIT_VERSION = 2;
+  var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
+  var stamped = false;
+  var layoutDone = {};                              // op index -> applied
+  var origOrder = new Map();                        // parent -> original child order (to undo moves)
 
   /* ---------- helpers ---------- */
   function safeHref(u) { return /^(https?:\/\/|mailto:|tel:|#|\/|\.\/|\.\.\/|[\w-]+(\/|\.html|$))/i.test(u) && !/^\s*(javascript|data|vbscript):/i.test(u); }
@@ -55,17 +62,56 @@
   var FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@.,=&%_-]+$/;
   var FAMILY = /^[A-Za-z0-9 ]{1,60}$/;
 
-  function pathOf(el) {
+  function seg(el) {
+    var i = 1;
+    for (var s = el.previousElementSibling; s; s = s.previousElementSibling) if (s.tagName === el.tagName) i++;
+    return el.tagName.toLowerCase() + ':nth-of-type(' + i + ')';
+  }
+  // Path of an element in the page as first loaded (used for stamping).
+  function rawPath(el) {
     var parts = [];
     while (el && el.nodeType === 1 && el !== document.documentElement) {
       if (el === document.body) { parts.unshift('body'); break; }
       if (el.id && /^[A-Za-z][\w-]*$/.test(el.id) && document.querySelectorAll('#' + el.id).length === 1) { parts.unshift('#' + el.id); break; }
-      var i = 1;
-      for (var s = el.previousElementSibling; s; s = s.previousElementSibling) if (s.tagName === el.tagName) i++;
-      parts.unshift(el.tagName.toLowerCase() + ':nth-of-type(' + i + ')');
+      parts.unshift(seg(el));
       el = el.parentElement;
     }
     return parts.join('>');
+  }
+  // Stable key of an element: its original-path stamp, or @cloneId[>segments] inside a duplicated block.
+  function pathOf(el) {
+    for (var a = el; a && a.nodeType === 1 && a !== document.documentElement; a = a.parentElement) {
+      var base = a.getAttribute(CID) ? '@' + a.getAttribute(CID) : a.getAttribute(STAMP);
+      if (base) {
+        var segs = [];
+        for (var n = el; n !== a; n = n.parentElement) segs.unshift(seg(n));
+        return segs.length ? base + '>' + segs.join('>') : base;
+      }
+    }
+    return rawPath(el);
+  }
+  function stampAll() {
+    if (stamped || !document.body) return;
+    stamped = true;
+    var list = [document.body].concat(Array.prototype.slice.call(document.body.querySelectorAll('*')));
+    var paths = list.map(rawPath);          // computed first: stamping never changes the structure
+    list.forEach(function (el, i) { if (!el.closest('[data-cms-ui]')) el.setAttribute(STAMP, paths[i]); });
+  }
+  function q(sel, root) { try { return (root || document).querySelector(sel); } catch (e) { return null; } }
+  function resolve(key) {
+    if (key.charAt(0) === '@') {
+      var parts = key.slice(1).split('>');
+      var root = q('[' + CID + '="' + parts[0] + '"]');
+      return !root || parts.length === 1 ? root : q(':scope>' + parts.slice(1).join('>'), root);
+    }
+    var hit = q('[' + STAMP + '="' + key + '"]');
+    if (hit) return hit;
+    var p = key.split('>');                  // element created later by the page's own JS under a stamped ancestor
+    for (var i = p.length - 1; i >= 1; i--) {
+      var base = q('[' + STAMP + '="' + p.slice(0, i).join('>') + '"]');
+      if (base) return q(':scope>' + p.slice(i).join('>'), base);
+    }
+    return q(key);
   }
 
   function isTextOnly(el) {
@@ -237,7 +283,19 @@
     var s = snapOf(el);
     if (!(prop in s.style)) s.style[prop] = [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)];
   }
+  function revertLayout() {
+    Array.prototype.forEach.call(document.querySelectorAll('[' + CID + ']'), function (c) { if (c.parentNode) c.parentNode.removeChild(c); });
+    origOrder.forEach(function (nodes, p) {
+      var known = new Set(nodes);
+      var extras = Array.prototype.filter.call(p.childNodes, function (n) { return !known.has(n); });   // added later by the page's own JS
+      nodes.forEach(function (n) { if (n.parentNode === p) p.appendChild(n); });
+      extras.forEach(function (n) { p.appendChild(n); });
+    });
+    origOrder.clear();
+    layoutDone = {};
+  }
   function revertAll() {
+    revertLayout();
     touched.forEach(function (s, el) {
       if (el === editingEl) return;
       Object.keys(s.attrs).forEach(function (a) { s.attrs[a] == null ? el.removeAttribute(a) : el.setAttribute(a, s.attrs[a]); });
@@ -274,6 +332,56 @@
     if (spec.color) setStyle(el, 'color', spec.color);
     if (spec.bgc) setStyle(el, 'background-color', spec.bgc);
     if (spec.font && loadFont(spec.font)) setStyle(el, 'font-family', '"' + spec.font.family + '", sans-serif');
+    // Text formatting. Font size scales down with the viewport so big headings don't overflow on phones.
+    if (spec.fs) setStyle(el, 'font-size', 'clamp(' + Math.min(11, spec.fs) + 'px, ' + (spec.fs / 12).toFixed(3) + 'vw, ' + spec.fs + 'px)');
+    if (spec.b != null) setStyle(el, 'font-weight', spec.b ? '700' : '400');
+    if (spec.i != null) setStyle(el, 'font-style', spec.i ? 'italic' : 'normal');
+    if (spec.u != null || spec.st != null) {
+      var deco = (spec.u ? 'underline ' : '') + (spec.st ? 'line-through' : '');
+      setStyle(el, 'text-decoration', deco.trim() || 'none');
+    }
+    if (spec.al) setStyle(el, 'text-align', spec.al);
+  }
+
+  /* ---------- layout operations: duplicate / move / hide ---------- */
+  var SKIP_SIBLING = /^(SCRIPT|STYLE|LINK|TEMPLATE|NOSCRIPT)$/;
+  function visibleSibling(el, dir) {
+    var s = dir < 0 ? el.previousElementSibling : el.nextElementSibling;
+    while (s && (SKIP_SIBLING.test(s.tagName) || s.hasAttribute('data-cms-ui'))) s = dir < 0 ? s.previousElementSibling : s.nextElementSibling;
+    return s;
+  }
+  function remember(p) { if (!origOrder.has(p)) origOrder.set(p, Array.prototype.slice.call(p.childNodes)); }
+  function isHidden(el) { return el.hasAttribute('data-cms-hidden') || el.style.getPropertyValue('display') === 'none'; }
+  function doOp(op) {
+    if (op.op === 'dup') {
+      var src = resolve(op.src);
+      if (!src || !src.parentNode) return false;
+      if (q('[' + CID + '="' + op.id + '"]')) return true;
+      remember(src.parentNode);
+      var c = src.cloneNode(true);
+      [c].concat(Array.prototype.slice.call(c.querySelectorAll('*'))).forEach(function (n) {
+        n.removeAttribute(STAMP); n.removeAttribute('id'); n.removeAttribute('data-cms-sel');
+        n.removeAttribute('data-cms-hover'); n.removeAttribute('contenteditable'); n.removeAttribute('data-cms-hidden');
+      });
+      c.setAttribute(CID, op.id);
+      src.parentNode.insertBefore(c, src.nextSibling);
+      return true;
+    }
+    var el = resolve(op.key);
+    if (!el || !el.parentNode) return false;
+    if (op.op === 'move') {
+      var sib = visibleSibling(el, op.dir);
+      if (!sib) return true;
+      remember(el.parentNode);
+      el.parentNode.insertBefore(el, op.dir < 0 ? sib : sib.nextSibling);
+    } else if (op.op === 'hide') {
+      if (EDIT) { snapAttr(el, 'data-cms-hidden'); el.setAttribute('data-cms-hidden', ''); }   // dimmed, still clickable, so it can be shown again
+      else setStyle(el, 'display', 'none');
+    }
+    return true;
+  }
+  function applyLayout(ops) {
+    ops.forEach(function (op, i) { if (!layoutDone[i] && doOp(op)) layoutDone[i] = true; });
   }
 
   function applyAll(revert) {
@@ -281,9 +389,11 @@
     if (observer) observer.disconnect();
     try {
       if (revert) revertAll();
-      var els = ((edits.pages || {})[pageKey] || {}).els || {};
+      var pg = (edits.pages || {})[pageKey] || {};
+      applyLayout(pg.layout || []);
+      var els = pg.els || {};
       Object.keys(els).forEach(function (p) {
-        var el; try { el = document.querySelector(p); } catch (e) { return; }
+        var el = resolve(p);
         if (el && el !== editingEl) applyEl(el, els[p]);
       });
       applyColors((edits.global || {}).colors);
@@ -292,6 +402,7 @@
       applying = false;
       if (observer) observe();
     }
+    if (EDIT) sendSections();
   }
 
   /* ---------- keep applying while the page renders itself with JS ---------- */
@@ -316,6 +427,7 @@
       domReady()
     ]).then(function (res) {
       if (res[0] && res[0].v === 1) edits = res[0];
+      stampAll();
       applyAll(false);
       reveal();
       if (observer) observe();
@@ -329,7 +441,8 @@
   ui.setAttribute('data-cms-ui', '');
   ui.textContent = '[data-cms-hover]{outline:2px dashed #B85150!important;outline-offset:2px;cursor:pointer!important}' +
     '[data-cms-sel]{outline:3px solid #B85150!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(184,81,80,.18)!important}' +
-    '[contenteditable]{outline:3px solid #47454D!important;outline-offset:2px;cursor:text!important}';
+    '[contenteditable]{outline:3px solid #47454D!important;outline-offset:2px;cursor:text!important}' +
+    '[data-cms-hidden]{opacity:.28!important;outline:2px dashed #837D82!important;outline-offset:2px}';
   document.head.appendChild(ui);
 
   var hoverEl = null, selEl = null;
@@ -374,7 +487,12 @@
     var info = {
       kind: u.kind, key: pathOf(el), idx: u.idx, tag: el.tagName.toLowerCase(), page: pageKey,
       color: cssColorToHex(cs.color), bgc: cssColorToHex(cs.backgroundColor),
-      font: (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim()
+      font: (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim(),
+      fs: Math.round(parseFloat(cs.fontSize)) || 16, b: (parseInt(cs.fontWeight, 10) || 400) >= 600, i: cs.fontStyle === 'italic',
+      u: /underline/.test(cs.textDecorationLine), st: /line-through/.test(cs.textDecorationLine),
+      al: /^(left|right|center|justify)$/.test(cs.textAlign) ? cs.textAlign : 'right',
+      canUp: !!visibleSibling(el, -1), canDown: !!visibleSibling(el, 1),
+      clone: el.getAttribute(CID) || null, hidden: isHidden(el)
     };
     if (u.kind === 'text') info.text = getText(el);
     if (u.kind === 'node') info.text = el.childNodes[u.idx].nodeValue;
@@ -384,11 +502,12 @@
     return info;
   }
 
-  function select(u) {
+  // programmatic = selection requested by the editor (e.g. from the structure list), not a click on the page
+  function select(u, programmatic) {
     if (selEl) selEl.removeAttribute('data-cms-sel');
     selEl = u ? u.el : null;
     if (selEl) selEl.setAttribute('data-cms-sel', '');
-    send({ type: 'cms-select', unit: u ? describe(u) : null });
+    send({ type: 'cms-select', unit: u ? describe(u) : null, programmatic: !!programmatic });
   }
 
   function stopEditing(commit) {
@@ -448,22 +567,57 @@
       if (selEl) send({ type: 'cms-select', unit: describeSelected(), refresh: true });
     } else if (d.type === 'cms-deselect') {
       select(null);
+    } else if (d.type === 'cms-select-key') {
+      var t = resolve(String(d.key));
+      if (t) { select({ kind: kindOf(t), el: t }, true); t.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    } else if (d.type === 'cms-select-parent') {
+      var par = selEl && selEl.parentElement;
+      if (par && par !== document.body && par !== document.documentElement) select({ kind: kindOf(par), el: par }, true);
+    } else if (d.type === 'cms-subtree-map') {
+      send({ type: 'cms-subtree-map-result', reqId: d.reqId, pairs: subtreeMap(String(d.src), String(d.id)) });
     }
   });
   var lastUnit = null;
+  function kindOf(el) { return el.tagName === 'IMG' ? 'image' : (isTextOnly(el) ? 'text' : 'box'); }
   function describeSelected() {
     if (!selEl) return null;
-    var kind = selEl.tagName === 'IMG' ? 'image' : (isTextOnly(selEl) ? 'text' : 'box');
-    return lastUnit && lastUnit.el === selEl ? describe(lastUnit) : describe({ kind: kind, el: selEl });
+    return lastUnit && lastUnit.el === selEl ? describe(lastUnit) : describe({ kind: kindOf(selEl), el: selEl });
+  }
+
+  // Top-level sections of the page (what the editor shows in its "Structure" list).
+  function listSections() {
+    var all = Array.prototype.slice.call(document.querySelectorAll('section, header, footer, nav'))
+      .filter(function (el) { return !el.closest('[data-cms-ui]'); });
+    return all.filter(function (el) { return !all.some(function (o) { return o !== el && o.contains(el); }); }).map(function (el) {
+      var h = el.querySelector('h1,h2,h3');
+      var NAMES = { nav: 'תפריט עליון', footer: 'תחתית האתר', header: 'ראש הדף', section: 'קטע' };
+      var label = (h && getText(h)) || el.getAttribute('aria-label') || NAMES[el.tagName.toLowerCase()] || el.tagName.toLowerCase();
+      return { key: pathOf(el), label: label.slice(0, 48), tag: el.tagName.toLowerCase(), clone: el.getAttribute(CID) || null,
+        hidden: isHidden(el), up: !!visibleSibling(el, -1), down: !!visibleSibling(el, 1) };
+    });
+  }
+  var sectionsTimer;
+  function sendSections() { clearTimeout(sectionsTimer); sectionsTimer = setTimeout(function () { send({ type: 'cms-sections', sections: listSections() }); }, 30); }
+
+  // Pairs [original key, clone key] for a duplicated block, so the editor can copy existing edits to the copy.
+  function subtreeMap(srcKey, id) {
+    var a = resolve(srcKey), b = resolve('@' + id), pairs = [];
+    (function walk(x, y) {
+      if (!x || !y) return;
+      pairs.push([pathOf(x), pathOf(y)]);
+      for (var i = 0; i < x.children.length && i < y.children.length; i++) walk(x.children[i], y.children[i]);
+    })(a, b);
+    return pairs;
   }
   var origSelect = select;
-  select = function (u) { lastUnit = u; origSelect(u); };
+  select = function (u, programmatic) { lastUnit = u; origSelect(u, programmatic); };
 
   domReady().then(function () {
+    stampAll();
     palette = scanPalette();
     var h1 = document.querySelector('h1,h2');
     send({
-      type: 'cms-ready', page: pageKey, palette: palette,
+      type: 'cms-ready', page: pageKey, palette: palette, version: KIT_VERSION, sections: listSections(),
       fonts: {
         heading: h1 ? getComputedStyle(h1).fontFamily.split(',')[0].replace(/["']/g, '').trim() : '',
         body: getComputedStyle(document.body).fontFamily.split(',')[0].replace(/["']/g, '').trim()

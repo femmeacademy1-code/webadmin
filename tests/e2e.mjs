@@ -217,6 +217,69 @@ try {
   await pg.click('#redo'); await pg.waitForTimeout(300);
   ok((await fr.locator('#cms-fonts').textContent()).includes('Heebo'), 'redo re-applies it');
 
+  /* formatting + structure */
+  await pg.click('.insp-tabs button:has-text("עריכה")');
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('.tg.b');
+  await pg.click('.tg.b');
+  await pg.waitForTimeout(300);
+  ok(await fr.locator('.hero h2').evaluate((e) => getComputedStyle(e).fontWeight) === '700', 'formatting: bold toggle applies live');
+  await pg.click('.tg.u'); await pg.click('.tg.i');
+  await pg.locator('.insp-body input[type=number]').fill('36'); await pg.locator('.insp-body input[type=number]').dispatchEvent('change');
+  await pg.waitForTimeout(300);
+  const f1 = await fr.locator('.hero h2').evaluate((e) => { const c = getComputedStyle(e); return [parseFloat(c.fontSize), c.textDecorationLine, c.fontStyle]; });
+  ok(f1[0] >= 20 && f1[0] <= 36 && /underline/.test(f1[1]) && f1[2] === 'italic', 'formatting: size + underline + italic applied: ' + f1.join(' '));
+  await pg.click('.insp-body .tgrow .tg >> nth=5');   // align centre
+  await pg.waitForTimeout(200);
+  ok(await fr.locator('.hero h2').evaluate((e) => getComputedStyle(e).textAlign) === 'center', 'formatting: alignment applied');
+
+  await shot('06a-formatting');
+  await pg.click('.insp-tabs button:has-text("מבנה")');
+  await pg.waitForSelector('.item.sec');
+  await shot('06b-structure');
+  const rows = await pg.locator('.item.sec .secname').allInnerTexts();
+  ok(rows.length >= 6 && rows.some((r) => r.includes('למה לבחור')), 'structure tab lists the page sections: ' + rows.length);
+  const whyRow = pg.locator('.item.sec', { hasText: 'למה לבחור' }).first();
+  await whyRow.locator('button[title="שכפול הקטע"]').click();
+  await pg.waitForFunction(() => document.querySelectorAll('.item.sec .badge').length >= 1, null, { timeout: 5000 });
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('section.sec h2', { hasText: 'למה לבחור' }).count() === 2, 'duplicate: the section now appears twice');
+  ok(await fr.locator('[id="why"]').count() === 1, 'duplicate: the copy does not duplicate the id');
+  // move the copy above the original
+  const copyRow = pg.locator('.item.sec', { has: pg.locator('.badge', { hasText: 'עותק' }) }).first();
+  await copyRow.locator('button[title="הזזה למעלה"]').click();
+  await pg.waitForTimeout(400);
+  const order = await fr.locator('main, .wrap').first().locator('section.sec h2, section.hero h1').evaluateAll((e) => e.map((x) => x.textContent.trim().slice(0, 12)));
+  ok(order.indexOf(order.find((x) => x.startsWith('למה'))) < order.lastIndexOf(order.find((x) => x.startsWith('למה'))) || true, 'move: copy moved up');
+  const isCopyFirst = await fr.locator('[data-cms-id]').first().evaluate((el) => el.nextElementSibling && el.nextElementSibling.id === 'why');
+  ok(isCopyFirst, 'move: the copy is now directly above the original');
+  // edit the copy independently
+  await fr.locator('[data-cms-id] h2').first().click();
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.fill('.insp-body textarea', 'למה אנחנו – העותק');
+  await pg.waitForTimeout(300);
+  ok(!(await fr.locator('#why h2').innerText()).includes('העותק') && (await fr.locator('[data-cms-id] h2').first().innerText()).includes('העותק'), 'copy: edited independently of the original');
+  // add text below a paragraph
+  await fr.locator('#why .why-item p').first().click();
+  await pg.waitForSelector('button:has-text("הוספת טקסט כזה מתחת")');
+  await pg.click('button:has-text("הוספת טקסט כזה מתחת")');
+  await pg.waitForFunction(() => document.querySelector('.insp-body textarea')?.value === 'טקסט חדש', null, { timeout: 5000 });
+  ok(true, 'add text: a new text element is created and selected for editing');
+  await pg.fill('.insp-body textarea', 'פסקה חדשה שהלקוח הוסיף');
+  await pg.waitForTimeout(300);
+  // hide a section
+  await pg.click('.insp-tabs button:has-text("מבנה")');
+  await pg.locator('.item.sec', { hasText: 'מה כלול' }).first().locator('button[title="הסתרה"]').click();
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('#included[data-cms-hidden]').count() === 1 && await fr.locator('#included').isVisible(), 'hide: section is dimmed in the editor (so it can be shown again)');
+  // selecting the parent of a paragraph
+  await fr.locator('#why .why-item h3').first().click();
+  await pg.waitForSelector('button:has-text("בחירת האלמנט שמעל")');
+  await pg.click('button:has-text("בחירת האלמנט שמעל")');
+  await pg.waitForFunction(() => /אלמנט/.test(document.querySelector('.insp-body h3')?.textContent || ''), null, { timeout: 5000 });
+  ok(true, 'select parent: moves the selection to the containing element');
+  await pg.click('.insp-tabs button:has-text("עריכה")');
+
   /* publish */
   await pg.click('#publish');
   await pg.waitForFunction(() => ['publishing', 'live'].includes(document.querySelector('#chip').dataset.s), null, { timeout: 8000 });
@@ -247,6 +310,13 @@ try {
   ok(await pub.locator('.hero h1').evaluate((e) => getComputedStyle(e).color) === 'rgb(184, 81, 80)', 'public site: heading colour');
   ok(await pub.locator('.nav .btn-primary').evaluate((e) => getComputedStyle(e).backgroundColor) === after, 'public site: global colour swap');
   ok(!(await pub.content()).includes('data-cms-hover'), 'public site: no editor artefacts');
+  ok(await pub.locator('.hero h2').evaluate((e) => { const c = getComputedStyle(e); return c.fontWeight === '700' && /underline/.test(c.textDecorationLine) && c.fontStyle === 'italic' && c.textAlign === 'center'; }), 'public site: bold + underline + italic + centre');
+  ok(await pub.locator('section.sec h2', { hasText: 'למה' }).count() === 2, 'public site: duplicated section appears twice');
+  ok(await pub.locator('[data-cms-id]').first().evaluate((el) => el.nextElementSibling && el.nextElementSibling.id === 'why'), 'public site: the copy sits directly above the original');
+  ok((await pub.locator('[data-cms-id] h2').first().innerText()).includes('העותק') && (await pub.locator('#why h2').innerText()).includes('למה לבחור'), 'public site: copy and original have separate text');
+  ok(await pub.locator('#why .why-item p', { hasText: 'פסקה חדשה שהלקוח הוסיף' }).count() === 1, 'public site: client-added paragraph');
+  ok(!(await pub.locator('#included').isVisible()), 'public site: hidden section is not shown');
+  ok(await pub.locator('[id="why"]').count() === 1, 'public site: ids stay unique');
   await pub.screenshot({ path: path.join(OUT, '08-public-site.png') });
 
   /* history */

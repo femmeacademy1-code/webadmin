@@ -7,14 +7,16 @@ export class HttpError extends Error {
 }
 const bad = (m) => { throw new HttpError(400, m); };
 
-const PATH_KEY = /^[A-Za-z0-9_#:>().\- ]{1,400}$/;           // DOM path used as the edit key
+const PATH_KEY = /^[A-Za-z0-9_#:>().@\- ]{1,400}$/;          // DOM path used as the edit key (@id… = inside a duplicated block)
+const OP_ID = /^[a-z0-9]{3,8}$/;
+const ALIGN = new Set(['right', 'center', 'left', 'justify']);
 const HEX = /^#[0-9a-f]{6}$/;
 const FAMILY = /^[A-Za-z0-9 ]{1,60}$/;
 const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@.,=&%_-]{1,300}$/;
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
 const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;
 
-export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, images: 12 };
+export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, images: 12, ops: 300 };
 
 function str(v, max, what) {
   if (typeof v !== 'string') bad(`${what}: ערך לא תקין`);
@@ -63,7 +65,41 @@ function element(spec, key) {
   if (spec.color != null) { if (!HEX.test(spec.color)) bad('צבע לא תקין'); out.color = spec.color; }
   if (spec.bgc != null) { if (!HEX.test(spec.bgc)) bad('צבע רקע לא תקין'); out.bgc = spec.bgc; }
   if (spec.font != null) out.font = font(spec.font, 'פונט');
+  if (spec.fs != null) {
+    if (!Number.isInteger(spec.fs) || spec.fs < 8 || spec.fs > 200) bad('גודל טקסט לא תקין');
+    out.fs = spec.fs;
+  }
+  for (const k of ['b', 'i', 'u', 'st']) {
+    if (spec[k] != null) { if (typeof spec[k] !== 'boolean') bad('ערך עיצוב לא תקין'); out[k] = spec[k]; }
+  }
+  if (spec.al != null) { if (!ALIGN.has(spec.al)) bad('יישור לא תקין'); out.al = spec.al; }
   return out;
+}
+
+function key(k) {
+  if (typeof k !== 'string' || !PATH_KEY.test(k)) bad('מפתח אלמנט לא תקין');
+  return k;
+}
+
+/** Structure operations: only duplicate / move up-down / hide — never anything that edits code. */
+function layout(ops) {
+  if (ops == null) return [];
+  if (!Array.isArray(ops) || ops.length > LIMITS.ops) bad('יותר מדי פעולות מבנה');
+  const ids = new Set();
+  return ops.map((op) => {
+    if (!op || typeof op !== 'object') bad('פעולת מבנה לא תקינה');
+    if (op.op === 'dup') {
+      if (typeof op.id !== 'string' || !OP_ID.test(op.id) || ids.has(op.id)) bad('מזהה שכפול לא תקין');
+      ids.add(op.id);
+      return { op: 'dup', src: key(op.src), id: op.id };
+    }
+    if (op.op === 'move') {
+      if (op.dir !== 1 && op.dir !== -1) bad('כיוון הזזה לא תקין');
+      return { op: 'move', key: key(op.key), dir: op.dir };
+    }
+    if (op.op === 'hide') return { op: 'hide', key: key(op.key) };
+    return bad('פעולת מבנה לא מוכרת');
+  });
 }
 
 /** Rebuilds an edits document from an allow-list; throws HttpError(400) on anything unexpected. */
@@ -92,6 +128,8 @@ export function validateEdits(input) {
     const els = (p && p.els) || {};
     if (Object.keys(els).length > LIMITS.els) bad('יותר מדי עריכות בעמוד');
     out.pages[page] = { els: {} };
+    const ops = layout(p && p.layout);
+    if (ops.length) out.pages[page].layout = ops;
     for (const [key, spec] of Object.entries(els)) {
       if (!PATH_KEY.test(key)) bad('מפתח אלמנט לא תקין');
       const clean = element(spec, key);

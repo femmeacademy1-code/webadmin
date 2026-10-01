@@ -195,7 +195,7 @@ async function putEdits(req, env, s, site) {
     if (rel !== EDITS_PATH && !rel.startsWith('cms/uploads/')) throw new HttpError(403, 'כתיבה לנתיב זה אסורה');
   }
   const res = await gh.commit(site.repo, site.branch, files, `עדכון תוכן מהמערכת – ${s.name} (${s.username})`);
-  return json({ ok: true, sha: res.blobs[path] });
+  return json({ ok: true, sha: res.blobs[path], edits });   // the normalised document, so the editor can verify the live site against it
 }
 
 async function history(env, site) {

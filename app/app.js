@@ -334,6 +334,7 @@ async function viewEditor(siteId) {
   const E = {
     site, edits: null, loaded: '', baseSha: null, pending: new Map(), undo: [], redo: [], lastPush: 0,
     page: site.pages[0], palette: [], origFonts: {}, unit: null, tab: 'sel', ready: false, device: 'desktop', liveToken: 0,
+    sections: [], kitVersion: 0,
   };
 
   let data;
@@ -342,6 +343,7 @@ async function viewEditor(siteId) {
 
   /* ---- state helpers ---- */
   const els = () => ((E.edits.pages[E.page] ||= { els: {} }).els);
+  const layoutOps = () => ((E.edits.pages[E.page] ||= { els: {} }).layout ||= []);
   const specOf = (key) => els()[key] || {};
   const isDirty = () => JSON.stringify(E.edits) !== E.loaded;
 
@@ -356,6 +358,8 @@ async function viewEditor(siteId) {
       if (s.n && !Object.keys(s.n).length) delete s.n;
       if (!Object.keys(s).length) delete els()[k];
     }
+    const pg = E.edits.pages[E.page];
+    if (pg && pg.layout && !pg.layout.length) delete pg.layout;
   }
   function mutate(fn, opts = {}) {
     const before = JSON.stringify(E.edits);
@@ -376,6 +380,68 @@ async function viewEditor(siteId) {
     mutate(() => { const s = { ...(els()[key] || {}) }; s.n = { ...(s.n || {}), [idx]: text }; els()[key] = s; });
   }
   function setGlobal(fn) { mutate(() => fn((E.edits.global ||= {})), { force: true }); }
+
+  /* ---- structure: move / duplicate / hide / delete a copy ---- */
+  const frameSend = (msg) => { const f = $('#frame'); if (f && f.contentWindow) f.contentWindow.postMessage(msg, siteOrigin); };
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
+  const waiters = new Map();   // reqId -> resolve, for answers from the site frame
+
+  function moveEl(key, dir) {
+    mutate(() => {
+      const ops = layoutOps();
+      const last = ops[ops.length - 1];
+      if (last && last.op === 'move' && last.key === key && last.dir === -dir) ops.pop();   // up then down cancels out
+      else ops.push({ op: 'move', key, dir });
+    }, { force: true });
+  }
+  function toggleHide(key) {
+    mutate(() => {
+      const ops = layoutOps();
+      const i = ops.findIndex((o) => o.op === 'hide' && o.key === key);
+      if (i >= 0) ops.splice(i, 1); else ops.push({ op: 'hide', key });
+    }, { force: true });
+  }
+  async function duplicateEl(key, { newText } = {}) {
+    const id = newId();
+    mutate(() => { layoutOps().push({ op: 'dup', src: key, id }); }, { force: true });
+    // Ask the site which element in the copy corresponds to which original, then copy the existing edits over
+    // so the copy starts out looking exactly like the original and can be edited independently.
+    sendToFrame();
+    const reqId = Math.random();
+    const answer = new Promise((res) => { waiters.set(reqId, res); setTimeout(() => res(null), 2500); });
+    await sleep(120);
+    frameSend({ type: 'cms-subtree-map', src: key, id, reqId });
+    const map = await answer;
+    mutate(() => {
+      const cur = els();
+      for (const [from, to] of (map ? map.pairs : [])) if (cur[from] && from !== to) cur[to] = JSON.parse(JSON.stringify(cur[from]));
+      if (newText != null) cur['@' + id] = { ...(cur['@' + id] || {}), t: newText };
+    }, { force: true });
+    sendToFrame();
+    await sleep(120);
+    frameSend({ type: 'cms-select-key', key: '@' + id });
+    return id;
+  }
+  // Removing a copy = removing its duplicate op, plus everything that referred to it (nested copies, edits, moves).
+  function deleteCopy(id) {
+    mutate(() => {
+      const gone = new Set([id]);
+      const ops = layoutOps();
+      const copyOf = (k) => { const m = /^@([a-z0-9]+)/.exec(k || ''); return m ? m[1] : null; };
+      const inGone = (k) => gone.has(copyOf(k));
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const o of ops) if (o.op === 'dup' && !gone.has(o.id) && inGone(o.src)) { gone.add(o.id); grew = true; }
+      }
+      const pg = E.edits.pages[E.page];
+      pg.layout = ops.filter((o) => !(o.op === 'dup' && gone.has(o.id)) && !inGone(o.key));
+      for (const k of Object.keys(pg.els)) if (inGone(k)) delete pg.els[k];
+    }, { force: true });
+    E.unit = null;
+    frameSend({ type: 'cms-deselect' });
+    renderInsp();
+  }
 
   let sendTimer;
   function sendToFrame() {
@@ -422,23 +488,27 @@ async function viewEditor(siteId) {
         res = await api('PUT', `/sites/${siteId}/edits`, { edits: snapshot, baseSha: E.baseSha, images, force: true });
       }
       E.baseSha = res.sha; E.loaded = snapJson;
+      const published = res.edits || snapshot;
       E.pending.forEach((v, k) => { if (images.some((i) => i.path === k)) v.uploaded = true; });
       refreshChip();
       toast('נשמר! האתר מתעדכן – בדרך כלל תוך דקה.');
-      waitLive(snapJson);
+      waitLive(published);
     } catch (e) { setChip('error'); toast(e.message, true); }
     btn.textContent = 'פרסום באתר'; btn.disabled = !isDirty();
   }
-  async function waitLive(expectedJson) {
+  // Key order must not matter: the server rebuilds the document field by field.
+  const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object'
+    ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
+  async function waitLive(published) {
     const token = ++E.liveToken;
     setChip('publishing');
-    const expected = JSON.stringify(JSON.parse(expectedJson));
+    const expected = JSON.stringify(canon(published));
     for (let i = 0; i < 45; i++) {
       await sleep(i < 3 ? 4000 : 8000);
       if (token !== E.liveToken) return;
       try {
         const r = await fetch(new URL('cms/edits.json', site.url).href + '?_=' + Date.now(), { cache: 'no-store' });
-        if (r.ok && JSON.stringify(await r.json()) === expected) { if (!isDirty()) setChip('live'); return; }
+        if (r.ok && JSON.stringify(canon(await r.json())) === expected) { if (!isDirty()) setChip('live'); return; }
       } catch { /* keep polling */ }
     }
     if (token === E.liveToken && !isDirty()) setChip('slow');
@@ -499,6 +569,74 @@ async function viewEditor(siteId) {
       current && h('div', {}, h('button', { class: 'link', onclick: onReset }, 'איפוס לפונט המקורי')));
   }
 
+  const NEED_KIT = 2;   // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
+  const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
+  const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
+
+  function tgBtn(label, title, on, onclick, extraClass) {
+    return h('button', { type: 'button', class: 'tg ' + (extraClass || ''), title, 'aria-pressed': !!on, onclick }, label);
+  }
+
+  function fmtSection(u, spec) {
+    const cur = (k, fallback) => (spec[k] != null ? spec[k] : fallback);
+    const size = cur('fs', u.fs);
+    const num = h('input', { type: 'number', min: 8, max: 200, value: size, style: 'width:84px', dir: 'ltr' });
+    const range = h('input', { type: 'range', min: 10, max: 120, value: Math.min(120, Math.max(10, size)), style: 'flex:1' });
+    const current = () => +num.value || size;
+    const setFs = (v) => { v = Math.round(Math.min(200, Math.max(8, +v || current()))); num.value = v; range.value = Math.min(120, Math.max(10, v)); setSpec(u.key, { fs: v }); };
+    range.addEventListener('input', () => setFs(range.value));
+    num.addEventListener('change', () => setFs(num.value));
+    const set = (patch) => { setSpec(u.key, patch, { force: true }); renderInsp(); };
+    const aligns = [['right', 'ימין', '☰'], ['center', 'מרכז', '≡'], ['left', 'שמאל', '☷']];
+    const al = cur('al', u.al);
+    return h('div', { class: 'sect' }, h('h4', {}, 'עיצוב טקסט'), kitTooOld() && oldKitNote(),
+      h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'גודל (פיקסלים בדסקטופ; בנייד מתכווץ אוטומטית)'),
+        h('div', { class: 'colorrow' },
+          h('button', { class: 'tg', type: 'button', onclick: () => setFs(current() - 2) }, '−'), range, h('button', { class: 'tg', type: 'button', onclick: () => setFs(current() + 2) }, '+'), num)),
+      h('div', { class: 'tgrow' },
+        tgBtn('B', 'מודגש', cur('b', u.b), () => set({ b: !cur('b', u.b) }), 'b'),
+        tgBtn('I', 'נטוי', cur('i', u.i), () => set({ i: !cur('i', u.i) }), 'i'),
+        tgBtn('U', 'קו תחתון', cur('u', u.u), () => set({ u: !cur('u', u.u) }), 'u'),
+        tgBtn('S', 'קו חוצה', cur('st', u.st), () => set({ st: !cur('st', u.st) }), 's'),
+        h('span', { class: 'sep' }),
+        ...aligns.map(([v, t, ic]) => tgBtn(ic, 'יישור ' + t, al === v, () => set({ al: v })))),
+      u.kind === 'node' && h('span', { class: 'help' }, 'העיצוב חל על כל הפסקה שהטקסט הזה נמצא בה.'),
+      (spec.fs || spec.b != null || spec.i != null || spec.u != null || spec.st != null || spec.al) &&
+        h('div', {}, h('button', { class: 'link', onclick: () => set({ fs: undefined, b: undefined, i: undefined, u: undefined, st: undefined, al: undefined }) }, 'איפוס העיצוב')));
+  }
+
+  function elementSection(u) {
+    const old = kitTooOld();
+    const isText = u.kind === 'text';
+    return h('div', { class: 'sect' }, h('h4', {}, 'מיקום והוספה'), old && oldKitNote(),
+      h('div', { class: 'btnrow' },
+        h('button', { class: 'btn small', disabled: old || !u.canUp, onclick: () => moveEl(u.key, -1) }, '↑ הזזה למעלה'),
+        h('button', { class: 'btn small', disabled: old || !u.canDown, onclick: () => moveEl(u.key, 1) }, '↓ הזזה למטה'),
+        h('button', { class: 'btn small mint', disabled: old, title: 'יוצר עותק זהה מיד אחרי האלמנט הזה', onclick: () => duplicateEl(u.key) }, '⎘ שכפול'),
+        isText && h('button', { class: 'btn small mint', disabled: old, onclick: () => duplicateEl(u.key, { newText: 'טקסט חדש' }) }, '＋ הוספת טקסט כזה מתחת'),
+        h('button', { class: 'btn small', disabled: old, onclick: () => { toggleHide(u.key); } }, u.hidden ? '👁 הצגה' : '🚫 הסתרה'),
+        u.clone && h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, '✕ מחיקת העותק')),
+      h('button', { class: 'link', onclick: () => frameSend({ type: 'cms-select-parent' }) }, '⬆ בחירת האלמנט שמעל (למשל כל הקטע)'),
+      h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'));
+  }
+
+  function inspStructure() {
+    const list = E.sections || [];
+    const old = kitTooOld();
+    return [h('h3', {}, 'מבנה ', h('span', { class: 'hl' }, 'הדף')),
+      h('p', { class: 'muted' }, 'סידור מחדש, שכפול והסתרה של קטעים שלמים. לחיצה על שם קטע מסמנת אותו בדף.'),
+      old && oldKitNote(),
+      !list.length ? h('p', { class: 'muted' }, E.ready ? 'לא נמצאו קטעים בדף.' : 'הקטעים נטענים…') :
+        h('div', { class: 'list' }, list.map((x, i) => h('div', { class: 'item sec' + (x.hidden ? ' off' : '') },
+          h('button', { class: 'grow secname', onclick: () => frameSend({ type: 'cms-select-key', key: x.key }) },
+            (x.label || x.tag), x.clone && h('span', { class: 'badge' }, 'עותק'), x.hidden && h('span', { class: 'badge warn' }, 'מוסתר')),
+          h('button', { class: 'tg', title: 'הזזה למעלה', disabled: old || !x.up, onclick: () => moveEl(x.key, -1) }, '↑'),
+          h('button', { class: 'tg', title: 'הזזה למטה', disabled: old || !x.down, onclick: () => moveEl(x.key, 1) }, '↓'),
+          h('button', { class: 'tg', title: 'שכפול הקטע', disabled: old, onclick: () => duplicateEl(x.key) }, '⎘'),
+          h('button', { class: 'tg', title: x.hidden ? 'הצגה' : 'הסתרה', disabled: old, onclick: () => toggleHide(x.key) }, x.hidden ? '👁' : '🚫'),
+          x.clone && h('button', { class: 'tg del', title: 'מחיקת העותק', onclick: () => deleteCopy(x.clone) }, '✕'))))];
+  }
+
   function inspSelection() {
     const u = E.unit;
     if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.')))];
@@ -553,7 +691,9 @@ async function viewEditor(siteId) {
         style.push(fontPicker('פונט לאלמנט הזה', spec.font, (f) => setSpec(u.key, { font: f }, { force: true }), () => { setSpec(u.key, { font: undefined }, { force: true }); renderInsp(); }, u.font));
       }
     }
-    if (style.length) out.push(h('div', { class: 'sect' }, h('h4', {}, 'עיצוב'), ...style));
+    if (u.kind !== 'image' && u.kind !== 'bg') out.push(fmtSection(u, spec));
+    if (style.length) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
+    out.push(elementSection(u));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));
     }
@@ -591,9 +731,9 @@ async function viewEditor(siteId) {
   }
 
   function renderInsp() {
-    tabsEl.replaceChildren(...[['sel', 'עריכה'], ['colors', 'צבעים'], ['fonts', 'פונטים']].map(([k, l]) =>
+    tabsEl.replaceChildren(...[['sel', 'עריכה'], ['struct', 'מבנה'], ['colors', 'צבעים'], ['fonts', 'פונטים']].map(([k, l]) =>
       h('button', { 'aria-selected': E.tab === k, onclick: () => setTab(k) }, l)));
-    insp.replaceChildren(...(E.tab === 'sel' ? inspSelection() : E.tab === 'colors' ? inspColors() : inspFonts()));
+    insp.replaceChildren(...(E.tab === 'sel' ? inspSelection() : E.tab === 'struct' ? inspStructure() : E.tab === 'colors' ? inspColors() : inspFonts()).filter(Boolean));
   }
 
   /* ---- frame messaging ---- */
@@ -603,13 +743,21 @@ async function viewEditor(siteId) {
     const d = e.data;
     if (d.type === 'cms-ready') {
       E.ready = true; E.palette = d.palette || []; E.origFonts = d.fonts || {};
+      E.sections = d.sections || []; E.kitVersion = d.version || 1;
       $('#notice') && $('#notice').remove();
       sendToFrame();
-      if (E.tab !== 'sel') renderInsp();
+      if (E.tab !== 'sel' || kitTooOld()) renderInsp();
+      if (kitTooOld()) kitUpdateNotice();
+    } else if (d.type === 'cms-sections') {
+      E.sections = d.sections || [];
+      if (E.tab === 'struct') renderInsp();
+    } else if (d.type === 'cms-subtree-map-result') {
+      const w = waiters.get(d.reqId); if (w) { waiters.delete(d.reqId); w(d); }
     } else if (d.type === 'cms-select') {
       E.unit = d.unit;
       if (!d.refresh) {
-        E.tab = 'sel'; renderInsp();
+        if (!(d.programmatic && E.tab === 'struct')) E.tab = 'sel';   // picking from the structure list keeps that list open
+        renderInsp();
         if (d.unit && matchMedia('(max-width:900px)').matches) setMobileView('edit');
       }
     } else if (d.type === 'cms-text') {
@@ -621,6 +769,17 @@ async function viewEditor(siteId) {
   window.addEventListener('message', onMessage);
   const cleanupFns = () => { window.removeEventListener('message', onMessage); window.onbeforeunload = null; };
   window.addEventListener('hashchange', cleanupFns, { once: true });
+
+  function kitUpdateNotice() {
+    if ($('#notice')) return;
+    $('#frame-wrap').append(h('div', { class: 'notice', id: 'notice' },
+      h('div', {}, h('b', {}, 'יש גרסה חדשה של ערכת העריכה. '), me.user.role === 'owner' ? 'עדכנו אותה באתר כדי לקבל עיצוב טקסט, שכפול והזזה של קטעים.' : 'פנו לסוכנות כדי לעדכן אותה באתר.'),
+      me.user.role === 'owner' && h('button', { class: 'btn primary small', onclick: async (ev) => {
+        ev.currentTarget.disabled = true;
+        try { await api('POST', `/admin/sites/${siteId}/connect`); toast('עודכן. האתר יתפרסם בעוד כדקה – אז רעננו את העורך.'); $('#notice') && $('#notice').remove(); }
+        catch (e) { toast(e.message, true); }
+      } }, 'עדכון עכשיו')));
+  }
 
   function loadFrame() {
     E.ready = false; E.unit = null; E.palette = [];

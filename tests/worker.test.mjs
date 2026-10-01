@@ -239,3 +239,82 @@ test('site/user input validation', async () => {
   assert.equal((await call('POST', '/api/admin/users', { cookie: owner, body: { username: 'ab', name: 'x', password: 'password-1' } })).status, 400);
   assert.equal((await call('POST', '/api/admin/users', { cookie: owner, body: { username: 'good', name: 'x', password: 'short' } })).status, 400);
 });
+
+/* ---------- text formatting + structure operations ---------- */
+const withPage = (page) => ({ v: 1, global: {}, pages: { 'index.html': page } });
+const putEditsBody = (client, edits) => call('PUT', '/api/sites/demo/edits', { cookie: client, body: { edits } });
+
+test('accepts text formatting and keeps only known formatting fields', async () => {
+  const { client } = await setup();
+  const r = await putEditsBody(client, withPage({ els: { '#t': { fs: 32, b: true, i: false, u: true, st: false, al: 'center', evil: 'x' } } }));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(repo.files['cms/edits.json']).pages['index.html'].els['#t'];
+  assert.deepEqual(saved, { fs: 32, b: true, i: false, u: true, st: false, al: 'center' });
+});
+
+for (const [name, spec] of Object.entries({
+  'font size too small': { fs: 3 }, 'font size too large': { fs: 500 }, 'font size not an integer': { fs: 12.5 },
+  'font size as string': { fs: '20px' }, 'bold as string': { b: 'yes' }, 'underline as number': { u: 1 },
+  'align with css injection': { al: 'center;background:url(//evil)' }, 'unknown align': { al: 'start' },
+})) {
+  test('rejects formatting: ' + name, async () => {
+    const { client } = await setup();
+    assert.equal((await putEditsBody(client, withPage({ els: { '#t': spec } }))).status, 400);
+    assert.equal(commits.length, 0);
+  });
+}
+
+test('accepts duplicate / move / hide operations and edits inside a copy', async () => {
+  const { client } = await setup();
+  const page = {
+    layout: [
+      { op: 'dup', src: 'body>main:nth-of-type(1)>section:nth-of-type(2)', id: 'cp1' },
+      { op: 'dup', src: '@cp1', id: 'cp2' },
+      { op: 'move', key: '#a', dir: 1 },
+      { op: 'move', key: '@cp1', dir: -1 },
+      { op: 'hide', key: 'body>main:nth-of-type(1)>section:nth-of-type(3)' },
+      { op: 'delete-everything', key: '#a', extra: 1 },
+    ],
+    els: { '@cp1>h2:nth-of-type(1)': { t: 'עותק' } },
+  };
+  assert.equal((await putEditsBody(client, withPage(page))).status, 400, 'unknown op rejected');
+  page.layout.pop();
+  const r = await putEditsBody(client, withPage(page));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(repo.files['cms/edits.json']).pages['index.html'];
+  assert.equal(saved.layout.length, 5);
+  assert.deepEqual(saved.layout[0], { op: 'dup', src: 'body>main:nth-of-type(1)>section:nth-of-type(2)', id: 'cp1' });
+  assert.equal(saved.els['@cp1>h2:nth-of-type(1)'].t, 'עותק');
+});
+
+for (const [name, op] of Object.entries({
+  'duplicate id too short': { op: 'dup', src: '#a', id: 'x' },
+  'duplicate id with symbols': { op: 'dup', src: '#a', id: 'a"b<' },
+  'duplicate id uppercase': { op: 'dup', src: '#a', id: 'ABC1' },
+  'move direction 2': { op: 'move', key: '#a', dir: 2 },
+  'move direction string': { op: 'move', key: '#a', dir: '1' },
+  'hide with selector injection': { op: 'hide', key: 'a{}</style><script>' },
+  'move without key': { op: 'move', dir: 1 },
+  'op not an object': 'dup',
+  'remove op (not allowed)': { op: 'remove', key: '#a' },
+  'html op (not allowed)': { op: 'html', key: '#a', value: '<script>1</script>' },
+})) {
+  test('rejects structure op: ' + name, async () => {
+    const { client } = await setup();
+    assert.equal((await putEditsBody(client, withPage({ layout: [op] }))).status, 400);
+    assert.equal(commits.length, 0);
+  });
+}
+
+test('rejects duplicate ids used twice and too many operations', async () => {
+  const { client } = await setup();
+  assert.equal((await putEditsBody(client, withPage({ layout: [{ op: 'dup', src: '#a', id: 'cp1' }, { op: 'dup', src: '#b', id: 'cp1' }] }))).status, 400);
+  const many = Array.from({ length: 301 }, () => ({ op: 'move', key: '#a', dir: 1 }));
+  assert.equal((await putEditsBody(client, withPage({ layout: many }))).status, 400);
+});
+
+test('structure ops never widen what can be written: still only edits.json + uploads', async () => {
+  const { client } = await setup();
+  await putEditsBody(client, withPage({ layout: [{ op: 'dup', src: '#a', id: 'cp1' }, { op: 'hide', key: '#b' }] }));
+  assert.deepEqual(commits[0].paths, ['cms/edits.json']);
+});

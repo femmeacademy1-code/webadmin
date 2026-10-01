@@ -6,6 +6,7 @@
     "test": "node --test tests/worker.test.mjs",
     "test:kit": "node tests/kit.mjs",
     "test:e2e": "node tests/e2e.mjs",
-    "deploy": "cd worker && wrangler deploy"
+    "deploy": "cd worker && wrangler deploy",
+    "test:layout": "node tests/layout.mjs"
   }
 }
