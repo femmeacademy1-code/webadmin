@@ -111,3 +111,12 @@ femme-cms/
 3. לוחצים **בדיקה**. רק כש-ה-DNS תקין המערכת מגדירה את הדומיין ב-GitHub Pages, ממתינה לתעודת HTTPS, מפעילה אכיפת HTTPS ומעדכנת את כתובת האתר.
 
 נדרש: ל-`CMS_GITHUB_TOKEN` (Fine-grained) הרשאת **Pages: Read and write** בנוסף ל-Contents. הערה: תנאי השימוש של GitHub Pages לא מיועדים לאירוח בתשלום; ללקוחות משלמים מומלץ Cloudflare Pages.
+
+## אחסון בתשלום: העברה ל-Cloudflare Pages
+
+באשף הדומיין, אחרי שהוגדר דומיין לאתר: **העברה ל-Cloudflare**. המערכת יוצרת פרויקט Cloudflare Pages מחובר לאותו ריפו, מחכה לבנייה הראשונה, מוסיפה את הדומיין ומציגה את רשומת ה-CNAME החדשה. רק כש-Cloudflare מאשר שהדומיין פעיל היא משחררת אותו מ-GitHub Pages (כך אין downtime). **החזרה ל-GitHub Pages** הופכת את הכל.
+
+הגדרה חד-פעמית:
+1. לטוקן ה-Cloudflare (`CLOUDFLARE_API_TOKEN`) מוסיפים הרשאה **Account → Cloudflare Pages → Edit**.
+2. ב-Cloudflare: Workers & Pages → Create → Pages → Connect to Git, ולהתקין את אפליקציית **Cloudflare Pages** ב-GitHub עם גישה לריפואים של הלקוחות (פעם אחת; אין צורך להשלים יצירת פרויקט).
+3. מריצים את ה-workflow מחדש – הטוקן וה-Account ID מועברים אוטומטית ל-Worker.

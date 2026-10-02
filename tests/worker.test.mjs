@@ -17,7 +17,7 @@ const sha = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`
 let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
-let dns, pages, pagesCalls;
+let dns, pages, pagesCalls, cf, cfCalls;
 function githubMock() {
   const blobs = {};
   return async (url, init = {}) => {
@@ -26,6 +26,18 @@ function githubMock() {
       const t = { A: 1, AAAA: 28, CNAME: 5 }[u.searchParams.get('type')];
       const list = (dns[u.searchParams.get('name') + '/' + u.searchParams.get('type')] || []).map((data) => ({ type: t, data }));
       return new Response(JSON.stringify({ Answer: list }));
+    }
+    if (u.host === 'cf.test') {
+      const m = u.pathname.match(/\/pages\/projects(?:\/([^/]+))?(?:\/domains(?:\/(.+))?)?$/);
+      const ok = (r) => new Response(JSON.stringify({ success: true, result: r }));
+      cfCalls.push(init.method + ' ' + u.pathname.replace(/.*projects/, ''));
+      if (!m[1] && init.method === 'POST') { cf.project = { name: JSON.parse(init.body).name, body: JSON.parse(init.body), latest_deployment: null }; return ok(cf.project); }
+      if (!cf.project) return new Response(JSON.stringify({ success: false, errors: [{ message: 'not found' }] }), { status: 404 });
+      if (u.pathname.endsWith('/domains') && init.method === 'GET') return ok(cf.domains);
+      if (u.pathname.endsWith('/domains') && init.method === 'POST') { const d = { name: JSON.parse(init.body).name, status: 'pending' }; cf.domains.push(d); return ok(d); }
+      if (m[2]) { cf.domains = cf.domains.filter((x) => x.name !== m[2]); return ok(null); }
+      if (init.method === 'DELETE') { cf.project = null; return ok(null); }
+      return ok(cf.project);
     }
     if (u.pathname === '/repos/o/site/pages') {
       if (!pages) return new Response('{"message":"Not Found"}', { status: 404 });
@@ -58,10 +70,11 @@ beforeEach(() => {
     'sub/page.html': Buffer.from('<html><head><title>x</title></head><body></body></html>'),
   } };
   commits = [];
+  cf = { project: null, domains: [] }; cfCalls = [];
   dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
   env = {
-    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test', DOH_URL: 'https://doh.test/q',
+    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test', DOH_URL: 'https://doh.test/q', CF_API: 'https://cf.test', CF_API_TOKEN: 'cft', CF_ACCOUNT_ID: 'acc',
     ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/kit/cms-kit.js' ? new Response(KIT) : new Response('asset')) },
   };
 });
@@ -484,4 +497,45 @@ test('domain: unique per site; Pages not enabled gives a clear error', async () 
   dns['client.com/A'] = IPS; pages = null;
   const r = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
   assert.equal(r.status, 422);
+});
+
+/* ---------- move to Cloudflare Pages (paid hosting) ---------- */
+test('hosting: needs a domain first; client cannot use it', async () => {
+  const { owner, client } = await setup();
+  assert.equal((await call('POST', '/api/admin/sites/demo/host', { cookie: owner })).status, 400);
+  assert.equal((await call('POST', '/api/admin/sites/demo/host', { cookie: client })).status, 403);
+});
+
+test('hosting: build -> domain -> DNS -> live, GitHub domain released only at the end; and back', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });
+  let r = await call('POST', '/api/admin/sites/demo/host', { cookie: owner });
+  assert.equal(r.data.status, 'building');
+  assert.equal(cf.project.body.source.config.repo_name, 'site');
+  assert.equal(cf.domains.length, 0);
+  cf.project.latest_deployment = { latest_stage: { name: 'deploy', status: 'success' } };
+  r = await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner });
+  assert.equal(r.data.status, 'dns');
+  assert.equal(r.data.records[0].value, 'fd-demo.pages.dev');
+  assert.deepEqual(pagesCalls, []);                      // GitHub keeps serving until Cloudflare is active
+  cf.domains[0].status = 'active';
+  r = await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner });
+  assert.equal(r.data.status, 'live');
+  assert.deepEqual(pagesCalls, [{ cname: null }]);
+  assert.equal((await call('GET', '/api/admin/state', { cookie: owner })).data.sites.find((x) => x.id === 'demo').hosting.status, 'live');
+  const back = await call('DELETE', '/api/admin/sites/demo/host', { cookie: owner });
+  assert.equal(back.status, 200);
+  assert.deepEqual(pagesCalls.at(-1), { cname: 'www.client.com' });
+  assert.equal(cf.project, null);
+  assert.equal((await call('GET', '/api/admin/state', { cookie: owner })).data.sites.find((x) => x.id === 'demo').hosting, undefined);
+});
+
+test('hosting: failed first build is reported; missing Cloudflare secrets give a clear error', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });
+  await call('POST', '/api/admin/sites/demo/host', { cookie: owner });
+  cf.project.latest_deployment = { latest_stage: { name: 'build', status: 'failure' } };
+  assert.match((await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner })).data.error, /נכשלה/);
+  delete env.CF_API_TOKEN;
+  assert.equal((await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner })).status, 500);
 });

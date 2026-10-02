@@ -190,6 +190,33 @@ async function viewAdmin() {
     let st = { domain: site.domain || null };
     const copy = async (t) => { try { await navigator.clipboard.writeText(t); toast('הועתק'); } catch { /* ignore */ } };
     const STEPS = [['dns', 'הגדרת רשומות DNS'], ['cert', 'GitHub מנפיק תעודת HTTPS'], ['live', 'הדומיין באוויר']];
+    /* Paid hosting: move the site from GitHub Pages to Cloudflare Pages. */
+    function hostingBlock() {
+      const hb = h('div', { class: 'full', style: 'border-top:1px solid var(--line);padding-top:14px;margin-top:6px' });
+      const HS = { building: 'Cloudflare בונה את האתר…', dns: 'ממתינים שה-DNS יצביע ל-Cloudflare', live: 'האתר מתארח ב-Cloudflare ✔' };
+      const draw2 = (r) => {
+        const hst = (r && r.status) || (site.hosting && site.hosting.status);
+        hb.replaceChildren(h('h4', {}, 'אחסון בתשלום (Cloudflare)'));
+        if (!hst) hb.append(h('p', { class: 'muted' }, 'האתר כרגע ב-GitHub Pages (חינם). ללקוח שמשלם על אחסון – אפשר להעביר ל-Cloudflare Pages.'));
+        else hb.append(h('div', {}, HS[hst] || hst));
+        if (r && r.error) hb.append(h('div', { style: 'color:var(--red)' }, r.error));
+        if (hst === 'dns' && r && r.records) hb.append(h('div', {}, h('p', { class: 'muted' }, 'שנו אצל הרשם את הרשומה:'),
+          h('div', { dir: 'ltr' }, r.records.map((x) => `${x.type}  ${x.name}  →  ${x.value}`).join('\n')), h('p', { class: 'muted' }, r.note)));
+        const run = async (ev) => {
+          const b = ev.currentTarget; b.disabled = true; b.textContent = 'עובד…';
+          try { const x = await api('POST', `/admin/sites/${site.id}/host`); site.hosting = x.hosting; draw2(x); if (x.status === 'live') await refresh(); }
+          catch (e) { toast(e.message, true); b.disabled = false; b.textContent = hst ? 'בדיקה' : 'העברה ל-Cloudflare'; }
+        };
+        if (hst !== 'live') hb.append(h('button', { class: 'btn mint', onclick: run }, hst ? 'בדיקה' : 'העברה ל-Cloudflare'));
+        if (hst) hb.append(h('button', { class: 'btn danger', style: 'margin-inline-start:8px', onclick: async () => {
+          if (!confirm('להחזיר את האתר ל-GitHub Pages? יהיה צורך להחזיר את רשומות ה-DNS של GitHub.')) return;
+          try { const x = await api('DELETE', `/admin/sites/${site.id}/host`); delete site.hosting; toast('הוחזר ל-GitHub Pages. עדכנו את ה-DNS לפי האשף.'); await refresh(); draw2(); }
+          catch (e) { toast(e.message, true); }
+        } }, 'החזרה ל-GitHub Pages'));
+      };
+      draw2();
+      return hb;
+    }
     function paint(res) {
       box.replaceChildren(h('div', { class: 'full' }, h('h3', {}, 'חיבור דומיין – ' + site.name)));
       const d = st.domain;
@@ -219,6 +246,7 @@ async function viewAdmin() {
       if (res && res.error) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.error));
       if (status === 'cert') box.append(h('div', { class: 'full muted' }, 'ה-DNS תקין והדומיין הוגדר ב-GitHub. התעודה מונפקת בדרך כלל תוך דקות עד שעה. לחצו "בדיקה" שוב בהמשך.'));
       if (status === 'live') box.append(h('div', { class: 'full' }, 'הדומיין פעיל ✔  ', h('a', { href: 'https://' + d.name + '/', target: '_blank', rel: 'noopener', dir: 'ltr' }, 'https://' + d.name + '/')));
+      box.append(hostingBlock());
       box.append(h('div', { class: 'full', style: 'display:flex;gap:10px' },
         status !== 'live' && h('button', { class: 'btn primary', onclick: async (ev) => {
           const b = ev.currentTarget; b.disabled = true; b.textContent = 'בודק…';

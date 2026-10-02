@@ -12,6 +12,7 @@
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
 import { normalizeDomain, dnsRecords, checkDns } from './domain.js';
+import { Cloudflare, projectName } from './cloudflare.js';
 import { HttpError, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
 const SESSION_DAYS = 14;
@@ -132,6 +133,10 @@ async function route(req, env, url) {
       if (method === 'POST' && !m[2]) return setDomain(req, env, m[1]);
       if (method === 'POST') return checkDomain(env, m[1]);
       if (method === 'DELETE' && !m[2]) return removeDomain(env, m[1]);
+    }
+    if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)\/host(\/check)?$/))) {
+      if (method === 'POST') return moveToCloudflare(env, m[1]);
+      if (method === 'DELETE' && !m[2]) return moveBackToGithub(env, m[1]);
     }
     if (pathname === '/api/admin/users' && method === 'POST') return saveUser(req, env, null);
     if ((m = pathname.match(/^\/api\/admin\/users\/([a-z0-9._-]+)$/))) {
@@ -352,6 +357,61 @@ async function removeDomain(env, id) {
     await putKV(env, 's:' + id, site);
   }
   return json({ ok: true, url: site.url });
+}
+
+/* ---------------- paid hosting: move a site from GitHub Pages to Cloudflare Pages ---------------- */
+/* One step forward per call (the button "בדיקה" calls it again):
+ * project created → first build succeeded → domain added → DNS points at Cloudflare → GitHub Pages domain released. */
+async function moveToCloudflare(env, id) {
+  const site = await siteOrThrow(env, id);
+  if (!site.domain) throw new HttpError(400, 'קודם מחברים דומיין לאתר (כפתור "דומיין")');
+  const cf = new Cloudflare(env);
+  const name = projectName(id);
+  const target = name + '.pages.dev';
+  const name_ = site.domain.name;
+  const out = { status: 'building', target };
+
+  let project = await cf.getProject(name);
+  if (!project) {
+    try { project = await cf.createProject(name, site); }
+    catch (e) { throw new HttpError(422, 'יצירת הפרויקט ב-Cloudflare נכשלה: ' + e.message + '. ודאו שאפליקציית Cloudflare Pages מותקנת ב-GitHub עם גישה לריפו הזה.'); }
+  }
+  if (!site.hosting) site.hosting = { provider: 'cloudflare', project: name, status: 'building', prevUrl: site.url, startedAt: new Date().toISOString() };
+
+  const stage = project.latest_deployment && project.latest_deployment.latest_stage;
+  if (!stage || stage.name !== 'deploy' || stage.status !== 'success') {
+    if (stage && stage.status === 'failure') out.error = 'הבנייה הראשונה ב-Cloudflare נכשלה. בדקו את הפרויקט בלוח הבקרה של Cloudflare.';
+  } else {
+    const have = (await cf.listDomains(name)) || [];
+    let d = have.find((x) => x.name === name_);
+    if (!d) d = await cf.addDomain(name, name_);
+    out.status = 'dns';
+    if (d && d.status === 'active') {
+      out.status = 'live';
+      try { await new GitHub(env).setPages(site.repo, { cname: null }); } catch (e) { if (e.github !== 404) throw e; }   // release the domain from GitHub
+    } else out.cfStatus = d && d.status;
+  }
+  site.hosting.status = out.status;
+  if (out.status === 'live') site.url = `https://${name_}/`;
+  await putKV(env, 's:' + id, site);
+  return json({ ...out, hosting: site.hosting, records: [{ type: 'CNAME', name: site.domain.name.split('.').length > 2 ? site.domain.name.split('.')[0] : '@', value: target }], note: 'לדומיין ראשי נדרש CNAME flattening / ALIAS (ב-Cloudflare DNS זה אוטומטי).' });
+}
+
+async function moveBackToGithub(env, id) {
+  const site = await siteOrThrow(env, id);
+  const h = site.hosting;
+  if (!h) return json({ ok: true, url: site.url });
+  const cf = new Cloudflare(env);
+  if (site.domain) {
+    await cf.deleteDomain(h.project, site.domain.name).catch((e) => { if (e.cf !== 404) throw e; });
+    try { await new GitHub(env).setPages(site.repo, { cname: site.domain.name }); } catch (e) { if (e.github !== 404) throw e; }
+    site.domain.status = 'dns';   // DNS has to point at GitHub again
+  }
+  await cf.deleteProject(h.project);
+  if (h.prevUrl && !site.domain) site.url = h.prevUrl;
+  delete site.hosting;
+  await putKV(env, 's:' + id, site);
+  return json({ ok: true, url: site.url, ...(site.domain ? dnsRecords(site.domain.name, site.repo) : {}) });
 }
 
 export { LIMITS };

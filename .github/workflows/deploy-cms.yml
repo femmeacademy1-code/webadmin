@@ -64,4 +64,5 @@ jobs:
         working-directory: worker
         run: |
           jq -n --arg a "$CMS_ADMIN_PASSWORD" --arg s "$CMS_SESSION_SECRET" --arg g "$CMS_GITHUB_TOKEN" \
-            '{ADMIN_PASSWORD:$a, SESSION_SECRET:$s, GITHUB_TOKEN:$g}' | npx --yes wrangler@4 secret bulk
+            --arg ct "$CLOUDFLARE_API_TOKEN" --arg ca "$CLOUDFLARE_ACCOUNT_ID" \
+            '{ADMIN_PASSWORD:$a, SESSION_SECRET:$s, GITHUB_TOKEN:$g, CF_API_TOKEN:$ct, CF_ACCOUNT_ID:$ca}' | npx --yes wrangler@4 secret bulk
