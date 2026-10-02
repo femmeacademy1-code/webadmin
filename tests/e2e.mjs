@@ -135,6 +135,28 @@ try {
   ok(creds.includes('dana') && creds.includes(pw) && creds.includes('http://localhost:9002'), 'client created; ready-to-send credentials message shown');
   await shot('03-admin-clients');
 
+  /* navigation between the admin page and the sites page works from both directions */
+  const adminLink = pg.locator('.topnav a:has-text("ניהול לקוחות ואתרים")'), homeLink = pg.locator('.topnav a:has-text("האתרים שלי")');
+  ok(await adminLink.getAttribute('aria-current') === 'page' && await homeLink.getAttribute('aria-current') === null, 'nav: admin page is marked current');
+  await homeLink.click(); await pg.waitForSelector('.card');
+  ok(await pg.locator('.topnav a[aria-current=page]').innerText() === 'האתרים שלי', 'nav: can go from admin to the sites page');
+  await pg.locator('.topnav a:has-text("ניהול לקוחות ואתרים")').click(); await pg.waitForSelector('.tabs');
+  ok(true, 'nav: and back to the admin page');
+
+  /* a domain that was started but not finished: marked as in progress (no check mark), panel opens, domain can be changed */
+  await pg.click('.tabs button:has-text("אתרים")');
+  await pg.click('.item button:has-text("דומיין")');
+  await pg.fill('#dm-name', 'www.client.co.il'); await pg.click('.formcard button:has-text("המשך")');
+  await pg.waitForSelector('.dnstable');
+  await pg.click('.formcard button:has-text("סגירה")');
+  const domBtn = pg.locator('.item button:has-text("דומיין")');
+  ok((await domBtn.innerText()).includes('בהגדרה') && !(await domBtn.innerText()).includes('✔'), 'domain: unfinished domain is not marked with a check mark');
+  await domBtn.click(); await pg.waitForSelector('#dm-change');
+  await pg.fill('#dm-change', 'www.other.co.il'); await pg.click('.formcard button:has-text("החלפה")');
+  await pg.waitForFunction(() => document.querySelector('.formcard')?.innerText.includes('www.other.co.il'));
+  ok(true, 'domain: unfinished domain can be reopened and changed');
+  await pg.click('.formcard button:has-text("ניתוק דומיין")'); 
+
   /* client */
   await pg.click('button:has-text("יציאה")');
   await pg.waitForSelector('#u');
@@ -391,6 +413,7 @@ try {
   await mctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '/* hebrew */' }));
   const mp = await mctx.newPage();
   globalThis.__mp = mp;
+  mp.on('response', async (r) => { if (r.url().includes('/api/')) console.log('MOBILE API', r.request().method(), r.url().replace(/.*\/api/, ''), r.status()); });
   await mp.goto('http://localhost:9002/');
   await mp.fill('#u', 'dana'); await mp.fill('#p', pw); await mp.click('button[type=submit]');
   await mp.waitForSelector('.card:has-text("Alternative Dream")', { timeout: 20000 });

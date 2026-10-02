@@ -187,3 +187,7 @@ dialog menu{padding:0;margin:18px 0 0;display:flex;justify-content:flex-end;gap:
 input[type=range]{accent-color:var(--red)}
 
 .dnstable{border-collapse:collapse;width:100%;margin:8px 0;font-size:.9rem}.dnstable td{border-bottom:1px solid var(--line);padding:6px 10px;word-break:break-all}
+
+.topnav{display:flex;gap:4px}
+.topnav .btn.ghost{color:var(--ink)}
+.topnav .btn[aria-current=page]{background:var(--mint);border-color:var(--ink);cursor:default}

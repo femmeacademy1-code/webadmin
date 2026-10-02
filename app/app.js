@@ -58,10 +58,13 @@ let dirtyGuard = null;   // reserved
 
 async function loadMe() { me = await api('GET', '/me'); return me; }
 
+let navSeq = 0;
 async function go() {
+  const mine = ++navSeq;
   dirtyGuard = null;
   root.className = '';
-  if (!me) await loadMe();
+  try { await loadMe(); } catch (e) { if (!me) throw e; }   // fresh on every navigation (sites/clients may have changed in the admin screen)
+  if (mine !== navSeq) return;   // a newer navigation started meanwhile; let it render
   const route = location.hash.replace(/^#\/?/, '');
   if (!me.user) return viewLogin();
   if (route.startsWith('site/')) return viewEditor(route.slice(5));
@@ -80,7 +83,9 @@ function topbar(extra) {
     h('img', { class: 'brand', src: 'brand/logo.png', alt: 'Femme Digital', onclick: () => { location.hash = '#/'; } }),
     extra,
     h('span', { class: 'spacer' }),
-    me.user.role === 'owner' && h('a', { class: 'btn ghost small', href: '#/admin' }, 'ניהול לקוחות ואתרים'),
+    me.user.role === 'owner' && h('nav', { class: 'topnav' },
+      h('a', { class: 'btn ghost small', href: '#/', 'aria-current': location.hash.replace(/^#\/?/, '') === '' ? 'page' : null }, 'האתרים שלי'),
+      h('a', { class: 'btn ghost small', href: '#/admin', 'aria-current': location.hash.replace(/^#\/?/, '') === 'admin' ? 'page' : null }, 'ניהול לקוחות ואתרים')),
     h('span', { class: 'who' }, me.user.name),
     h('button', { class: 'btn ghost small', onclick: logout }, 'יציאה'));
 }
@@ -235,11 +240,12 @@ async function viewAdmin() {
           h('span', { class: 'help' }, 'אפשר דומיין ראשי (client.co.il) או תת-דומיין (www.client.co.il). הרכישה עצמה אצל רשם הדומיינים.')),
           h('div', { class: 'full', style: 'display:flex;gap:10px' },
             h('button', { class: 'btn primary', onclick: async () => {
-              try { st = await api('POST', `/admin/sites/${site.id}/domain`, { domain: $('#dm-name', box).value }); paint(); } catch (e) { toast(e.message, true); }
+              try { await api('POST', `/admin/sites/${site.id}/domain`, { domain: $('#dm-name', box).value }); await refresh(); } catch (e) { toast(e.message, true); }
             } }, 'המשך'),
             h('button', { class: 'btn ghost', onclick: () => { showForm = null; draw(); } }, 'סגירה')));
         return;
       }
+      if (!st.records) { box.append(h('div', { class: 'full muted' }, 'טוען…')); return; }   // the records arrive from the server a moment after the panel opens
       const status = (res && res.status) || d.status;
       const idx = Math.max(0, STEPS.findIndex((x) => x[0] === status));
       box.append(h('div', { class: 'full', dir: 'ltr', style: 'font-weight:700' }, d.name),
@@ -256,6 +262,12 @@ async function viewAdmin() {
       if (res && res.error) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.error));
       if (status === 'cert') box.append(h('div', { class: 'full muted' }, 'ה-DNS תקין והדומיין הוגדר ב-GitHub. התעודה מונפקת בדרך כלל תוך דקות עד שעה. לחצו "בדיקה" שוב בהמשך.'));
       if (status === 'live') box.append(h('div', { class: 'full' }, 'הדומיין פעיל ✔  ', h('a', { href: 'https://' + d.name + '/', target: '_blank', rel: 'noopener', dir: 'ltr' }, 'https://' + d.name + '/')));
+      if (status !== 'live') box.append(h('div', { class: 'full', style: 'display:flex;gap:8px;align-items:center' },
+        h('input', { id: 'dm-change', type: 'text', dir: 'ltr', placeholder: 'להחלפת הדומיין: www.other.co.il', style: 'flex:1' }),
+        h('button', { class: 'btn small', onclick: async () => {
+          try { await api('POST', `/admin/sites/${site.id}/domain`, { domain: $('#dm-change', box).value }); await refresh(); }
+          catch (e) { toast(e.message, true); }
+        } }, 'החלפה')));
       box.append(hostingBlock());
       box.append(h('div', { class: 'full', style: 'display:flex;gap:10px' },
         status !== 'live' && h('button', { class: 'btn primary', onclick: async (ev) => {
@@ -265,11 +277,11 @@ async function viewAdmin() {
         } }, 'בדיקה'),
         h('button', { class: 'btn danger', onclick: async () => {
           if (!confirm('לנתק את הדומיין מהאתר?')) return;
-          try { await api('DELETE', `/admin/sites/${site.id}/domain`); st = { domain: null }; await refresh(true); paint(); } catch (e) { toast(e.message, true); }
+          try { await api('DELETE', `/admin/sites/${site.id}/domain`); await refresh(); } catch (e) { toast(e.message, true); }
         } }, 'ניתוק דומיין'),
         h('button', { class: 'btn ghost', onclick: () => { showForm = null; draw(); } }, 'סגירה')));
     }
-    if (site.domain) api('POST', `/admin/sites/${site.id}/domain`, { domain: site.domain.name }).then((r) => { st = r; paint(); }, () => paint());
+    if (site.domain) api('POST', `/admin/sites/${site.id}/domain`, { domain: site.domain.name }).then((r) => { st = r; paint(); }, (e) => { toast(e.message, true); showForm = null; draw(); });
     paint();
     return box;
   }
@@ -315,7 +327,7 @@ async function viewAdmin() {
     if (tab === 'sites') {
       body.push(h('div', { style: 'margin-bottom:16px' }, h('button', { class: 'btn primary', onclick: () => { showForm = { type: 'site' }; draw(); } }, '＋ הוספת אתר')));
       if (showForm && showForm.type === 'site') body.push(siteForm(showForm.item));
-      if (showForm && showForm.type === 'domain') body.push(domainPanel(showForm.item));
+      if (showForm && showForm.type === 'domain') body.push(domainPanel(state.sites.find((x) => x.id === showForm.item.id) || showForm.item));
       body.push(h('div', { class: 'list' }, state.sites.map((s) => h('div', { class: 'item' },
         h('div', { class: 'grow' }, h('div', { class: 't' }, s.name), h('div', { class: 's' }, s.url + '  ·  ' + s.repo)),
         h('button', { class: 'btn small mint', title: 'מוסיף לאתר את ערכת העריכה (פעם אחת)', onclick: async (ev) => {
@@ -324,7 +336,7 @@ async function viewAdmin() {
           catch (e) { toast(e.message, true); }
           b.disabled = false; b.textContent = 'חיבור לעריכה';
         } }, 'חיבור לעריכה'),
-        h('button', { class: 'btn small', onclick: () => { showForm = { type: 'domain', item: s }; draw(); scrollTo(0, 0); } }, s.domain ? 'דומיין ✔' : 'דומיין'),
+        h('button', { class: 'btn small', onclick: () => { showForm = { type: 'domain', item: s }; draw(); scrollTo(0, 0); } }, !s.domain ? 'דומיין' : s.domain.status === 'live' ? 'דומיין ✔' : 'דומיין (בהגדרה)'),
         h('a', { class: 'btn small', href: '#/site/' + s.id }, 'פתיחה'),
         h('button', { class: 'btn small', onclick: () => { showForm = { type: 'site', item: s }; draw(); scrollTo(0, 0); } }, 'עריכה'),
         h('button', { class: 'btn small danger', onclick: async () => {
