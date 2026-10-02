@@ -191,3 +191,5 @@ input[type=range]{accent-color:var(--red)}
 .topnav{display:flex;gap:4px}
 .topnav .btn.ghost{color:var(--ink)}
 .topnav .btn[aria-current=page]{background:var(--mint);border-color:var(--ink);cursor:default}
+
+.addsect{display:flex;flex-direction:column;gap:10px}.addsect>.btn{align-self:flex-start}.addmenu[hidden]{display:none}.addmenu{display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--mint) 40%,#fff);border:1.5px solid var(--line);border-radius:10px;padding:12px}

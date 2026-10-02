@@ -305,6 +305,9 @@ try {
 
   /* adding elements: button, video, file, image */
   await fr.locator('.hero h2').click();
+  const openAdd = async () => { await pg.waitForSelector('.addsect > button'); if (await pg.locator('.addmenu').isHidden()) await pg.click('.addsect > button'); };
+  ok((await pg.locator('.insp-body > *').first().evaluate((e) => e.tagName)) === 'H3' && await pg.locator('.insp-body > .addsect').count() === 1 && await pg.locator('.addmenu').isHidden(), 'add: a single "＋ הוספה" button at the top; the menu is collapsed until clicked');
+  await openAdd();
   await pg.waitForSelector('button:has-text("🔘 כפתור")');
   await pg.click('button:has-text("🔘 כפתור")');
   await pg.waitForSelector('.insp-body textarea');
@@ -317,6 +320,7 @@ try {
   ok(await fr.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && (await fr.locator('[data-cms-add="button"]').innerText()) === 'התקשרו עכשיו', 'add button: text and link editable');
 
   await fr.locator('.hero h2').click();
+  await openAdd();
   await pg.waitForSelector('button:has-text("▶ סרטון")');
   await pg.click('button:has-text("▶ סרטון")');
   await pg.waitForSelector('dialog[open] input');
@@ -334,6 +338,7 @@ try {
   ok(await fr.locator('[data-cms-add="video"] iframe').getAttribute('src') === 'https://player.vimeo.com/video/123456789', 'add video: the link can be changed to Vimeo afterwards');
 
   await fr.locator('.hero h2').click();
+  await openAdd();
   await pg.waitForSelector('button:has-text("📄 קובץ להורדה")');
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
   const [fc2] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button:has-text("📄 קובץ להורדה")')]);
@@ -343,6 +348,7 @@ try {
   const fl = await fr.locator('[data-cms-add="file"]').evaluate((e) => ({ href: e.getAttribute('href'), dl: e.hasAttribute('download'), text: e.textContent }));
   ok(/^cms\/uploads\/.+\.pdf$/.test(fl.href) && fl.dl && fl.text.includes('חוברת מידע'), 'add file: PDF upload becomes a download link named after the file: ' + JSON.stringify(fl));
   await fr.locator('.hero h2').click();
+  await openAdd();
   await pg.waitForSelector('button:has-text("🖼 תמונה")');
   await pg.locator('.insp-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
   await shot('06c-add-elements');

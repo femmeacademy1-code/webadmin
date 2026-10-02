@@ -787,7 +787,7 @@ async function viewEditor(siteId) {
   function elementSection(u) {
     const old = kitTooOld();
     const isText = u.kind === 'text';
-    return h('div', { class: 'sect' }, h('h4', {}, 'מיקום והוספה'), old && oldKitNote(),
+    return h('div', { class: 'sect' }, h('h4', {}, 'מיקום וסדר'), old && oldKitNote(),
       h('div', { class: 'btnrow' },
         h('button', { class: 'btn small', disabled: old || !u.canUp, onclick: () => moveEl(u.key, -1) }, '↑ הזזה למעלה'),
         h('button', { class: 'btn small', disabled: old || !u.canDown, onclick: () => moveEl(u.key, 1) }, '↓ הזזה למטה'),
@@ -803,8 +803,10 @@ async function viewEditor(siteId) {
     const old = E.ready && E.kitVersion < ADD_KIT;
     const guard = (fn) => async () => { try { await fn(); } catch (e) { toast(e.message, true); } };
     const btn = (label, title, fn) => h('button', { class: 'btn small', disabled: old, title, onclick: guard(fn) }, label);
-    return h('div', { class: 'sect' }, h('h4', {}, 'הוספת אלמנט מתחת'),
-      old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
+    const toggle = h('button', { class: 'btn primary', 'aria-expanded': 'false', disabled: old, onclick: () => {
+      menu.hidden = !menu.hidden; toggle.setAttribute('aria-expanded', String(!menu.hidden));
+    } }, '＋ הוספה');
+    const menu = h('div', { class: 'addmenu' },
       h('div', { class: 'btnrow' },
         btn('🖼 תמונה', 'העלאת תמונה מהמחשב', async () => {
           const f = await pickFile(); if (!f) return;
@@ -829,6 +831,10 @@ async function viewEditor(siteId) {
         btn('H כותרת', 'כותרת חדשה', () => addElement(u.key, 'heading')),
         btn('— מפריד', 'קו מפריד', () => addElement(u.key, 'divider'))),
       h('span', { class: 'help' }, 'האלמנט החדש מופיע מיד אחרי האלמנט הנבחר ומקבל את העיצוב של האתר.'));
+    menu.hidden = true;
+    return h('div', { class: 'addsect' },
+      old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
+      toggle, menu);
   }
 
   function videoField(u) {
@@ -868,6 +874,7 @@ async function viewEditor(siteId) {
     const spec = specOf(u.key);
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
     out.push(h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, kindName)));
+    out.push(addSection(u));   // "＋ הוספה" sits at the top so it is always in reach
 
     if (u.added === 'video') out.push(videoField(u));
     if (u.kind === 'text' || u.kind === 'node') {
@@ -920,7 +927,6 @@ async function viewEditor(siteId) {
     if (u.kind !== 'image' && u.kind !== 'bg' && !plainBox) out.push(fmtSection(u, spec));
     if (style.length && !plainBox) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
     out.push(elementSection(u));
-    out.push(addSection(u));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));
     }
