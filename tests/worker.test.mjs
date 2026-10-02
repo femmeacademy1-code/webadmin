@@ -47,6 +47,7 @@ function githubMock() {
       return ok(cf.project);
     }
     if (u.pathname === '/repos/o/site/pages') {
+      if (pages === 'forbidden') return new Response('{"message":"Resource not accessible by personal access token"}', { status: 403 });
       if (!pages) return new Response('{"message":"Not Found"}', { status: 404 });
       if (init.method === 'PUT') { const b = JSON.parse(init.body); pagesCalls.push(b); Object.assign(pages, b); return new Response(null, { status: 204 }); }
       return new Response(JSON.stringify(pages));
@@ -576,4 +577,13 @@ test('auto DNS: subdomain finds the parent zone; Cloudflare hosting points at th
   await call('POST', '/api/admin/sites/other/domain', { cookie: owner, body: { domain: 'elsewhere.co.il' } });
   const r = await call('POST', '/api/admin/sites/other/dns', { cookie: owner });
   assert.equal(r.status, 422); assert.match(r.data.error, /Cloudflare/);
+});
+
+test('domain: a token without Pages access to the repo gives an actionable message', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });
+  dns['www.client.com/CNAME'] = ['o.github.io'];
+  pages = 'forbidden';
+  const r = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(r.status, 422); assert.match(r.data.error, /Repository access/); assert.match(r.data.error, /o\/site/);
 });
