@@ -201,7 +201,7 @@ async function viewAdmin() {
         else hb.append(h('div', {}, HS[hst] || hst));
         if (r && r.error) hb.append(h('div', { style: 'color:var(--red)' }, r.error));
         if (hst === 'dns' && r && r.records) hb.append(h('div', {}, h('p', { class: 'muted' }, 'שנו אצל הרשם את הרשומה:'),
-          h('div', { dir: 'ltr' }, r.records.map((x) => `${x.type}  ${x.name}  →  ${x.value}`).join('\n')), h('p', { class: 'muted' }, r.note)));
+          h('div', { dir: 'ltr' }, r.records.map((x) => `${x.type}  ${x.name}  →  ${x.value}`).join('\n')), h('p', { class: 'muted' }, r.note), autoDnsBtn()));
         const run = async (ev) => {
           const b = ev.currentTarget; b.disabled = true; b.textContent = 'עובד…';
           try { const x = await api('POST', `/admin/sites/${site.id}/host`); site.hosting = x.hosting; draw2(x); if (x.status === 'live') await refresh(); }
@@ -217,6 +217,15 @@ async function viewAdmin() {
       draw2();
       return hb;
     }
+    const autoDnsBtn = () => h('button', { class: 'btn small', title: 'יוצר את הרשומות בחשבון ה-Cloudflare שלכם (הדומיין חייב להיות שם)', onclick: async (ev) => {
+      const b = ev.currentTarget; b.disabled = true; b.textContent = 'מגדיר…';
+      try {
+        const r = await api('POST', `/admin/sites/${site.id}/dns`);
+        const n = r.changes.filter((c) => c.action !== 'kept').length;
+        toast(n ? `הוגדרו ${n} שינויים ב-DNS (${r.zone}). לחצו "בדיקה" בעוד רגע.` : 'ה-DNS כבר מוגדר נכון.');
+      } catch (e) { toast(e.message, true); }
+      b.disabled = false; b.textContent = 'הגדרת DNS אוטומטית ב-Cloudflare';
+    } }, 'הגדרת DNS אוטומטית ב-Cloudflare');
     function paint(res) {
       box.replaceChildren(h('div', { class: 'full' }, h('h3', {}, 'חיבור דומיין – ' + site.name)));
       const d = st.domain;
@@ -240,6 +249,7 @@ async function viewAdmin() {
           h('table', { dir: 'ltr', class: 'dnstable' }, h('tbody', {}, st.records.map((r) => h('tr', {},
             h('td', {}, r.type), h('td', {}, r.name), h('td', {}, r.value), h('td', { class: 'muted' }, r.optional ? 'מומלץ' : ''),
             h('td', {}, h('button', { class: 'btn small', onclick: () => copy(r.value) }, 'העתקה')))))),
+          autoDnsBtn(),
           h('p', { class: 'muted' }, 'עדכון DNS יכול לקחת מכמה דקות ועד כמה שעות. אם הדומיין ב-Cloudflare – כבו את הענן הכתום (DNS only).')));
       }
       if (res && res.dns && !res.dns.ok) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.dns.hint));

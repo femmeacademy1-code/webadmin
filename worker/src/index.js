@@ -11,7 +11,7 @@
  */
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
-import { normalizeDomain, dnsRecords, checkDns } from './domain.js';
+import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
 import { Cloudflare, projectName } from './cloudflare.js';
 import { HttpError, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
@@ -134,6 +134,7 @@ async function route(req, env, url) {
       if (method === 'POST') return checkDomain(env, m[1]);
       if (method === 'DELETE' && !m[2]) return removeDomain(env, m[1]);
     }
+    if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)\/dns$/)) && method === 'POST') return autoDns(env, m[1]);
     if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)\/host(\/check)?$/))) {
       if (method === 'POST') return moveToCloudflare(env, m[1]);
       if (method === 'DELETE' && !m[2]) return moveBackToGithub(env, m[1]);
@@ -357,6 +358,29 @@ async function removeDomain(env, id) {
     await putKV(env, 's:' + id, site);
   }
   return json({ ok: true, url: site.url });
+}
+
+/* One click: create the DNS records in Cloudflare (the domain's zone must be in the agency's Cloudflare account).
+ * Points at Cloudflare Pages when the site is moved there, otherwise at GitHub Pages. */
+async function autoDns(env, id) {
+  const site = await siteOrThrow(env, id);
+  if (!site.domain) throw new HttpError(400, 'קודם מגדירים דומיין לאתר');
+  const domain = site.domain.name;
+  const cf = new Cloudflare(env);
+  const zone = await cf.zoneFor(domain);
+  if (!zone) throw new HttpError(422, `הדומיין ${domain} לא נמצא בחשבון ה-Cloudflare שלך. הוסיפו אותו ל-Cloudflare (Add a site) או הגדירו את הרשומות ידנית.`);
+
+  const wanted = [];
+  if (site.hosting) {
+    wanted.push({ type: 'CNAME', name: domain, content: site.hosting.project + '.pages.dev', proxied: true });
+    if (isApex(domain)) wanted.push({ type: 'CNAME', name: 'www.' + domain, content: site.hosting.project + '.pages.dev', proxied: true });
+  } else {
+    for (const r of dnsRecords(domain, site.repo).records) {
+      wanted.push({ type: r.type, name: r.name === '@' || !isApex(domain) ? domain : r.name + '.' + domain, content: r.value, proxied: false });
+    }
+  }
+  const changes = await cf.setRecords(zone.id, wanted);
+  return json({ ok: true, zone: zone.name, target: site.hosting ? 'cloudflare' : 'github', changes });
 }
 
 /* ---------------- paid hosting: move a site from GitHub Pages to Cloudflare Pages ---------------- */

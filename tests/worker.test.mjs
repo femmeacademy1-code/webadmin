@@ -17,7 +17,7 @@ const sha = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`
 let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
-let dns, pages, pagesCalls, cf, cfCalls;
+let dns, pages, pagesCalls, cf, cfCalls, zones, records, rid;
 function githubMock() {
   const blobs = {};
   return async (url, init = {}) => {
@@ -28,6 +28,13 @@ function githubMock() {
       return new Response(JSON.stringify({ Answer: list }));
     }
     if (u.host === 'cf.test') {
+      if (u.pathname === '/zones') { const n = u.searchParams.get('name'); return new Response(JSON.stringify({ success: true, result: zones[n] ? [{ id: 'z1', name: n }] : [] })); }
+      let zm = u.pathname.match(/^\/zones\/z1\/dns_records(?:\/(.+))?$/);
+      if (zm) {
+        if (init.method === 'GET') { const n = u.searchParams.get('name'); return new Response(JSON.stringify({ success: true, result: records.filter((r) => r.name === n) })); }
+        if (init.method === 'DELETE') { records = records.filter((r) => r.id !== zm[1]); return new Response(JSON.stringify({ success: true, result: {} })); }
+        const b = JSON.parse(init.body); records.push({ id: 'r' + (++rid), ...b }); return new Response(JSON.stringify({ success: true, result: {} }));
+      }
       const m = u.pathname.match(/\/pages\/projects(?:\/([^/]+))?(?:\/domains(?:\/(.+))?)?$/);
       const ok = (r) => new Response(JSON.stringify({ success: true, result: r }));
       cfCalls.push(init.method + ' ' + u.pathname.replace(/.*projects/, ''));
@@ -70,6 +77,7 @@ beforeEach(() => {
     'sub/page.html': Buffer.from('<html><head><title>x</title></head><body></body></html>'),
   } };
   commits = [];
+  zones = { 'client.com': 1 }; records = []; rid = 0;
   cf = { project: null, domains: [] }; cfCalls = [];
   dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
@@ -538,4 +546,34 @@ test('hosting: failed first build is reported; missing Cloudflare secrets give a
   assert.match((await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner })).data.error, /נכשלה/);
   delete env.CF_API_TOKEN;
   assert.equal((await call('POST', '/api/admin/sites/demo/host/check', { cookie: owner })).status, 500);
+});
+
+/* ---------- automatic DNS in Cloudflare ---------- */
+test('auto DNS: GitHub records for an apex, replaces conflicting A/CNAME, never touches MX/TXT', async () => {
+  const { owner, client } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } });
+  records.push({ id: 'old', type: 'A', name: 'client.com', content: '1.2.3.4' }, { id: 'mx', type: 'MX', name: 'client.com', content: 'mail' });
+  assert.equal((await call('POST', '/api/admin/sites/demo/dns', { cookie: client })).status, 403);
+  const r = await call('POST', '/api/admin/sites/demo/dns', { cookie: owner });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.target, 'github');
+  assert.equal(records.filter((x) => x.type === 'A' && x.name === 'client.com').length, 4);
+  assert.ok(!records.some((x) => x.content === '1.2.3.4'));
+  assert.ok(records.some((x) => x.id === 'mx'));
+  assert.ok(records.some((x) => x.type === 'CNAME' && x.name === 'www.client.com' && x.content === 'o.github.io' && x.proxied === false));
+  const again = await call('POST', '/api/admin/sites/demo/dns', { cookie: owner });   // idempotent
+  assert.ok(again.data.changes.every((c) => c.action === 'kept'));
+});
+
+test('auto DNS: subdomain finds the parent zone; Cloudflare hosting points at the pages.dev project; unknown zone is explained', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });
+  await call('POST', '/api/admin/sites/demo/dns', { cookie: owner });
+  assert.deepEqual(records.map((x) => [x.type, x.name, x.content]), [['CNAME', 'www.client.com', 'o.github.io']]);
+  await call('POST', '/api/admin/sites/demo/host', { cookie: owner });
+  await call('POST', '/api/admin/sites/demo/dns', { cookie: owner });
+  assert.deepEqual(records.map((x) => [x.type, x.name, x.content, x.proxied]), [['CNAME', 'www.client.com', 'fd-demo.pages.dev', true]]);
+  await call('POST', '/api/admin/sites/other/domain', { cookie: owner, body: { domain: 'elsewhere.co.il' } });
+  const r = await call('POST', '/api/admin/sites/other/dns', { cookie: owner });
+  assert.equal(r.status, 422); assert.match(r.data.error, /Cloudflare/);
 });

@@ -120,3 +120,7 @@ femme-cms/
 1. לטוקן ה-Cloudflare (`CLOUDFLARE_API_TOKEN`) מוסיפים הרשאה **Account → Cloudflare Pages → Edit**.
 2. ב-Cloudflare: Workers & Pages → Create → Pages → Connect to Git, ולהתקין את אפליקציית **Cloudflare Pages** ב-GitHub עם גישה לריפואים של הלקוחות (פעם אחת; אין צורך להשלים יצירת פרויקט).
 3. מריצים את ה-workflow מחדש – הטוקן וה-Account ID מועברים אוטומטית ל-Worker.
+
+## הגדרת DNS אוטומטית (Cloudflare)
+
+כשהדומיין של הלקוח נמצא בחשבון ה-Cloudflare שלכם, בפאנל הדומיין יש כפתור **הגדרת DNS אוטומטית**: המערכת מוצאת את ה-Zone ויוצרת את הרשומות (GitHub Pages, או `<project>.pages.dev` אחרי ההעברה ל-Cloudflare). רשומות A/AAAA/CNAME מתנגשות באותו שם מוחלפות; MX/TXT ואחרות לא נוגעים בהן. לטוקן נדרשות ההרשאות **Zone ← Zone: Read** ו-**Zone ← DNS: Edit** (בנוסף ל-Pages: Edit).
