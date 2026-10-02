@@ -336,7 +336,7 @@ async function checkDomain(env, id) {
       } else out.status = 'cert';
     } catch (e) {
       if (e.github === 404) throw new HttpError(422, 'GitHub Pages לא מופעל בריפו הזה, או שלטוקן אין הרשאת Pages (Read and write).');
-      if (e.github === 403) throw new HttpError(422, `לטוקן של GitHub אין הרשאה לשנות את Pages בריפו ${site.repo}. ב-GitHub: Settings ← Developer settings ← Fine-grained tokens ← הטוקן ← ודאו ש-Repository access כולל את הריפו הזה, ושההרשאה Pages מוגדרת Read and write (בנוסף ל-Contents).`);
+      if (e.github === 403) throw new HttpError(422, `לטוקן של GitHub אין הרשאה לשנות את Pages בריפו ${site.repo}. ב-GitHub: Settings ← Developer settings ← Fine-grained tokens ← הטוקן ← ודאו ש-Repository access כולל את הריפו הזה, ושההרשאה Pages מוגדרת Read and write (בנוסף ל-Contents). אם הריפו שייך לחשבון או ארגון אחר, יש ליצור את הטוקן עם Resource owner של אותו חשבון. (פעולה שנדחתה: ${e.endpoint}, הודעת GitHub: ${e.message})`);
       throw e;
     }
   }

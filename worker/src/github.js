@@ -27,7 +27,7 @@ export class GitHub {
     try { json = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
     if (!r.ok) {
       const e = new HttpError(r.status === 404 ? 404 : 502, (json && json.message) || `GitHub ${r.status}`);
-      e.github = r.status;
+      e.github = r.status; e.endpoint = `${method} ${path}`;
       throw e;
     }
     return json;
