@@ -184,6 +184,58 @@ async function viewAdmin() {
     return form;
   }
 
+  /* Domain wizard: enter domain → DNS records to copy → "check" moves it forward step by step. */
+  function domainPanel(site) {
+    const box = h('div', { class: 'formcard' });
+    let st = { domain: site.domain || null };
+    const copy = async (t) => { try { await navigator.clipboard.writeText(t); toast('הועתק'); } catch { /* ignore */ } };
+    const STEPS = [['dns', 'הגדרת רשומות DNS'], ['cert', 'GitHub מנפיק תעודת HTTPS'], ['live', 'הדומיין באוויר']];
+    function paint(res) {
+      box.replaceChildren(h('div', { class: 'full' }, h('h3', {}, 'חיבור דומיין – ' + site.name)));
+      const d = st.domain;
+      if (!d) {
+        box.append(h('label', { class: 'field full' }, h('span', { class: 'lbl' }, 'הדומיין שהלקוח רכש'),
+          h('input', { id: 'dm-name', type: 'text', dir: 'ltr', placeholder: 'www.client.co.il' }),
+          h('span', { class: 'help' }, 'אפשר דומיין ראשי (client.co.il) או תת-דומיין (www.client.co.il). הרכישה עצמה אצל רשם הדומיינים.')),
+          h('div', { class: 'full', style: 'display:flex;gap:10px' },
+            h('button', { class: 'btn primary', onclick: async () => {
+              try { st = await api('POST', `/admin/sites/${site.id}/domain`, { domain: $('#dm-name', box).value }); paint(); } catch (e) { toast(e.message, true); }
+            } }, 'המשך'),
+            h('button', { class: 'btn ghost', onclick: () => { showForm = null; draw(); } }, 'סגירה')));
+        return;
+      }
+      const status = (res && res.status) || d.status;
+      const idx = Math.max(0, STEPS.findIndex((x) => x[0] === status));
+      box.append(h('div', { class: 'full', dir: 'ltr', style: 'font-weight:700' }, d.name),
+        h('div', { class: 'full chips' }, STEPS.map((x, i) => h('span', { style: 'padding:4px 10px;border-radius:99px;background:' + (i < idx || status === 'live' ? 'var(--mint)' : i === idx ? 'var(--peach)' : 'transparent') }, (i + 1) + '. ' + x[1]))));
+      if (status !== 'live') {
+        box.append(h('div', { class: 'full' }, h('p', { class: 'muted' }, 'אצל רשם הדומיין (או ב-DNS שלו) מגדירים את הרשומות הבאות:'),
+          h('table', { dir: 'ltr', class: 'dnstable' }, h('tbody', {}, st.records.map((r) => h('tr', {},
+            h('td', {}, r.type), h('td', {}, r.name), h('td', {}, r.value), h('td', { class: 'muted' }, r.optional ? 'מומלץ' : ''),
+            h('td', {}, h('button', { class: 'btn small', onclick: () => copy(r.value) }, 'העתקה')))))),
+          h('p', { class: 'muted' }, 'עדכון DNS יכול לקחת מכמה דקות ועד כמה שעות. אם הדומיין ב-Cloudflare – כבו את הענן הכתום (DNS only).')));
+      }
+      if (res && res.dns && !res.dns.ok) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.dns.hint));
+      if (res && res.error) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.error));
+      if (status === 'cert') box.append(h('div', { class: 'full muted' }, 'ה-DNS תקין והדומיין הוגדר ב-GitHub. התעודה מונפקת בדרך כלל תוך דקות עד שעה. לחצו "בדיקה" שוב בהמשך.'));
+      if (status === 'live') box.append(h('div', { class: 'full' }, 'הדומיין פעיל ✔  ', h('a', { href: 'https://' + d.name + '/', target: '_blank', rel: 'noopener', dir: 'ltr' }, 'https://' + d.name + '/')));
+      box.append(h('div', { class: 'full', style: 'display:flex;gap:10px' },
+        status !== 'live' && h('button', { class: 'btn primary', onclick: async (ev) => {
+          const b = ev.currentTarget; b.disabled = true; b.textContent = 'בודק…';
+          try { const r = await api('POST', `/admin/sites/${site.id}/domain/check`); st = r; paint(r); if (r.status === 'live') await refresh(true); }
+          catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'בדיקה'; }
+        } }, 'בדיקה'),
+        h('button', { class: 'btn danger', onclick: async () => {
+          if (!confirm('לנתק את הדומיין מהאתר?')) return;
+          try { await api('DELETE', `/admin/sites/${site.id}/domain`); st = { domain: null }; await refresh(true); paint(); } catch (e) { toast(e.message, true); }
+        } }, 'ניתוק דומיין'),
+        h('button', { class: 'btn ghost', onclick: () => { showForm = null; draw(); } }, 'סגירה')));
+    }
+    if (site.domain) api('POST', `/admin/sites/${site.id}/domain`, { domain: site.domain.name }).then((r) => { st = r; paint(); }, () => paint());
+    paint();
+    return box;
+  }
+
   function userForm(user) {
     const isNew = !user;
     const f = user || { username: '', name: '', sites: [] };
@@ -225,6 +277,7 @@ async function viewAdmin() {
     if (tab === 'sites') {
       body.push(h('div', { style: 'margin-bottom:16px' }, h('button', { class: 'btn primary', onclick: () => { showForm = { type: 'site' }; draw(); } }, '＋ הוספת אתר')));
       if (showForm && showForm.type === 'site') body.push(siteForm(showForm.item));
+      if (showForm && showForm.type === 'domain') body.push(domainPanel(showForm.item));
       body.push(h('div', { class: 'list' }, state.sites.map((s) => h('div', { class: 'item' },
         h('div', { class: 'grow' }, h('div', { class: 't' }, s.name), h('div', { class: 's' }, s.url + '  ·  ' + s.repo)),
         h('button', { class: 'btn small mint', title: 'מוסיף לאתר את ערכת העריכה (פעם אחת)', onclick: async (ev) => {
@@ -233,6 +286,7 @@ async function viewAdmin() {
           catch (e) { toast(e.message, true); }
           b.disabled = false; b.textContent = 'חיבור לעריכה';
         } }, 'חיבור לעריכה'),
+        h('button', { class: 'btn small', onclick: () => { showForm = { type: 'domain', item: s }; draw(); scrollTo(0, 0); } }, s.domain ? 'דומיין ✔' : 'דומיין'),
         h('a', { class: 'btn small', href: '#/site/' + s.id }, 'פתיחה'),
         h('button', { class: 'btn small', onclick: () => { showForm = { type: 'site', item: s }; draw(); scrollTo(0, 0); } }, 'עריכה'),
         h('button', { class: 'btn small danger', onclick: async () => {

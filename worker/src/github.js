@@ -63,6 +63,10 @@ export class GitHub {
     return { commit: commit.sha, blobs: shas };
   }
 
+  /** GitHub Pages settings: {cname, https_enforced, https_certificate:{state}, html_url} */
+  getPages(repo) { return this.req('GET', `/repos/${repo}/pages`); }
+  setPages(repo, settings) { return this.req('PUT', `/repos/${repo}/pages`, settings); }
+
   history(repo, branch, path, n = 30) {
     return this.req('GET', `/repos/${repo}/commits?sha=${enc(branch)}&path=${enc(path)}&per_page=${n}`);
   }

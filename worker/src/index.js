@@ -11,6 +11,7 @@
  */
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
+import { normalizeDomain, dnsRecords, checkDns } from './domain.js';
 import { HttpError, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
 const SESSION_DAYS = 14;
@@ -127,6 +128,11 @@ async function route(req, env, url) {
       if (method === 'DELETE') return deleteSite(env, m[1]);
     }
     if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)\/connect$/)) && method === 'POST') return connectSite(req, env, url, m[1]);
+    if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)\/domain(\/check)?$/))) {
+      if (method === 'POST' && !m[2]) return setDomain(req, env, m[1]);
+      if (method === 'POST') return checkDomain(env, m[1]);
+      if (method === 'DELETE' && !m[2]) return removeDomain(env, m[1]);
+    }
     if (pathname === '/api/admin/users' && method === 'POST') return saveUser(req, env, null);
     if ((m = pathname.match(/^\/api\/admin\/users\/([a-z0-9._-]+)$/))) {
       if (method === 'PUT') return saveUser(req, env, m[1]);
@@ -280,6 +286,72 @@ async function connectSite(req, env, url, id) {
   }
   await gh.commit(site.repo, site.branch, files, 'חיבור מערכת העריכה לאתר');
   return json({ ok: true, files: files.map((f) => f.path) });
+}
+
+/* ---------------- custom domain (GitHub Pages) ---------------- */
+async function siteOrThrow(env, id) {
+  const site = await getKV(env, 's:' + id);
+  if (!site) throw new HttpError(404, 'האתר לא נמצא');
+  return site;
+}
+const domainState = (site) => ({ domain: site.domain || null, ...(site.domain ? dnsRecords(site.domain.name, site.repo) : {}) });
+
+async function setDomain(req, env, id) {
+  const site = await siteOrThrow(env, id);
+  const name = normalizeDomain((await body(req)).domain);
+  const taken = (await listKV(env, 's:')).find((x) => x.id !== id && x.domain && x.domain.name === name);
+  if (taken) throw new HttpError(409, `הדומיין כבר מחובר לאתר "${taken.name}"`);
+  if (site.domain && site.domain.name === name) return json(domainState(site));   // same domain again: keep its progress
+  if (site.domain) await clearPagesDomain(env, site);
+  site.domain = { name, status: 'dns', prevUrl: site.domain ? site.domain.prevUrl : site.url, startedAt: new Date().toISOString() };
+  await putKV(env, 's:' + id, site);
+  return json(domainState(site));
+}
+
+/* One step forward each call: DNS ok → set the domain in GitHub → wait for the HTTPS certificate → enforce HTTPS → switch the site URL. */
+async function checkDomain(env, id) {
+  const site = await siteOrThrow(env, id);
+  if (!site.domain) throw new HttpError(400, 'לא הוגדר דומיין לאתר');
+  const name = site.domain.name;
+  const dns = await checkDns(env, name, site.repo);
+  const out = { dns, status: 'dns' };
+  if (dns.ok) {
+    const gh = new GitHub(env);
+    try {
+      let pages = await gh.getPages(site.repo);
+      if ((pages.cname || '').toLowerCase() !== name) { await gh.setPages(site.repo, { cname: name }); pages = await gh.getPages(site.repo); }
+      const cert = (pages.https_certificate && pages.https_certificate.state) || 'new';
+      out.cert = cert;
+      if (cert === 'approved' || cert === 'issued') {
+        if (!pages.https_enforced) await gh.setPages(site.repo, { https_enforced: true });
+        out.status = 'live';
+      } else if (cert === 'errored' || cert === 'bad_authz') {
+        out.status = 'cert'; out.error = 'GitHub לא הצליח להנפיק תעודת HTTPS. בדקו שאין רשומות AAAA/CAA מתנגשות ונסו שוב.';
+      } else out.status = 'cert';
+    } catch (e) {
+      if (e.github === 404) throw new HttpError(422, 'GitHub Pages לא מופעל בריפו הזה, או שלטוקן אין הרשאת Pages (Read and write).');
+      throw e;
+    }
+  }
+  site.domain.status = out.status;
+  if (out.status === 'live') site.url = `https://${name}/`;
+  await putKV(env, 's:' + id, site);
+  return json({ ...domainState(site), ...out });
+}
+
+async function clearPagesDomain(env, site) {
+  try { await new GitHub(env).setPages(site.repo, { cname: null }); } catch (e) { if (e.github !== 404) throw e; }
+}
+
+async function removeDomain(env, id) {
+  const site = await siteOrThrow(env, id);
+  if (site.domain) {
+    await clearPagesDomain(env, site);
+    if (site.domain.status === 'live' && site.domain.prevUrl) site.url = site.domain.prevUrl;
+    delete site.domain;
+    await putKV(env, 's:' + id, site);
+  }
+  return json({ ok: true, url: site.url });
 }
 
 export { LIMITS };

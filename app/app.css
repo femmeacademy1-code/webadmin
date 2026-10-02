@@ -185,3 +185,5 @@ dialog menu{padding:0;margin:18px 0 0;display:flex;justify-content:flex-end;gap:
 .secname{border:0;background:transparent;text-align:start;font-weight:700;color:var(--ink);cursor:pointer;display:flex;gap:8px;align-items:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px}
 .secname:hover{color:var(--red)}
 input[type=range]{accent-color:var(--red)}
+
+.dnstable{border-collapse:collapse;width:100%;margin:8px 0;font-size:.9rem}.dnstable td{border-bottom:1px solid var(--line);padding:6px 10px;word-break:break-all}

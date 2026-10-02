@@ -17,10 +17,21 @@ const sha = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`
 let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
+let dns, pages, pagesCalls;
 function githubMock() {
   const blobs = {};
   return async (url, init = {}) => {
     const u = new URL(url);
+    if (u.host === 'doh.test') {
+      const t = { A: 1, AAAA: 28, CNAME: 5 }[u.searchParams.get('type')];
+      const list = (dns[u.searchParams.get('name') + '/' + u.searchParams.get('type')] || []).map((data) => ({ type: t, data }));
+      return new Response(JSON.stringify({ Answer: list }));
+    }
+    if (u.pathname === '/repos/o/site/pages') {
+      if (!pages) return new Response('{"message":"Not Found"}', { status: 404 });
+      if (init.method === 'PUT') { const b = JSON.parse(init.body); pagesCalls.push(b); Object.assign(pages, b); return new Response(null, { status: 204 }); }
+      return new Response(JSON.stringify(pages));
+    }
     const path = u.pathname.replace('/repos/o/site', '');
     const body = init.body ? JSON.parse(init.body) : null;
     const res = (s, j) => new Response(JSON.stringify(j), { status: s });
@@ -47,9 +58,10 @@ beforeEach(() => {
     'sub/page.html': Buffer.from('<html><head><title>x</title></head><body></body></html>'),
   } };
   commits = [];
+  dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
   env = {
-    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test',
+    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test', DOH_URL: 'https://doh.test/q',
     ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/kit/cms-kit.js' ? new Response(KIT) : new Response('asset')) },
   };
 });
@@ -404,4 +416,72 @@ test('too many uploads in one go is rejected', async () => {
   const { client } = await setup();
   const images = Array.from({ length: 13 }, (_, i) => ({ path: `cms/uploads/f${i}.pdf`, base64: PDF }));
   assert.equal((await putWith(client, withPage({}), images)).status, 400);
+});
+
+/* ---------- custom domain ---------- */
+import { normalizeDomain, isApex } from '../worker/src/domain.js';
+const IPS = ['185.199.108.153', '185.199.109.153', '185.199.110.153', '185.199.111.153'];
+
+test('normalizeDomain cleans input and rejects junk', () => {
+  assert.equal(normalizeDomain(' HTTPS://WWW.Client.co.il/path?x '), 'www.client.co.il');
+  assert.equal(normalizeDomain('client.com.'), 'client.com');
+  for (const bad of ['', 'nodot', 'a b.com', 'x.github.io', 'foo.workers.dev', '1.2.3.4', 'a..com', '-a.com', 'localhost']) assert.throws(() => normalizeDomain(bad), bad);
+  assert.ok(isApex('client.co.il') && !isApex('www.client.co.il'));
+  assert.ok(isApex('client.com') && !isApex('www.client.com'));
+});
+
+test('domain: records shown, DNS not ready -> nothing changes in GitHub', async () => {
+  const { owner, client } = await setup();
+  const r = await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'Client.com' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.records.filter((x) => x.type === 'A').length, 4);
+  assert.equal(r.data.domain.status, 'dns');
+  const c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'dns'); assert.equal(c.data.dns.ok, false);
+  assert.equal((await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } })).data.domain.prevUrl, 'https://demo.example.com/');
+  assert.deepEqual(pagesCalls, []);
+  assert.equal((await call('POST', '/api/admin/sites/demo/domain', { cookie: client, body: { domain: 'x.com' } })).status, 403);
+});
+
+test('domain: apex goes live after DNS, certificate and HTTPS enforcement', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } });
+  dns['client.com/A'] = IPS;
+  let c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'cert');
+  assert.deepEqual(pagesCalls, [{ cname: 'client.com' }]);
+  pages.https_certificate = { state: 'approved' };
+  c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'live');
+  assert.equal((await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } })).data.domain.status, 'live');   // reopening the panel keeps progress
+  assert.deepEqual(pagesCalls[1], { https_enforced: true });
+  const st = (await call('GET', '/api/admin/state', { cookie: owner })).data.sites.find((x) => x.id === 'demo');
+  assert.equal(st.url, 'https://client.com/');
+  // removing restores the old URL and clears the cname
+  await call('DELETE', '/api/admin/sites/demo/domain', { cookie: owner });
+  const st2 = (await call('GET', '/api/admin/state', { cookie: owner })).data.sites.find((x) => x.id === 'demo');
+  assert.equal(st2.url, 'https://demo.example.com/'); assert.equal(st2.domain, undefined);
+  assert.deepEqual(pagesCalls.at(-1), { cname: null });
+});
+
+test('domain: subdomain needs a CNAME to <owner>.github.io; foreign A records are explained', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });
+  dns['www.client.com/CNAME'] = ['other.example.net.'];
+  assert.equal((await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner })).data.dns.ok, false);
+  dns['www.client.com/CNAME'] = ['O.github.io.'];
+  assert.equal((await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner })).data.status, 'cert');
+  await call('POST', '/api/admin/sites/other/domain', { cookie: owner, body: { domain: 'apex.com' } });
+  dns['apex.com/A'] = [...IPS, '104.21.1.1'];
+  const bad = await call('POST', '/api/admin/sites/other/domain/check', { cookie: owner });
+  assert.equal(bad.data.dns.ok, false); assert.match(bad.data.dns.hint, /104\.21\.1\.1/);
+});
+
+test('domain: unique per site; Pages not enabled gives a clear error', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } });
+  assert.equal((await call('POST', '/api/admin/sites/other/domain', { cookie: owner, body: { domain: 'client.com' } })).status, 409);
+  dns['client.com/A'] = IPS; pages = null;
+  const r = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(r.status, 422);
 });
