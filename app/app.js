@@ -192,6 +192,7 @@ async function viewAdmin() {
   /* Domain wizard: enter domain → DNS records to copy → "check" moves it forward step by step. */
   function domainPanel(site) {
     const box = h('div', { class: 'formcard' });
+    let pollTimer;
     let st = { domain: site.domain || null };
     const copy = async (t) => { try { await navigator.clipboard.writeText(t); toast('הועתק'); } catch { /* ignore */ } };
     const STEPS = [['dns', 'הגדרת רשומות DNS'], ['cert', 'GitHub מנפיק תעודת HTTPS'], ['live', 'הדומיין באוויר']];
@@ -260,7 +261,14 @@ async function viewAdmin() {
       }
       if (res && res.dns && !res.dns.ok) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.dns.hint));
       if (res && res.error) box.append(h('div', { class: 'full', style: 'color:var(--red)' }, res.error));
-      if (status === 'cert') box.append(h('div', { class: 'full muted' }, 'ה-DNS תקין והדומיין הוגדר ב-GitHub. התעודה מונפקת בדרך כלל תוך דקות עד שעה. לחצו "בדיקה" שוב בהמשך.'));
+      if (status === 'cert') {
+        box.append(h('div', { class: 'full muted' }, 'ה-DNS תקין והדומיין הוגדר ב-GitHub. התעודה מונפקת בדרך כלל תוך דקות עד שעה, ואז ה-HTTPS מופעל אוטומטית. הדף בודק לבד כל חצי דקה כל עוד הוא פתוח.'));
+        clearTimeout(pollTimer);
+        pollTimer = setTimeout(async () => {
+          if (!box.isConnected) return;
+          try { const r = await api('POST', `/admin/sites/${site.id}/domain/check`); st = r; paint(r); if (r.status === 'live') await refresh(); } catch { /* try again next round */ }
+        }, 30000);
+      }
       if (status === 'live') box.append(h('div', { class: 'full' }, 'הדומיין פעיל ✔  ', h('a', { href: 'https://' + d.name + '/', target: '_blank', rel: 'noopener', dir: 'ltr' }, 'https://' + d.name + '/')));
       if (status !== 'live') box.append(h('div', { class: 'full', style: 'display:flex;gap:8px;align-items:center' },
         h('input', { id: 'dm-change', type: 'text', dir: 'ltr', placeholder: 'להחלפת הדומיין: www.other.co.il', style: 'flex:1' }),
@@ -270,7 +278,7 @@ async function viewAdmin() {
         } }, 'החלפה')));
       box.append(hostingBlock());
       box.append(h('div', { class: 'full', style: 'display:flex;gap:10px' },
-        status !== 'live' && h('button', { class: 'btn primary', onclick: async (ev) => {
+        h('button', { class: status === 'live' ? 'btn small' : 'btn primary', onclick: async (ev) => {
           const b = ev.currentTarget; b.disabled = true; b.textContent = 'בודק…';
           try { const r = await api('POST', `/admin/sites/${site.id}/domain/check`); st = r; paint(r); if (r.status === 'live') await refresh(true); }
           catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'בדיקה'; }

@@ -486,6 +486,34 @@ test('domain: apex goes live after DNS, certificate and HTTPS enforcement', asyn
   assert.deepEqual(pagesCalls.at(-1), { cname: null });
 });
 
+test('domain: "issued" is not live yet; HTTPS must really be enforced', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } });
+  dns['client.com/A'] = IPS;
+  pages.https_certificate = { state: 'issued' };
+  let c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'cert');
+  assert.ok(!pagesCalls.some((x) => x.https_enforced));
+  pages.https_certificate = { state: 'approved' };
+  c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'live');
+  assert.equal(pages.https_enforced, true);
+});
+
+test('domain: "issued" is not live yet; HTTPS must really be enforced', async () => {
+  const { owner } = await setup();
+  await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'client.com' } });
+  dns['client.com/A'] = IPS;
+  pages.https_certificate = { state: 'issued' };
+  let c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'cert');
+  assert.ok(!pagesCalls.some((x) => x.https_enforced));
+  pages.https_certificate = { state: 'approved' };
+  c = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
+  assert.equal(c.data.status, 'live');
+  assert.equal(pages.https_enforced, true);
+});
+
 test('domain: subdomain needs a CNAME to <owner>.github.io; foreign A records are explained', async () => {
   const { owner } = await setup();
   await call('POST', '/api/admin/sites/demo/domain', { cookie: owner, body: { domain: 'www.client.com' } });

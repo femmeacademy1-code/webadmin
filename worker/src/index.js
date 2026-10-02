@@ -328,9 +328,13 @@ async function checkDomain(env, id) {
       if ((pages.cname || '').toLowerCase() !== name) { await gh.setPages(site.repo, { cname: name }); pages = await gh.getPages(site.repo); }
       const cert = (pages.https_certificate && pages.https_certificate.state) || 'new';
       out.cert = cert;
-      if (cert === 'approved' || cert === 'issued') {
-        if (!pages.https_enforced) await gh.setPages(site.repo, { https_enforced: true });
-        out.status = 'live';
+      if (cert === 'approved') {
+        // Only "approved" means the certificate is installed; "issued"/"uploaded" are still on their way.
+        if (!pages.https_enforced) {
+          try { await gh.setPages(site.repo, { https_enforced: true }); pages = await gh.getPages(site.repo); }
+          catch (e) { if (e.github === 422) out.cert = 'pending'; else throw e; }
+        }
+        out.status = pages.https_enforced ? 'live' : 'cert';
       } else if (cert === 'errored' || cert === 'bad_authz') {
         out.status = 'cert'; out.error = 'GitHub לא הצליח להנפיק תעודת HTTPS. בדקו שאין רשומות AAAA/CAA מתנגשות ונסו שוב.';
       } else out.status = 'cert';
@@ -342,6 +346,8 @@ async function checkDomain(env, id) {
   }
   site.domain.status = out.status;
   if (out.status === 'live') site.url = `https://${name}/`;
+  else if (site.url === `https://${name}/` && site.domain.prevUrl) site.url = site.domain.prevUrl;   // not secure yet: keep using the old address
+  else if (site.url === `https://${name}/` && site.domain.prevUrl) site.url = site.domain.prevUrl;   // not secure yet: keep using the old address
   await putKV(env, 's:' + id, site);
   return json({ ...domainState(site), ...out });
 }
