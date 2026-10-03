@@ -45,7 +45,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 4;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements
+  var KIT_VERSION = 5;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -377,6 +377,32 @@
       setStyle(el, 'text-decoration', deco.trim() || 'none');
     }
     if (spec.al) setStyle(el, 'text-align', spec.al);
+    applyShape(el, spec);
+  }
+
+  /* Boxes and pictures: corner radius, shadow, border, and (pictures) a cut-out shape, crop ratio and focal point. */
+  var SHADOWS = ['none', '0 2px 10px rgba(0,0,0,.12)', '0 8px 24px rgba(0,0,0,.18)', '0 16px 48px rgba(0,0,0,.28)'];
+  var CLIPS = {
+    circle: 'circle(closest-side at 50% 50%)', arch: 'inset(0 round 999px 999px 0 0)',
+    triangle: 'polygon(50% 0, 100% 100%, 0 100%)', diamond: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)',
+    pentagon: 'polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%)', hexagon: 'polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)',
+    star: 'polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+  };
+  var SHAPE_RADIUS = { rounded: '24px', blob: '63% 37% 54% 46% / 55% 48% 52% 45%' };
+  function applyShape(el, spec) {
+    var isImg = el.tagName === 'IMG';
+    if (spec.rad != null) { setStyle(el, 'border-radius', spec.rad + 'px'); if (!isImg && spec.rad > 0) setStyle(el, 'overflow', 'hidden'); }
+    if (spec.sh != null) setStyle(el, 'box-shadow', SHADOWS[spec.sh] || 'none');
+    if (spec.bw != null) setStyle(el, 'border', spec.bw ? spec.bw + 'px solid ' + (spec.bc || '#47454D') : 'none');
+    else if (spec.bc) setStyle(el, 'border-color', spec.bc);
+    if (!isImg) return;
+    if (spec.shape && spec.shape !== 'none') {
+      if (CLIPS[spec.shape]) setStyle(el, 'clip-path', CLIPS[spec.shape]);
+      else if (SHAPE_RADIUS[spec.shape]) setStyle(el, 'border-radius', SHAPE_RADIUS[spec.shape]);
+      setStyle(el, 'object-fit', 'cover');
+    }
+    if (spec.ar && spec.ar !== 'orig') { setStyle(el, 'aspect-ratio', spec.ar.replace(':', ' / ')); setStyle(el, 'height', 'auto'); setStyle(el, 'object-fit', 'cover'); }
+    if (spec.fx != null || spec.fy != null) { setStyle(el, 'object-position', (spec.fx != null ? spec.fx : 50) + '% ' + (spec.fy != null ? spec.fy : 50) + '%'); setStyle(el, 'object-fit', 'cover'); }
   }
 
   /* ---------- layout operations: duplicate / move / hide ---------- */
@@ -408,6 +434,23 @@
     }
     return el;
   }
+  // An existing "card" (a box with its own background / border / shadow and some text) to copy the look from.
+  function findCard(near) {
+    var look = function (root) {
+      var list = root.querySelectorAll('div[class], article[class], li[class]');
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (!shown(c) || c.closest('nav, footer, header')) continue;
+        var w = c.offsetWidth, hh = c.offsetHeight;
+        if (w < 160 || w > 700 || hh < 80 || hh > 700) continue;
+        if (c.querySelector('iframe, video, form, section') || !c.querySelector('h2, h3, h4, p')) continue;
+        var cs = getComputedStyle(c);
+        if (!/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || parseFloat(cs.borderTopWidth) > 0 || (cs.boxShadow && cs.boxShadow !== 'none')) return c;
+      }
+      return null;
+    };
+    return look(near.closest('section, main') || document.body) || look(document.body);
+  }
   var BTN_SEL = 'a.btn, a[class*="btn"], a[class*="button"], a[class*="cta"], button[class*="btn"], button[class*="button"]';
   function make(tag, cls, text) {
     var e = document.createElement(tag);
@@ -435,6 +478,13 @@
       el = document.createElement('img');
       el.setAttribute('alt', '');
       el.setAttribute('style', 'display:block;max-width:100%;height:auto;margin:16px auto');
+    } else if (t === 'box') {
+      m = findCard(after);
+      el = make('div', m ? cleanClass(m.className) : '');
+      if (!m) el.setAttribute('style', 'padding:24px;margin:16px 0;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:16px');
+      var hm = m && m.querySelector('h2, h3, h4'), pm = m && m.querySelector('p');
+      el.appendChild(make(hm ? hm.tagName.toLowerCase() : 'h3', hm ? cleanClass(hm.className) : '', 'כותרת הקופסה'));
+      el.appendChild(make('p', pm ? cleanClass(pm.className) : '', 'כאן כותבים את תוכן הקופסה.'));
     } else if (t === 'divider') {
       m = findModel('hr', after);
       el = make('hr', m ? cleanClass(m.className) : '');
@@ -612,6 +662,7 @@
       al: /^(left|right|center|justify)$/.test(cs.textAlign) ? cs.textAlign : 'right',
       canUp: !!visibleSibling(el, -1), canDown: !!visibleSibling(el, 1),
       clone: el.getAttribute(CID) || null, hidden: isHidden(el),
+      rad: Math.round(parseFloat(cs.borderTopLeftRadius)) || 0, bw: Math.round(parseFloat(cs.borderTopWidth)) || 0, bc: cssColorToHex(cs.borderTopColor),
       added: el.getAttribute('data-cms-add') || null, vid: el.getAttribute('data-cms-vid') || null
     };
     if (u.kind === 'text') info.text = getText(el);

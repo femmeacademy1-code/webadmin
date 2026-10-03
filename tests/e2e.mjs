@@ -209,8 +209,8 @@ try {
 
   // link edit: the primary hero button
   await fr.locator('.hero .btn-primary').click();
-  await pg.waitForSelector('.insp-body input[dir=ltr]');
-  await pg.locator('.insp-body input[dir=ltr]').first().fill('tel:0501234567');
+  await pg.waitForSelector('.insp-body input[dir=ltr]:not([type=number])');
+  await pg.locator('.insp-body input[dir=ltr]:not([type=number])').first().fill('tel:0501234567');
   await pg.waitForTimeout(300);
   ok(await fr.locator('.hero .btn-primary').getAttribute('href') === 'tel:0501234567', 'link target edited');
 
@@ -323,7 +323,7 @@ try {
   const nb = await fr.locator('[data-cms-add="button"]').evaluate((e) => ({ cls: e.className, text: e.textContent }));
   ok(/\bbtn\b/.test(nb.cls) && /btn-primary/.test(nb.cls) && nb.text === 'לחצו כאן', 'add button: new button copies the site\'s button classes: ' + JSON.stringify(nb));
   await pg.fill('.insp-body textarea', 'התקשרו עכשיו');
-  await pg.locator('.insp-body input[dir=ltr]').first().fill('tel:0501234567');
+  await pg.locator('.insp-body input[dir=ltr]:not([type=number])').first().fill('tel:0501234567');
   await pg.waitForTimeout(300);
   ok(await fr.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && (await fr.locator('[data-cms-add="button"]').innerText()) === 'התקשרו עכשיו', 'add button: text and link editable');
 
@@ -365,11 +365,33 @@ try {
   await pg.waitForSelector('.insp-body textarea, .insp-body .thumb');
   await pg.waitForTimeout(800);
   ok((await fr.locator('[data-cms-add="image"]').getAttribute('src')).startsWith('data:image/'), 'add image: uploaded image appears right away');
+  // crop the picture into a shape
+  await pg.waitForSelector('.shapes .shape:has-text("עיגול")');
+  await pg.click('.shapes .shape:has-text("עיגול")');
+  await pg.selectOption('.insp-body select:near(:text("יחס חיתוך"))', '1:1');
+  await pg.waitForTimeout(300);
+  const shp = await fr.locator('[data-cms-add="image"]').evaluate((e) => { const c = getComputedStyle(e); return { clip: c.clipPath, ar: c.aspectRatio }; });
+  ok(/^circle/.test(shp.clip) && shp.ar === '1 / 1', 'image shape: picture is cut into a circle with a 1:1 crop: ' + JSON.stringify(shp));
+  await shot('12-image-shape');
   // delete the added image again (counts as "delete the element")
   await pg.click('button:has-text("✕ מחיקת האלמנט")');
   await pg.waitForTimeout(400);
   ok(await fr.locator('[data-cms-add="image"]').count() === 0, 'delete: an added element can be removed');
 
+  // a content box with its own corner radius, border and shadow
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button.addtile:has-text("קופסה")');
+  await pg.click('button.addtile:has-text("קופסה")');
+  await fr.locator('[data-cms-add="box"]').waitFor({ timeout: 8000 });
+  await pg.waitForSelector('.insp-body h4:has-text("פינות, מסגרת וצל")');
+  await pg.fill('.insp-body input[type=number][min="0"][max="200"]', '30');
+  await pg.locator('.insp-body input[type=number][min="0"][max="200"]').dispatchEvent('change');
+  await pg.selectOption('.insp-body select:near(:text("צל"))', '2');
+  await pg.waitForTimeout(400);
+  const boxCss = await fr.locator('[data-cms-add="box"]').evaluate((e) => { const c = getComputedStyle(e); return { rad: c.borderTopLeftRadius, shadow: c.boxShadow !== 'none', title: e.querySelector('h3, h2, h4').textContent }; });
+  ok(boxCss.rad === '30px' && boxCss.shadow && boxCss.title === 'כותרת הקופסה', 'box: added with its own title; corner radius and shadow controlled from the editor: ' + JSON.stringify(boxCss));
+
+  await shot('13-box');
   /* publish */
   await pg.click('#publish');
   await pg.waitForFunction(() => ['publishing', 'live'].includes(document.querySelector('#chip').dataset.s), null, { timeout: 8000 });
@@ -411,6 +433,7 @@ try {
   const fhref = await pub.locator('[data-cms-add="file"]').getAttribute('href');
   ok(/^cms\/uploads\/.+\.pdf$/.test(fhref) && fs.readFileSync(path.join(SITE, fhref)).slice(0, 5).toString() === '%PDF-', 'public site: download link points to the committed PDF: ' + fhref);
   ok(await pub.locator('[data-cms-add="image"]').count() === 0, 'public site: the deleted image is gone');
+  ok(await pub.locator('[data-cms-add="box"]').evaluate((e) => getComputedStyle(e).borderTopLeftRadius === '30px'), 'public site: the box with its corner radius');
   const saved2 = JSON.parse(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')).pages['index.html'];
   ok(saved2.layout.some((o) => o.op === 'add' && o.type === 'video' && o.p.vid === '123456789') && !saved2.layout.some((o) => o.type === 'image'), 'edits.json: add ops saved, deleted image op removed');
   ok(await pub.locator('[id="why"]').count() === 1, 'public site: ids stay unique');
@@ -424,6 +447,7 @@ try {
 
 
   /* page copies + text-only pages */
+  ok(!/false|undefined|null/.test(await pg.locator('.pagebar').innerText()), 'pages: the page bar shows no stray "false" text');
   await pg.waitForSelector('#publish:disabled');
   await pg.click('button:has-text("＋ עמוד חדש (שכפול)")');
   await pg.fill('dialog[open] input', 'Terms two');

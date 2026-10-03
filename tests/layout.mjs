@@ -54,9 +54,10 @@ fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...edits, pages: {
 // Adding elements: a page with a button, a paragraph, a heading and a list to take styling from.
 fs.writeFileSync(S + '/site/add.html', `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>a</title>
 <script src="cms/cms-kit.js" data-admin-origin="http://localhost:9002"></script>
-<style>.btn{display:inline-block;padding:8px 20px;background:#52725a;color:#fff}.title{color:#123456}.lead{font-size:20px}</style></head>
+<style>.btn{display:inline-block;padding:8px 20px;background:#52725a;color:#fff}.title{color:#123456}.lead{font-size:20px}.card{background:#f5eee6;border:2px solid #52725a;border-radius:6px;padding:20px;width:300px;height:140px}.ct{color:#52725a}</style></head>
 <body><main><section id="s"><h2 class="title reveal">כותרת קיימת</h2><p class="lead reveal">פסקה קיימת עם טקסט ארוך מספיק</p><a class="btn primary" href="/go">לדף</a>
-<ul id="list"><li class="item">פריט</li></ul></section></main></body></html>`);
+<div class="card reveal"><h3 class="ct">חבילה</h3><p class="cp">₪100 ללילה</p></div><ul id="list"><li class="item">פריט</li></ul></section></main></body></html>`);
+fs.writeFileSync(S + '/site/box2.html', `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>b</title><script src="cms/cms-kit.js" data-admin-origin="http://localhost:9002"></script></head><body><main><section id="s"><p>רק פסקה</p></section></main></body></html>`);
 const P = 'body>main:nth-of-type(1)>section:nth-of-type(1)';
 fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')), pages: { ...JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')).pages, 'add.html': {
   layout: [
@@ -68,9 +69,12 @@ fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...JSON.parse(fs.r
     { op: 'add', after: '#list>li:nth-of-type(1)', id: 'li1', type: 'text' },
     { op: 'add', after: '#s>p:nth-of-type(1)', id: 'd1', type: 'divider' },
     { op: 'add', after: '#s>p:nth-of-type(1)', id: 'vm1', type: 'video', p: { provider: 'vimeo', vid: '123456789' } },
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'bx1', type: 'box' },
   ],
-  els: { '@b1': { t: 'התקשרו', href: 'tel:0501234567' }, '@f1': { t: 'חוברת', href: 'cms/uploads/a.pdf' }, '@im1': { src: 'https://example.com/x.png', alt: 'תיאור' }, '@h1x': { t: 'כותרת שהוספתי' } },
+  els: { '@b1': { t: 'התקשרו', href: 'tel:0501234567' }, '@f1': { t: 'חוברת', href: 'cms/uploads/a.pdf' }, '@im1': { src: 'https://example.com/x.png', alt: 'תיאור', shape: 'circle', ar: '1:1', fx: 30, fy: 70 }, '@h1x': { t: 'כותרת שהוספתי' },
+    '@bx1': { rad: 20, sh: 2, bw: 4, bc: '#b85150', bgc: '#ddf5ee' }, '@bx1>h3:nth-of-type(1)': { t: 'חבילת זהב' } },
 } } }));
+{ const j = JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')); j.pages['box2.html'] = { layout: [{ op: 'add', after: '#s>p:nth-of-type(1)', id: 'bx2', type: 'box' }], els: {} }; fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(j)); }
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/page2.html?cms-edit=1"></iframe>
 <script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
 window.post=(m)=>document.getElementById('f').contentWindow.postMessage(m,'http://localhost:9001');</script></body></html>`);
@@ -132,6 +136,19 @@ try {
   ok(await pg.locator('[data-cms-add="text"], [data-cms-add="heading"]').first().evaluate((e) => getComputedStyle(e).opacity === '1'), 'added elements are visible (no leftover reveal classes)');
   ok(await pg.locator('script, [onclick], [onload]').evaluateAll((els) => els.filter((e) => e.closest('[data-cms-id]')).length === 0), 'added elements contain no scripts or inline handlers');
 
+  /* ---------- boxes and image shapes ---------- */
+  const bx = await pg.locator('[data-cms-add="box"]').evaluate((e) => { const c = getComputedStyle(e); return { cls: e.className, h: e.querySelector('h3') && e.querySelector('h3').className, htext: e.querySelector('h3').textContent, hasP: !!e.querySelector('p'), rad: c.borderTopLeftRadius, shadow: c.boxShadow, bw: c.borderTopWidth, bc: c.borderTopColor, bg: c.backgroundColor, opacity: c.opacity }; });
+  ok(bx.cls === 'card' && bx.h === 'ct' && bx.hasP, 'box: copies the look (classes) of an existing card on the page, without the scroll-reveal class: ' + JSON.stringify(bx));
+  ok(bx.rad === '20px' && bx.shadow !== 'none' && bx.bw === '4px' && bx.bc === 'rgb(184, 81, 80)' && bx.bg === 'rgb(221, 245, 238)' && bx.opacity === '1', 'box: corner radius, shadow, border and background come from the edits');
+  ok(bx.htext === 'חבילת זהב', 'box: its title is editable like any text');
+  const shape = await pg.locator('[data-cms-add="image"]').evaluate((e) => { const c = getComputedStyle(e); return { clip: c.clipPath, ar: c.aspectRatio, fit: c.objectFit, pos: c.objectPosition }; });
+  ok(/^circle/.test(shape.clip) && shape.ar === '1 / 1' && shape.fit === 'cover' && shape.pos === '30% 70%', 'image: circle shape, 1:1 crop and focal point: ' + JSON.stringify(shape));
+  await pg.goto('http://localhost:9001/box2.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+  ok(await pg.locator('[data-cms-add="box"]').count() === 1 && await pg.locator('[data-cms-add="box"]').evaluate((e) => { const c = getComputedStyle(e); return c.borderTopLeftRadius === '16px' && c.paddingTop === '24px'; }), 'box: on a page without cards it gets a clean default style');
+  await pg.goto('http://localhost:9001/add.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+
   /* ---------- scroll-reveal pages: a copy must not stay invisible ---------- */
   await pg.goto('http://localhost:9001/reveal.html');
   await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
@@ -149,7 +166,7 @@ try {
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 4, 'edit: kit reports its version');
+  ok(ready.version === 5, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);

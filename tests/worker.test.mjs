@@ -710,3 +710,18 @@ test('text-only pages: a client can change text but not colours, fonts, links, l
   await putPage(client, { v: 1, global: {}, pages: { 'copy.html': { els: { [key]: { t: 'x', color: '#00ff00' } } } } });
   assert.equal(JSON.parse(repo.files['cms/edits.json'].toString()).pages['copy.html'].els[key].color, '#112233');
 });
+
+/* ---------- boxes and image shapes ---------- */
+test('boxes and shapes: valid values are saved, junk is refused', async () => {
+  const { client } = await setup();
+  const good = withPage({ els: { 'img': { shape: 'hexagon', ar: '4:3', fx: 20, fy: 80, rad: 24, sh: 2, bw: 3, bc: '#b85150' }, '@bx1': { rad: 40 } } });
+  good.pages['index.html'].layout = [{ op: 'add', after: 'img', id: 'bx1', type: 'box' }];
+  const ok = await putWith(client, good);
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].els.img;
+  assert.deepEqual(saved, { shape: 'hexagon', ar: '4:3', fx: 20, fy: 80, rad: 24, sh: 2, bw: 3, bc: '#b85150' });
+  for (const bad of [{ rad: 500 }, { rad: -1 }, { rad: 1.5 }, { sh: 4 }, { bw: 99 }, { bc: 'red' }, { bc: 'url(x)' }, { shape: 'url(javascript:1)' }, { shape: 'polygon(0 0)' }, { ar: '7:5' }, { fx: 101 }, { fy: '50' }]) {
+    const r = await putWith(client, withPage({ els: { img: bad } }));
+    assert.equal(r.status, 400, JSON.stringify(bad));
+  }
+});

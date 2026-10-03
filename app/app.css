@@ -203,3 +203,19 @@ input[type=range]{accent-color:var(--red)}
 .addwhere{width:100%}
 .pagebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pagebar select{width:auto;max-width:200px}
+
+.shapes{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.shape{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border:2px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.shape.on{border-color:var(--ink);background:var(--mint)}
+.shape:disabled{opacity:.45;cursor:not-allowed}
+.shp{display:block;width:34px;height:34px;background:var(--ink)}
+.shp-none{background:transparent;border:2px solid var(--ink)}
+.shp-circle{clip-path:circle(closest-side at 50% 50%)}
+.shp-rounded{border-radius:10px}
+.shp-arch{clip-path:inset(0 round 999px 999px 0 0)}
+.shp-blob{border-radius:63% 37% 54% 46% / 55% 48% 52% 45%}
+.shp-triangle{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.shp-diamond{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.shp-pentagon{clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%)}
+.shp-hexagon{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.shp-star{clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}

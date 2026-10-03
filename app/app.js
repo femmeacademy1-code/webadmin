@@ -754,7 +754,8 @@ async function viewEditor(siteId) {
 
   const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
   const ADD_KIT = 4;       // first kit version that can add elements
-  const LATEST_KIT = 4;    // newest kit; older sites keep working, the owner is just offered the update
+  const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
+  const LATEST_KIT = 5;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -790,6 +791,53 @@ async function viewEditor(siteId) {
         h('div', {}, h('button', { class: 'link', onclick: () => set({ fs: undefined, b: undefined, i: undefined, u: undefined, st: undefined, al: undefined }) }, 'איפוס העיצוב')));
   }
 
+  /* Corner radius, shadow and border for boxes / pictures. */
+  function boxSection(u, spec) {
+    const old = E.ready && E.kitVersion < STYLE_KIT;
+    const rad = spec.rad != null ? spec.rad : u.rad;
+    const bw = spec.bw != null ? spec.bw : u.bw;
+    const radNum = h('input', { type: 'number', min: 0, max: 200, value: rad, style: 'width:84px', dir: 'ltr', disabled: old });
+    const radRange = h('input', { type: 'range', min: 0, max: 80, value: Math.min(80, rad), style: 'flex:1', disabled: old });
+    const setRad = (v) => { v = Math.round(Math.min(200, Math.max(0, +v || 0))); radNum.value = v; radRange.value = Math.min(80, v); setSpec(u.key, { rad: v }); };
+    radRange.addEventListener('input', () => setRad(radRange.value));
+    radNum.addEventListener('change', () => setRad(radNum.value));
+    const bwNum = h('input', { type: 'number', min: 0, max: 12, value: bw, style: 'width:84px', dir: 'ltr', disabled: old });
+    const bwRange = h('input', { type: 'range', min: 0, max: 12, value: bw, style: 'flex:1', disabled: old });
+    const setBw = (v) => { v = Math.round(Math.min(12, Math.max(0, +v || 0))); bwNum.value = v; bwRange.value = v; setSpec(u.key, { bw: v }); };
+    bwRange.addEventListener('input', () => setBw(bwRange.value));
+    bwNum.addEventListener('change', () => setBw(bwNum.value));
+    const sh = h('select', { disabled: old, onchange: (ev) => { setSpec(u.key, { sh: +ev.target.value }, { force: true }); } },
+      ['ללא צל', 'צל עדין', 'צל בינוני', 'צל חזק'].map((l, i) => h('option', { value: i, selected: (spec.sh || 0) === i }, l)));
+    return h('div', { class: 'sect' }, h('h4', {}, 'פינות, מסגרת וצל'), old && oldKitNote(),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'רדיוס הפינות (px)'), h('div', { style: 'display:flex;gap:10px;align-items:center' }, radRange, radNum),
+        h('span', { class: 'help' }, '0 = פינות חדות, גבוה = פינות עגולות.')),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'עובי מסגרת (px)'), h('div', { style: 'display:flex;gap:10px;align-items:center' }, bwRange, bwNum)),
+      colorField('צבע המסגרת', spec.bc || u.bc, !!spec.bc, (v) => setSpec(u.key, { bc: v }), () => { setSpec(u.key, { bc: undefined }, { force: true }); renderInsp(); }),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'צל'), sh));
+  }
+
+  /* Crop a picture into a shape (circle, triangle, …), choose the crop ratio and which part stays in view. */
+  const SHAPE_LIST = [['none', 'מקורי'], ['circle', 'עיגול'], ['rounded', 'ריבוע מעוגל'], ['arch', 'קשת'], ['blob', 'בועה'], ['triangle', 'משולש'], ['diamond', 'מעוין'], ['pentagon', 'מחומש'], ['hexagon', 'משושה'], ['star', 'כוכב']];
+  const RATIO_LIST = [['orig', 'כמו המקור'], ['1:1', 'ריבוע 1:1'], ['4:3', '4:3'], ['3:4', 'לאורך 3:4'], ['16:9', 'רחב 16:9'], ['9:16', 'סטורי 9:16']];
+  function shapeSection(u, spec) {
+    const old = E.ready && E.kitVersion < STYLE_KIT;
+    const cur = spec.shape || 'none';
+    const pick = (k) => { setSpec(u.key, { shape: k }, { force: true }); renderInsp(); };
+    const ratio = h('select', { disabled: old, onchange: (ev) => { setSpec(u.key, { ar: ev.target.value }, { force: true }); } },
+      RATIO_LIST.map(([k, l]) => h('option', { value: k, selected: (spec.ar || 'orig') === k }, l)));
+    const focus = (key, label) => {
+      const r = h('input', { type: 'range', min: 0, max: 100, value: spec[key] != null ? spec[key] : 50, disabled: old, style: 'flex:1' });
+      r.addEventListener('input', () => setSpec(u.key, { [key]: +r.value }));
+      return h('label', { class: 'field' }, h('span', { class: 'lbl' }, label), r);
+    };
+    return h('div', { class: 'sect' }, h('h4', {}, 'צורה וחיתוך'), old && oldKitNote(),
+      h('div', { class: 'shapes' }, SHAPE_LIST.map(([k, l]) => h('button', { type: 'button', class: 'shape' + (cur === k ? ' on' : ''), disabled: old, title: l, 'aria-pressed': cur === k, onclick: () => pick(k) },
+        h('span', { class: 'shp shp-' + k }), h('span', {}, l)))),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'יחס חיתוך'), ratio),
+      focus('fx', 'איזה חלק בתמונה נשאר בפריים: ימינה ↔ שמאלה'), focus('fy', 'למעלה ↕ למטה'),
+      h('span', { class: 'help' }, 'התמונה נחתכת לצורה שבחרתם, בלי למתוח אותה. צל ומסגרת לא מופיעים סביב צורות מחוספסות (משולש, כוכב…).'));
+  }
+
   function elementSection(u) {
     const old = kitTooOld();
     const isText = u.kind === 'text';
@@ -813,7 +861,7 @@ async function viewEditor(siteId) {
     const sel = u ? null : h('select', { class: 'addwhere', 'aria-label': 'היכן להוסיף' },
       list.map((x, i) => h('option', { value: x.key, selected: i === list.length - 1 }, 'אחרי: ' + (x.label || x.tag))));
     const at = () => { const k = u ? u.key : (sel && sel.value); if (!k) throw new Error('הדף עוד נטען. נסו שוב בעוד רגע.'); return k; };
-    const tile = (icon, label, title, fn) => h('button', { class: 'addtile', disabled: old, title, onclick: async () => { try { await fn(at()); } catch (e) { toast(e.message, true); } } },
+    const tile = (icon, label, title, fn, needKit) => h('button', { class: 'addtile', disabled: old || (needKit && E.ready && E.kitVersion < needKit), title, onclick: async () => { try { await fn(at()); } catch (e) { toast(e.message, true); } } },
       h('span', { class: 'ico' }, icon), h('span', {}, label));
     return h('section', { class: 'addblock' },
       h('h3', {}, 'הוספת ', h('span', { class: 'hl' }, 'אלמנט')),
@@ -840,6 +888,7 @@ async function viewEditor(siteId) {
           await addElement(k, 'file', { spec: { t: 'הורדה: ' + d.name, href: d.path } });
           toast('הקובץ נוסף. לחצו "פרסום באתר" כדי לשמור.');
         }),
+        tile('▭', 'קופסה', 'קופסה לתוכן (כמו כרטיס מחיר) עם כותרת וטקסט, אפשר לקבוע רדיוס פינות, מסגרת וצל', (k) => addElement(k, 'box'), STYLE_KIT),
         tile('T', 'טקסט', 'פסקה חדשה', (k) => addElement(k, 'text')),
         tile('H', 'כותרת', 'כותרת חדשה', (k) => addElement(k, 'heading')),
         tile('—', 'מפריד', 'קו מפריד', (k) => addElement(k, 'divider'))));
@@ -947,6 +996,8 @@ async function viewEditor(siteId) {
     const plainBox = u.added === 'video' || u.added === 'divider';   // nothing to format on these
     if (u.kind !== 'image' && u.kind !== 'bg' && !plainBox) out.push(fmtSection(u, spec));
     if (style.length && !plainBox) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
+    if (u.kind === 'image') out.push(shapeSection(u, spec));
+    if (u.kind === 'image' || u.kind === 'box' || u.kind === 'bg') out.push(boxSection(u, spec));
     out.push(elementSection(u));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));
@@ -1065,12 +1116,12 @@ async function viewEditor(siteId) {
   const pagebar = h('div', { class: 'pagebar' });
   function paintPages() {
     const copies = site.copies || [], max = site.maxCopies || 10;
-    pagebar.replaceChildren(
+    pagebar.replaceChildren(...[
       site.pages.length > 1 && h('select', { 'aria-label': 'עמוד', onchange: (ev) => { E.page = ev.target.value; E.unit = null; paintPages(); renderInsp(); loadFrame(); } },
         site.pages.map((pg) => h('option', { value: pg, selected: pg === E.page }, (site.textOnly || []).includes(pg) && me.user.role !== 'owner' ? '🔒 ' + pageLabel(pg) : pageLabel(pg)))),
       copies.length < max && h('button', { class: 'btn small mint', title: 'יוצר עמוד חדש כעותק של עמוד קיים', onclick: newPageDialog }, '＋ עמוד חדש (שכפול)'),
       copies.some((c) => c.file === E.page) && h('button', { class: 'btn small danger', onclick: deleteCurrentPage }, 'מחיקת העמוד'),
-      copies.length > 0 && h('span', { class: 'muted' }, `${copies.length}/${max} משוכפלים`));
+      copies.length > 0 && h('span', { class: 'muted' }, `${copies.length}/${max} משוכפלים`)].filter(Boolean));   // replaceChildren would print a literal "false"
   }
   // The server changed edits.json (a page was added/removed): reload it so the next publish is not seen as a conflict.
   async function resyncEdits() {
