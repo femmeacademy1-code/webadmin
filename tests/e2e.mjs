@@ -175,6 +175,15 @@ try {
   ok(await fr.locator('.hero h1').innerText() === 'קטלוג אוהלי גלאמפינג', 'site (JS-rendered) loads in the editor iframe');
   await shot('05-editor-empty');
 
+  /* nothing selected: the add block is right under the hint, with a "where" picker; adding at the end of the page works */
+  ok((await pg.locator('.insp-body > *').nth(0).getAttribute('class')) === 'hint' && (await pg.locator('.insp-body > *').nth(1).getAttribute('class')) === 'addblock', 'add (empty state): the add block sits directly under the "select anything" hint');
+  await pg.waitForFunction(() => document.querySelectorAll('.addwhere option').length > 1, null, { timeout: 8000 });
+  await pg.click('button.addtile:has-text("מפריד")');
+  await pg.waitForSelector('.insp-body h3:has-text("עריכת")', { timeout: 8000 });
+  ok(await fr.locator('[data-cms-id]').count() >= 1, 'add (empty state): the new element is added to the page and selected');
+  await pg.click('button:has-text("מחיקת האלמנט")');
+  await pg.waitForSelector('.hint', { timeout: 8000 });
+
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
   ok(await pg.inputValue('.insp-body textarea') === 'קטלוג אוהלי גלאמפינג', 'click text -> inspector shows its text');
@@ -305,11 +314,10 @@ try {
 
   /* adding elements: button, video, file, image */
   await fr.locator('.hero h2').click();
-  const openAdd = async () => { await pg.waitForSelector('.addsect > button'); if (await pg.locator('.addmenu').isHidden()) await pg.click('.addsect > button'); };
-  ok((await pg.locator('.insp-body > *').first().evaluate((e) => e.tagName)) === 'H3' && await pg.locator('.insp-body > .addsect').count() === 1 && await pg.locator('.addmenu').isHidden(), 'add: a single "＋ הוספה" button at the top; the menu is collapsed until clicked');
-  await openAdd();
-  await pg.waitForSelector('button:has-text("🔘 כפתור")');
-  await pg.click('button:has-text("🔘 כפתור")');
+  const openAdd = async () => { await pg.waitForSelector('.addblock .addtile'); };
+  ok((await pg.locator('.insp-body > *').first().evaluate((e) => e.tagName)) === 'H3' && (await pg.locator('.insp-body > .addblock').count()) === 1 && (await pg.locator('.addblock .addtile').first().isVisible()), 'add: a prominent block with all element types sits right under the title (no collapsed menu)');
+  await pg.waitForSelector('button.addtile:has-text("כפתור")');
+  await pg.click('button.addtile:has-text("כפתור")');
   await pg.waitForSelector('.insp-body textarea');
   await pg.waitForTimeout(300);
   const nb = await fr.locator('[data-cms-add="button"]').evaluate((e) => ({ cls: e.className, text: e.textContent }));
@@ -321,8 +329,8 @@ try {
 
   await fr.locator('.hero h2').click();
   await openAdd();
-  await pg.waitForSelector('button:has-text("▶ סרטון")');
-  await pg.click('button:has-text("▶ סרטון")');
+  await pg.waitForSelector('button.addtile:has-text("סרטון")');
+  await pg.click('button.addtile:has-text("סרטון")');
   await pg.waitForSelector('dialog[open] input');
   await pg.fill('dialog[open] input', 'https://example.com/not-a-video');
   await pg.click('dialog[open] button:has-text("הוספה")');
@@ -339,9 +347,9 @@ try {
 
   await fr.locator('.hero h2').click();
   await openAdd();
-  await pg.waitForSelector('button:has-text("📄 קובץ להורדה")');
+  await pg.waitForSelector('button.addtile:has-text("קובץ להורדה")');
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
-  const [fc2] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button:has-text("📄 קובץ להורדה")')]);
+  const [fc2] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button.addtile:has-text("קובץ להורדה")')]);
   await fc2.setFiles({ name: 'חוברת מידע.pdf', mimeType: 'application/pdf', buffer: pdf });
   await pg.waitForSelector('.insp-body textarea');
   await pg.waitForTimeout(500);
@@ -349,10 +357,10 @@ try {
   ok(/^cms\/uploads\/.+\.pdf$/.test(fl.href) && fl.dl && fl.text.includes('חוברת מידע'), 'add file: PDF upload becomes a download link named after the file: ' + JSON.stringify(fl));
   await fr.locator('.hero h2').click();
   await openAdd();
-  await pg.waitForSelector('button:has-text("🖼 תמונה")');
+  await pg.waitForSelector('button.addtile:has-text("תמונה")');
   await pg.locator('.insp-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
   await shot('06c-add-elements');
-  const [fc3] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button:has-text("🖼 תמונה")')]);
+  const [fc3] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('button.addtile:has-text("תמונה")')]);
   await fc3.setFiles({ name: 'extra.jpg', mimeType: 'image/jpeg', buffer: jpg });
   await pg.waitForSelector('.insp-body textarea, .insp-body .thumb');
   await pg.waitForTimeout(800);

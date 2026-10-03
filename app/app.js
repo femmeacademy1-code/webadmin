@@ -799,42 +799,44 @@ async function viewEditor(siteId) {
       h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'));
   }
 
+  /* Always-visible "add element" block: big tiles, directly under the "select anything" header / hint.
+   * With an element selected the new element goes right after it; otherwise the owner picks a section (default: end of the page). */
   function addSection(u) {
     const old = E.ready && E.kitVersion < ADD_KIT;
-    const guard = (fn) => async () => { try { await fn(); } catch (e) { toast(e.message, true); } };
-    const btn = (label, title, fn) => h('button', { class: 'btn small', disabled: old, title, onclick: guard(fn) }, label);
-    const toggle = h('button', { class: 'btn primary', 'aria-expanded': 'false', disabled: old, onclick: () => {
-      menu.hidden = !menu.hidden; toggle.setAttribute('aria-expanded', String(!menu.hidden));
-    } }, '＋ הוספה');
-    const menu = h('div', { class: 'addmenu' },
-      h('div', { class: 'btnrow' },
-        btn('🖼 תמונה', 'העלאת תמונה מהמחשב', async () => {
+    const list = E.sections || [];
+    const sel = u ? null : h('select', { class: 'addwhere', 'aria-label': 'היכן להוסיף' },
+      list.map((x, i) => h('option', { value: x.key, selected: i === list.length - 1 }, 'אחרי: ' + (x.label || x.tag))));
+    const at = () => { const k = u ? u.key : (sel && sel.value); if (!k) throw new Error('הדף עוד נטען. נסו שוב בעוד רגע.'); return k; };
+    const tile = (icon, label, title, fn) => h('button', { class: 'addtile', disabled: old, title, onclick: async () => { try { await fn(at()); } catch (e) { toast(e.message, true); } } },
+      h('span', { class: 'ico' }, icon), h('span', {}, label));
+    return h('section', { class: 'addblock' },
+      h('h3', {}, 'הוספת ', h('span', { class: 'hl' }, 'אלמנט')),
+      old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
+      u ? h('p', { class: 'muted' }, 'האלמנט החדש יופיע מיד אחרי האלמנט שבחרתם.')
+        : h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'היכן להוסיף'), list.length ? sel : h('span', { class: 'muted' }, 'הקטעים נטענים…')),
+      h('div', { class: 'addgrid' },
+        tile('🖼', 'תמונה', 'העלאת תמונה מהמחשב', async (k) => {
           const f = await pickFile(); if (!f) return;
           toast('מעבד תמונה…');
           const im = await processImage(f); E.pending.set(im.path, im);
-          await addElement(u.key, 'image', { spec: { src: im.path, alt: '' } });
+          await addElement(k, 'image', { spec: { src: im.path, alt: '' } });
           toast('התמונה נוספה. לחצו "פרסום באתר" כדי לשמור.');
         }),
-        btn('🔘 כפתור', 'כפתור עם קישור, בעיצוב הכפתורים של האתר', () => addElement(u.key, 'button', { spec: { t: 'לחצו כאן', href: '#' } })),
-        btn('▶ סרטון', 'סרטון מ-YouTube או Vimeo', async () => {
+        tile('🔘', 'כפתור', 'כפתור עם קישור, בעיצוב הכפתורים של האתר', (k) => addElement(k, 'button', { spec: { t: 'לחצו כאן', href: '#' } })),
+        tile('▶', 'סרטון', 'סרטון מ-YouTube או Vimeo', async (k) => {
           const v = await askVideoUrl(); if (!v) return;
-          await addElement(u.key, 'video', { p: v });
+          await addElement(k, 'video', { p: v });
         }),
-        btn('📄 קובץ להורדה', 'PDF, Word, Excel, PowerPoint או ZIP (עד 10MB)', async () => {
+        tile('📄', 'קובץ להורדה', 'PDF, Word, Excel, PowerPoint או ZIP (עד 10MB)', async (k) => {
           const f = await pickFile('.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip'); if (!f) return;
           toast('מכין את הקובץ…');
           const d = await processDocument(f); E.pending.set(d.path, d);
-          await addElement(u.key, 'file', { spec: { t: 'הורדה: ' + d.name, href: d.path } });
+          await addElement(k, 'file', { spec: { t: 'הורדה: ' + d.name, href: d.path } });
           toast('הקובץ נוסף. לחצו "פרסום באתר" כדי לשמור.');
         }),
-        btn('T טקסט', 'פסקה חדשה', () => addElement(u.key, 'text')),
-        btn('H כותרת', 'כותרת חדשה', () => addElement(u.key, 'heading')),
-        btn('— מפריד', 'קו מפריד', () => addElement(u.key, 'divider'))),
-      h('span', { class: 'help' }, 'האלמנט החדש מופיע מיד אחרי האלמנט הנבחר ומקבל את העיצוב של האתר.'));
-    menu.hidden = true;
-    return h('div', { class: 'addsect' },
-      old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
-      toggle, menu);
+        tile('T', 'טקסט', 'פסקה חדשה', (k) => addElement(k, 'text')),
+        tile('H', 'כותרת', 'כותרת חדשה', (k) => addElement(k, 'heading')),
+        tile('—', 'מפריד', 'קו מפריד', (k) => addElement(k, 'divider'))));
   }
 
   function videoField(u) {
@@ -869,12 +871,12 @@ async function viewEditor(siteId) {
 
   function inspSelection() {
     const u = E.unit;
-    if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.')))];
+    if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.'))), addSection(null)];
     const out = [];
     const spec = specOf(u.key);
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
     out.push(h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, kindName)));
-    out.push(addSection(u));   // "＋ הוספה" sits at the top so it is always in reach
+    out.push(addSection(u));   // the add block sits right under the title
 
     if (u.added === 'video') out.push(videoField(u));
     if (u.kind === 'text' || u.kind === 'node') {
@@ -979,11 +981,11 @@ async function viewEditor(siteId) {
       E.sections = d.sections || []; E.kitVersion = d.version || 1;
       $('#notice') && $('#notice').remove();
       sendToFrame();
-      if (E.tab !== 'sel' || kitTooOld()) renderInsp();
+      if (E.tab !== 'sel' || !E.unit || kitTooOld()) renderInsp();
       if (kitTooOld() || (me.user.role === 'owner' && E.kitVersion < LATEST_KIT)) kitUpdateNotice();
     } else if (d.type === 'cms-sections') {
       E.sections = d.sections || [];
-      if (E.tab === 'struct') renderInsp();
+      if (E.tab === 'struct' || (E.tab === 'sel' && !E.unit)) renderInsp();   // the empty state has a "where to add" list
     } else if (d.type === 'cms-subtree-map-result') {
       const w = waiters.get(d.reqId); if (w) { waiters.delete(d.reqId); w(d); }
     } else if (d.type === 'cms-select') {
