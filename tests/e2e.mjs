@@ -392,6 +392,20 @@ try {
   ok(boxCss.rad === '30px' && boxCss.shadow && boxCss.title === 'כותרת הקופסה', 'box: added with its own title; corner radius and shadow controlled from the editor: ' + JSON.stringify(boxCss));
 
   await shot('13-box');
+  // a row of 3 boxes: switch it to 2 columns and set the gap from the editor
+  await fr.locator('.hero h2').click();
+  await pg.waitForSelector('button.addtile:has-text("3 עמודות")');
+  await pg.click('button.addtile:has-text("3 עמודות")');
+  await fr.locator('[data-cms-add="cols"]').waitFor({ timeout: 8000 });
+  await pg.waitForSelector('.insp-body h4:has-text("גודל, מרווחים ועמודות")');
+  ok(await fr.locator('[data-cms-add="cols"] > div').count() === 3, 'columns: "3 עמודות" adds a row of three boxes and selects the row');
+  await pg.click('.insp-body .tg:text-is("2")');
+  await pg.locator('.insp-body label:has-text("מרווח בין הפריטים") input[type=number]').fill('48');
+  await pg.locator('.insp-body label:has-text("מרווח בין הפריטים") input[type=number]').dispatchEvent('change');
+  await pg.waitForTimeout(400);
+  const colCss = await fr.locator('[data-cms-add="cols"]').evaluate((e) => { const c = getComputedStyle(e); return { n: c.gridTemplateColumns.split(' ').length, gap: c.columnGap }; });
+  ok(colCss.n === 2 && colCss.gap === '48px', 'columns: columns and gap are controlled from the editor: ' + JSON.stringify(colCss));
+  await shot('14-columns');
   /* publish */
   await pg.click('#publish');
   await pg.waitForFunction(() => ['publishing', 'live'].includes(document.querySelector('#chip').dataset.s), null, { timeout: 8000 });
@@ -434,6 +448,7 @@ try {
   ok(/^cms\/uploads\/.+\.pdf$/.test(fhref) && fs.readFileSync(path.join(SITE, fhref)).slice(0, 5).toString() === '%PDF-', 'public site: download link points to the committed PDF: ' + fhref);
   ok(await pub.locator('[data-cms-add="image"]').count() === 0, 'public site: the deleted image is gone');
   ok(await pub.locator('[data-cms-add="box"]').evaluate((e) => getComputedStyle(e).borderTopLeftRadius === '30px'), 'public site: the box with its corner radius');
+  ok(await pub.locator('[data-cms-add="cols"]').evaluate((e) => { const c = getComputedStyle(e); return c.display === 'grid' && c.gridTemplateColumns.split(' ').length === 2 && c.columnGap === '48px' && e.children.length === 3; }), 'public site: the row of boxes in 2 columns with its gap');
   const saved2 = JSON.parse(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')).pages['index.html'];
   ok(saved2.layout.some((o) => o.op === 'add' && o.type === 'video' && o.p.vid === '123456789') && !saved2.layout.some((o) => o.type === 'image'), 'edits.json: add ops saved, deleted image op removed');
   ok(await pub.locator('[id="why"]').count() === 1, 'public site: ids stay unique');

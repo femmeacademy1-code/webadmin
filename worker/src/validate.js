@@ -16,7 +16,7 @@ const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
 const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;                  // images
 const FILE_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(pdf|docx?|xlsx?|pptx?|zip)$/;     // downloadable files
-const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box']);
+const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols']);
 const SHAPES = new Set(['none', 'circle', 'rounded', 'arch', 'blob', 'triangle', 'diamond', 'pentagon', 'hexagon', 'star']);
 const RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 const VIDEO_ID = { youtube: /^[A-Za-z0-9_-]{6,20}$/, vimeo: /^\d{5,12}$/ };
@@ -80,6 +80,7 @@ function element(spec, key) {
   if (spec.al != null) { if (!ALIGN.has(spec.al)) bad('יישור לא תקין'); out.al = spec.al; }
   // boxes and pictures: corner radius, shadow, border, shape, crop ratio and focal point
   const int = (k, min, max, what) => { if (spec[k] != null) { if (!Number.isInteger(spec[k]) || spec[k] < min || spec[k] > max) bad(what + ' לא תקין'); out[k] = spec[k]; } };
+  int('cols', 1, 4, 'מספר עמודות'); int('gap', 0, 120, 'מרווח'); int('pad', 0, 120, 'ריפוד'); int('mb', 0, 160, 'מרווח תחתון'); int('w', 10, 100, 'רוחב'); int('mh', 0, 800, 'גובה מינימלי');
   int('rad', 0, 200, 'רדיוס פינות'); int('sh', 0, 3, 'צל'); int('bw', 0, 12, 'עובי מסגרת'); int('fx', 0, 100, 'מיקום חיתוך'); int('fy', 0, 100, 'מיקום חיתוך');
   if (spec.bc != null) { if (!HEX.test(spec.bc)) bad('צבע מסגרת לא תקין'); out.bc = spec.bc; }
   if (spec.shape != null) { if (!SHAPES.has(spec.shape)) bad('צורה לא מותרת'); out.shape = spec.shape; }
@@ -113,6 +114,9 @@ function layout(ops) {
         const v = op.p;
         if (!v || !VIDEO_ID[v.provider] || typeof v.vid !== 'string' || !VIDEO_ID[v.provider].test(v.vid)) bad('קישור הסרטון לא תקין (YouTube או Vimeo בלבד)');
         added.p = { provider: v.provider, vid: v.vid };
+      } else if (op.type === 'cols') {
+        if (!op.p || ![2, 3, 4].includes(op.p.n)) bad('מספר העמודות לא תקין');
+        added.p = { n: op.p.n };
       } else if (op.p != null) bad('פרמטרים לא מותרים');
       return added;
     }

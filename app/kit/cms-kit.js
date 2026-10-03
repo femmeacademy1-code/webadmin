@@ -45,7 +45,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 5;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop
+  var KIT_VERSION = 6;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -391,6 +391,13 @@
   var SHAPE_RADIUS = { rounded: '24px', blob: '63% 37% 54% 46% / 55% 48% 52% 45%' };
   function applyShape(el, spec) {
     var isImg = el.tagName === 'IMG';
+    // size and spacing
+    if (spec.cols != null) { snapAttr(el, 'data-cms-cols'); el.setAttribute('data-cms-cols', String(spec.cols)); ensureColsStyle(); }
+    if (spec.gap != null) setStyle(el, 'gap', spec.gap + 'px');
+    if (spec.pad != null) setStyle(el, 'padding', spec.pad + 'px');
+    if (spec.mb != null) setStyle(el, 'margin-bottom', spec.mb + 'px');
+    if (spec.w != null) { setStyle(el, 'box-sizing', 'border-box'); setStyle(el, 'width', spec.w + '%'); if (spec.w < 100) { setStyle(el, 'margin-left', 'auto'); setStyle(el, 'margin-right', 'auto'); } }
+    if (spec.mh != null) setStyle(el, 'min-height', spec.mh + 'px');
     if (spec.rad != null) { setStyle(el, 'border-radius', spec.rad + 'px'); if (!isImg && spec.rad > 0) setStyle(el, 'overflow', 'hidden'); }
     if (spec.sh != null) setStyle(el, 'box-shadow', SHADOWS[spec.sh] || 'none');
     if (spec.bw != null) setStyle(el, 'border', spec.bw ? spec.bw + 'px solid ' + (spec.bc || '#47454D') : 'none');
@@ -458,6 +465,25 @@
     if (text != null) e.textContent = text;
     return e;
   }
+  // A content box: copies the look of an existing card (or a clean default) and holds a heading and a paragraph.
+  function makeBox(model, standalone) {
+    var box = make('div', model ? cleanClass(model.className) : '');
+    if (!model) box.setAttribute('style', 'padding:24px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:16px' + (standalone ? ';margin:16px 0' : ''));
+    var hm = model && model.querySelector('h2, h3, h4'), pm = model && model.querySelector('p');
+    box.appendChild(make(hm ? hm.tagName.toLowerCase() : 'h3', hm ? cleanClass(hm.className) : '', 'כותרת הקופסה'));
+    box.appendChild(make('p', pm ? cleanClass(pm.className) : '', 'כאן כותבים את תוכן הקופסה.'));
+    return box;
+  }
+  // Columns: attribute-driven rules, so the page collapses to one column on phones (inline styles cannot do media queries).
+  function ensureColsStyle() {
+    if (document.getElementById('cms-cols')) return;
+    var st = document.createElement('style'); st.id = 'cms-cols';
+    st.textContent = '[data-cms-cols]{display:grid !important;gap:24px !important;align-items:stretch}' +
+      '[data-cms-cols="1"]{grid-template-columns:minmax(0,1fr) !important}[data-cms-cols="2"]{grid-template-columns:repeat(2,minmax(0,1fr)) !important}' +
+      '[data-cms-cols="3"]{grid-template-columns:repeat(3,minmax(0,1fr)) !important}[data-cms-cols="4"]{grid-template-columns:repeat(4,minmax(0,1fr)) !important}' +
+      '@media (max-width:720px){[data-cms-cols]{grid-template-columns:minmax(0,1fr) !important}}';
+    document.head.appendChild(st);
+  }
   function buildAdded(op, after) {
     var t = op.type, target = blockOf(after), el, m;
     if (t === 'button' || t === 'file') {
@@ -479,12 +505,15 @@
       el.setAttribute('alt', '');
       el.setAttribute('style', 'display:block;max-width:100%;height:auto;margin:16px auto');
     } else if (t === 'box') {
+      el = makeBox(findCard(after), true);
+    } else if (t === 'cols' && op.p && op.p.n >= 2 && op.p.n <= 4) {
+      // a row of N equal boxes (stacks on narrow screens); the row itself is a grid whose columns and gap can be changed later
+      el = make('div', '');
+      el.setAttribute('data-cms-cols', String(op.p.n));
+      el.setAttribute('style', 'margin:16px 0');
+      ensureColsStyle();
       m = findCard(after);
-      el = make('div', m ? cleanClass(m.className) : '');
-      if (!m) el.setAttribute('style', 'padding:24px;margin:16px 0;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:16px');
-      var hm = m && m.querySelector('h2, h3, h4'), pm = m && m.querySelector('p');
-      el.appendChild(make(hm ? hm.tagName.toLowerCase() : 'h3', hm ? cleanClass(hm.className) : '', 'כותרת הקופסה'));
-      el.appendChild(make('p', pm ? cleanClass(pm.className) : '', 'כאן כותבים את תוכן הקופסה.'));
+      for (var ci = 0; ci < op.p.n; ci++) el.appendChild(makeBox(m, false));
     } else if (t === 'divider') {
       m = findModel('hr', after);
       el = make('hr', m ? cleanClass(m.className) : '');
@@ -662,6 +691,9 @@
       al: /^(left|right|center|justify)$/.test(cs.textAlign) ? cs.textAlign : 'right',
       canUp: !!visibleSibling(el, -1), canDown: !!visibleSibling(el, 1),
       clone: el.getAttribute(CID) || null, hidden: isHidden(el),
+      disp: cs.display, cols: +el.getAttribute('data-cms-cols') || 0, gap: Math.round(parseFloat(cs.columnGap)) || 0, pad: Math.round(parseFloat(cs.paddingTop)) || 0,
+      mb: Math.round(parseFloat(cs.marginBottom)) || 0, mh: Math.round(parseFloat(cs.minHeight)) || 0,
+      w: el.parentElement && el.parentElement.clientWidth ? Math.min(100, Math.round(el.offsetWidth / el.parentElement.clientWidth * 100)) : 100,
       rad: Math.round(parseFloat(cs.borderTopLeftRadius)) || 0, bw: Math.round(parseFloat(cs.borderTopWidth)) || 0, bc: cssColorToHex(cs.borderTopColor),
       added: el.getAttribute('data-cms-add') || null, vid: el.getAttribute('data-cms-vid') || null
     };

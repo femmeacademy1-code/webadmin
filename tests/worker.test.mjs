@@ -725,3 +725,21 @@ test('boxes and shapes: valid values are saved, junk is refused', async () => {
     assert.equal(r.status, 400, JSON.stringify(bad));
   }
 });
+
+test('columns and spacing: valid values are saved, junk is refused', async () => {
+  const { client } = await setup();
+  const good = withPage({ els: { '@cl1': { cols: 3, gap: 24, pad: 16, mb: 40, w: 80, mh: 300 } } });
+  good.pages['index.html'].layout = [{ op: 'add', after: 'p', id: 'cl1', type: 'cols', p: { n: 3 } }];
+  const r = await putWith(client, good);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'];
+  assert.deepEqual(saved.els['@cl1'], { cols: 3, gap: 24, pad: 16, mb: 40, w: 80, mh: 300 });
+  assert.deepEqual(saved.layout[0].p, { n: 3 });
+  for (const bad of [{ cols: 0 }, { cols: 5 }, { gap: 121 }, { pad: -1 }, { mb: 161 }, { w: 5 }, { w: 101 }, { mh: 801 }, { gap: '10' }]) {
+    assert.equal((await putWith(client, withPage({ els: { x: bad } }))).status, 400, JSON.stringify(bad));
+  }
+  for (const p of [undefined, { n: 1 }, { n: 5 }, { n: '3' }, { n: 3, extra: 1 }.n === 3 ? { n: 9 } : null]) {
+    const e = withPage({}); e.pages['index.html'].layout = [{ op: 'add', after: 'p', id: 'cl2', type: 'cols', ...(p ? { p } : {}) }];
+    assert.equal((await putWith(client, e)).status, 400, JSON.stringify(p));
+  }
+});

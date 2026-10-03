@@ -755,7 +755,8 @@ async function viewEditor(siteId) {
   const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
   const ADD_KIT = 4;       // first kit version that can add elements
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
-  const LATEST_KIT = 5;    // newest kit; older sites keep working, the owner is just offered the update
+  const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
+  const LATEST_KIT = 6;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -814,6 +815,38 @@ async function viewEditor(siteId) {
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'עובי מסגרת (px)'), h('div', { style: 'display:flex;gap:10px;align-items:center' }, bwRange, bwNum)),
       colorField('צבע המסגרת', spec.bc || u.bc, !!spec.bc, (v) => setSpec(u.key, { bc: v }), () => { setSpec(u.key, { bc: undefined }, { force: true }); renderInsp(); }),
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'צל'), sh));
+  }
+
+  /* Size and spacing; for a container (a row of boxes) also the number of columns and the gap between its items. */
+  function layoutSection(u, spec) {
+    const old = E.ready && E.kitVersion < LAYOUT_KIT;
+    const num = (label, key, cur, min, max, unit, help) => {
+      const n = h('input', { type: 'number', min, max, value: cur, style: 'width:84px', dir: 'ltr', disabled: old });
+      const r = h('input', { type: 'range', min, max, value: Math.min(max, Math.max(min, cur)), style: 'flex:1', disabled: old });
+      const set = (v) => { v = Math.round(Math.min(max, Math.max(min, +v || 0))); n.value = v; r.value = v; setSpec(u.key, { [key]: v }); };
+      r.addEventListener('input', () => set(r.value));
+      n.addEventListener('change', () => set(n.value));
+      return h('label', { class: 'field' }, h('span', { class: 'lbl' }, label + (unit ? ` (${unit})` : '')), h('div', { style: 'display:flex;gap:10px;align-items:center' }, r, n), help && h('span', { class: 'help' }, help));
+    };
+    const val = (k, d) => (spec[k] != null ? spec[k] : d);
+    const isBox = u.kind === 'box';
+    const parts = [];
+    if (isBox) {
+      const cur = val('cols', u.cols || 0);
+      parts.push(h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'חלוקה לעמודות (לאלמנט שמכיל כמה קופסאות)'),
+        h('div', { class: 'btnrow' }, [1, 2, 3, 4].map((n) => h('button', { type: 'button', class: 'tg', 'aria-pressed': cur === n, disabled: old, title: n === 1 ? 'עמודה אחת (אחת מתחת לשנייה)' : n + ' עמודות', onclick: () => { setSpec(u.key, { cols: n }, { force: true }); renderInsp(); } }, String(n)))),
+        h('span', { class: 'help' }, 'כדי לחלק כמה קופסאות לשורה: סמנו קופסה, לחצו "בחירת האלמנט שמעל" עד שכל השורה מסומנת, ואז בחרו מספר עמודות. במסך צר הן יורדות לעמודה אחת.')));
+      parts.push(num('מרווח בין הפריטים', 'gap', val('gap', u.gap), 0, 120, 'px', 'המרווח בין הקופסאות בתוך השורה.'));
+    }
+    parts.push(num('רוחב', 'w', val('w', u.w), 10, 100, '% מהמקום שלו'));
+    if (isBox) {
+      parts.push(num('גובה מינימלי', 'mh', val('mh', u.mh), 0, 800, 'px'));
+      parts.push(num('ריפוד פנימי', 'pad', val('pad', u.pad), 0, 120, 'px', 'המרווח בין הקצה של הקופסה לתוכן שבתוכה.'));
+    }
+    parts.push(num('מרווח מתחת', 'mb', val('mb', u.mb), 0, 160, 'px', 'שימושי כשקופסאות עומדות אחת מעל השנייה.'));
+    const keys = ['cols', 'gap', 'w', 'mh', 'pad', 'mb'];
+    return h('div', { class: 'sect' }, h('h4', {}, 'גודל, מרווחים ועמודות'), old && oldKitNote(), ...parts,
+      keys.some((k) => spec[k] != null) && h('button', { class: 'link', onclick: () => { setSpec(u.key, Object.fromEntries(keys.map((k) => [k, undefined])), { force: true }); renderInsp(); } }, 'איפוס גודל ומרווחים'));
   }
 
   /* Crop a picture into a shape (circle, triangle, …), choose the crop ratio and which part stays in view. */
@@ -889,6 +922,8 @@ async function viewEditor(siteId) {
           toast('הקובץ נוסף. לחצו "פרסום באתר" כדי לשמור.');
         }),
         tile('▭', 'קופסה', 'קופסה לתוכן (כמו כרטיס מחיר) עם כותרת וטקסט, אפשר לקבוע רדיוס פינות, מסגרת וצל', (k) => addElement(k, 'box'), STYLE_KIT),
+        tile('▯▯', '2 עמודות', 'שורה של שתי קופסאות זו לצד זו (במסך צר הן יורדות אחת מתחת לשנייה)', (k) => addElement(k, 'cols', { p: { n: 2 } }), LAYOUT_KIT),
+        tile('▯▯▯', '3 עמודות', 'שורה של שלוש קופסאות זו לצד זו (במסך צר הן יורדות אחת מתחת לשנייה)', (k) => addElement(k, 'cols', { p: { n: 3 } }), LAYOUT_KIT),
         tile('T', 'טקסט', 'פסקה חדשה', (k) => addElement(k, 'text')),
         tile('H', 'כותרת', 'כותרת חדשה', (k) => addElement(k, 'heading')),
         tile('—', 'מפריד', 'קו מפריד', (k) => addElement(k, 'divider'))));
@@ -997,7 +1032,7 @@ async function viewEditor(siteId) {
     if (u.kind !== 'image' && u.kind !== 'bg' && !plainBox) out.push(fmtSection(u, spec));
     if (style.length && !plainBox) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
     if (u.kind === 'image') out.push(shapeSection(u, spec));
-    if (u.kind === 'image' || u.kind === 'box' || u.kind === 'bg') out.push(boxSection(u, spec));
+    if (u.kind === 'image' || u.kind === 'box' || u.kind === 'bg') { out.push(boxSection(u, spec)); out.push(layoutSection(u, spec)); }
     out.push(elementSection(u));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));

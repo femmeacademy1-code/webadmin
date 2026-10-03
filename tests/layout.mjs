@@ -70,9 +70,10 @@ fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...JSON.parse(fs.r
     { op: 'add', after: '#s>p:nth-of-type(1)', id: 'd1', type: 'divider' },
     { op: 'add', after: '#s>p:nth-of-type(1)', id: 'vm1', type: 'video', p: { provider: 'vimeo', vid: '123456789' } },
     { op: 'add', after: '#s>p:nth-of-type(1)', id: 'bx1', type: 'box' },
+    { op: 'add', after: '#s>p:nth-of-type(1)', id: 'cl1', type: 'cols', p: { n: 3 } },
   ],
   els: { '@b1': { t: 'התקשרו', href: 'tel:0501234567' }, '@f1': { t: 'חוברת', href: 'cms/uploads/a.pdf' }, '@im1': { src: 'https://example.com/x.png', alt: 'תיאור', shape: 'circle', ar: '1:1', fx: 30, fy: 70 }, '@h1x': { t: 'כותרת שהוספתי' },
-    '@bx1': { rad: 20, sh: 2, bw: 4, bc: '#b85150', bgc: '#ddf5ee' }, '@bx1>h3:nth-of-type(1)': { t: 'חבילת זהב' } },
+    '@bx1': { rad: 20, sh: 2, bw: 4, bc: '#b85150', bgc: '#ddf5ee', w: 50, mb: 30, pad: 10, mh: 200 }, '@cl1': { gap: 40 }, '#list': { cols: 2, gap: 12 }, '@bx1>h3:nth-of-type(1)': { t: 'חבילת זהב' } },
 } } }));
 { const j = JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')); j.pages['box2.html'] = { layout: [{ op: 'add', after: '#s>p:nth-of-type(1)', id: 'bx2', type: 'box' }], els: {} }; fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(j)); }
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/page2.html?cms-edit=1"></iframe>
@@ -141,6 +142,15 @@ try {
   ok(bx.cls === 'card' && bx.h === 'ct' && bx.hasP, 'box: copies the look (classes) of an existing card on the page, without the scroll-reveal class: ' + JSON.stringify(bx));
   ok(bx.rad === '20px' && bx.shadow !== 'none' && bx.bw === '4px' && bx.bc === 'rgb(184, 81, 80)' && bx.bg === 'rgb(221, 245, 238)' && bx.opacity === '1', 'box: corner radius, shadow, border and background come from the edits');
   ok(bx.htext === 'חבילת זהב', 'box: its title is editable like any text');
+  const colsInfo = await pg.locator('[data-cms-add="cols"]').evaluate((e) => { const c = getComputedStyle(e); return { disp: c.display, cols: c.gridTemplateColumns.split(' ').length, gap: c.columnGap, kids: e.children.length, cls: [...e.children].map((k) => k.className).join('|'), inner: [...e.children].every((k) => k.querySelector('h3') && k.querySelector('p')) }; });
+  ok(colsInfo.disp === 'grid' && colsInfo.cols === 3 && colsInfo.kids === 3 && colsInfo.gap === '40px' && colsInfo.cls === 'card|card|card' && colsInfo.inner, 'columns: a row of 3 boxes (card look), grid with the chosen gap: ' + JSON.stringify(colsInfo));
+  const sz = await pg.locator('[data-cms-add="box"]').evaluate((e) => { const c = getComputedStyle(e); return { w: Math.round(e.offsetWidth / e.parentElement.clientWidth * 100), mb: c.marginBottom, pad: c.paddingTop, mh: c.minHeight }; });
+  ok(sz.w === 50 && sz.mb === '30px' && sz.pad === '10px' && sz.mh === '200px', 'size: width %, margin below, padding and min-height are applied: ' + JSON.stringify(sz));
+  ok(await pg.locator('#list').evaluate((e) => { const c = getComputedStyle(e); return c.display === 'grid' && c.gridTemplateColumns.split(' ').length === 2 && c.columnGap === '12px'; }), 'columns: an existing container can be split into 2 columns with a gap');
+  await pg.setViewportSize({ width: 600, height: 800 });
+  await pg.waitForTimeout(200);
+  ok(await pg.locator('[data-cms-add="cols"]').evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length === 1) && await pg.locator('#list').evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length === 1), 'columns: collapse to a single column on a phone-sized screen');
+  await pg.setViewportSize({ width: 1280, height: 800 });
   const shape = await pg.locator('[data-cms-add="image"]').evaluate((e) => { const c = getComputedStyle(e); return { clip: c.clipPath, ar: c.aspectRatio, fit: c.objectFit, pos: c.objectPosition }; });
   ok(/^circle/.test(shape.clip) && shape.ar === '1 / 1' && shape.fit === 'cover' && shape.pos === '30% 70%', 'image: circle shape, 1:1 crop and focal point: ' + JSON.stringify(shape));
   await pg.goto('http://localhost:9001/box2.html');
@@ -166,7 +176,7 @@ try {
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 5, 'edit: kit reports its version');
+  ok(ready.version === 6, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);
