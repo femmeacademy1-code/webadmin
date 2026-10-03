@@ -177,11 +177,14 @@ async function viewAdmin() {
       h('label', { class: 'field full' }, h('span', { class: 'lbl' }, 'כתובת האתר המפורסם'), h('input', { id: 'sf-url', type: 'text', value: f.url, dir: 'ltr', placeholder: 'https://www.client.co.il/' }),
         h('span', { class: 'help' }, 'הדומיין של הלקוח כפי שמוגדר ב-GitHub Pages (או כתובת github.io).')),
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'עמודים (מופרדים בפסיק)'), h('input', { id: 'sf-pages', type: 'text', value: f.pages.join(', '), dir: 'ltr' })),
+      h('label', { class: 'field full' }, h('span', { class: 'lbl' }, 'עמודי תקנון – עריכת טקסט בלבד (מופרדים בפסיק)'), h('input', { id: 'sf-textonly', type: 'text', value: (f.textOnly || []).join(', '), dir: 'ltr', placeholder: 'terms.html, privacy.html' }),
+        h('span', { class: 'help' }, 'בעמודים האלה הלקוח יכול לשנות רק טקסט – בלי צבעים, פונטים, מבנה, תמונות וקישורים. גם עותקים שלהם נעולים. את (בעלת הסוכנות) עדיין יכולה לערוך הכול.')),
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'תיקיית שורש בריפו (אם יש)'), h('input', { id: 'sf-root', type: 'text', value: f.root || '', dir: 'ltr', placeholder: 'ריק = שורש הריפו' })),
       h('div', { class: 'full', style: 'display:flex;gap:10px' },
         h('button', { class: 'btn primary', onclick: async () => {
           const body = { id: val('sf-id'), name: val('sf-name'), repo: val('sf-repo'), branch: val('sf-branch') || 'main', url: val('sf-url'),
-            pages: val('sf-pages').split(',').map((x) => x.trim()).filter(Boolean), root: val('sf-root') };
+            pages: val('sf-pages').split(',').map((x) => x.trim()).filter(Boolean), root: val('sf-root'),
+            textOnly: val('sf-textonly').split(',').map((x) => x.trim()).filter(Boolean) };
           try { await api(isNew ? 'POST' : 'PUT', '/admin/sites' + (isNew ? '' : '/' + f.id), body); toast('נשמר'); showForm = null; await refresh(); }
           catch (e) { toast(e.message, true); }
         } }, isNew ? 'הוספת אתר' : 'שמירה'),
@@ -487,6 +490,9 @@ async function viewEditor(siteId) {
   let data;
   try { data = await api('GET', `/sites/${siteId}/edits`); } catch (e) { toast(e.message, true); location.hash = '#/'; return; }
   E.edits = data.edits; E.baseSha = data.sha; E.loaded = JSON.stringify(E.edits);
+
+  const locked = () => me.user.role !== 'owner' && (site.textOnly || []).includes(E.page);   // text-only page (e.g. terms)
+  const pageLabel = (f) => ((site.copies || []).find((c) => c.file === f) || {}).title || f;
 
   /* ---- state helpers ---- */
   const els = () => ((E.edits.pages[E.page] ||= { els: {} }).els);
@@ -869,8 +875,21 @@ async function viewEditor(siteId) {
           x.clone && h('button', { class: 'tg del', title: 'מחיקת העותק', onclick: () => deleteCopy(x.clone) }, '✕'))))];
   }
 
+  // Text-only page: just the text, nothing else (the server enforces this too).
+  function lockedSelection(u) {
+    const note = h('p', { class: 'help warnbox' }, '🔒 בעמוד הזה אפשר לערוך רק את הטקסט. העיצוב נשאר כמו שהוא.');
+    if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על טקסט בעמוד'), h('div', {}, 'ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.'))), note];
+    if (u.kind !== 'text' && u.kind !== 'node') return [h('h3', {}, 'אלמנט ', h('span', { class: 'hl' }, 'נעול')), note];
+    const spec = specOf(u.key);
+    const cur = u.kind === 'text' ? (spec.t ?? u.text) : ((spec.n || {})[u.idx] ?? u.text);
+    const ta = h('textarea', { rows: 8 }); ta.value = cur;
+    ta.addEventListener('input', () => (u.kind === 'text' ? setSpec(u.key, { t: ta.value }) : setNode(u.key, u.idx, ta.value)));
+    return [h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, 'טקסט')), h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'הטקסט'), ta), note];
+  }
+
   function inspSelection() {
     const u = E.unit;
+    if (locked()) return lockedSelection(u);
     if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.'))), addSection(null)];
     const out = [];
     const spec = specOf(u.key);
@@ -966,7 +985,8 @@ async function viewEditor(siteId) {
   }
 
   function renderInsp() {
-    tabsEl.replaceChildren(...[['sel', 'עריכה'], ['struct', 'מבנה'], ['colors', 'צבעים'], ['fonts', 'פונטים']].map(([k, l]) =>
+    if (locked()) E.tab = 'sel';
+    tabsEl.replaceChildren(...(locked() ? [['sel', 'עריכה']] : [['sel', 'עריכה'], ['struct', 'מבנה'], ['colors', 'צבעים'], ['fonts', 'פונטים']]).map(([k, l]) =>
       h('button', { 'aria-selected': E.tab === k, onclick: () => setTab(k) }, l)));
     insp.replaceChildren(...(E.tab === 'sel' ? inspSelection() : E.tab === 'struct' ? inspStructure() : E.tab === 'colors' ? inspColors() : inspFonts()).filter(Boolean));
   }
@@ -1041,6 +1061,73 @@ async function viewEditor(siteId) {
     ev.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === ev.currentTarget));
   } }, l);
 
+  /* ---- pages: switch, duplicate (up to the site's limit), delete a copy ---- */
+  const pagebar = h('div', { class: 'pagebar' });
+  function paintPages() {
+    const copies = site.copies || [], max = site.maxCopies || 10;
+    pagebar.replaceChildren(
+      site.pages.length > 1 && h('select', { 'aria-label': 'עמוד', onchange: (ev) => { E.page = ev.target.value; E.unit = null; paintPages(); renderInsp(); loadFrame(); } },
+        site.pages.map((pg) => h('option', { value: pg, selected: pg === E.page }, (site.textOnly || []).includes(pg) && me.user.role !== 'owner' ? '🔒 ' + pageLabel(pg) : pageLabel(pg)))),
+      copies.length < max && h('button', { class: 'btn small mint', title: 'יוצר עמוד חדש כעותק של עמוד קיים', onclick: newPageDialog }, '＋ עמוד חדש (שכפול)'),
+      copies.some((c) => c.file === E.page) && h('button', { class: 'btn small danger', onclick: deleteCurrentPage }, 'מחיקת העמוד'),
+      copies.length > 0 && h('span', { class: 'muted' }, `${copies.length}/${max} משוכפלים`));
+  }
+  // The server changed edits.json (a page was added/removed): reload it so the next publish is not seen as a conflict.
+  async function resyncEdits() {
+    const d = await api('GET', `/sites/${siteId}/edits`);
+    E.edits = d.edits; E.baseSha = d.sha; E.loaded = JSON.stringify(E.edits); E.undo = []; E.redo = [];
+    Object.assign(site, d.site);
+  }
+  async function waitPageLive(file) {
+    $('#notice') && $('#notice').remove();
+    $('#frame-wrap').append(h('div', { class: 'notice', id: 'notice' }, h('div', {}, h('b', {}, 'העמוד החדש מתפרסם באתר. '), 'זה לוקח בערך דקה, והוא ייפתח כאן אוטומטית.')));
+    for (let i = 0; i < 40; i++) {
+      await sleep(i < 2 ? 4000 : 6000);
+      if (E.page !== file) return;
+      try { const r = await fetch(new URL(file, site.url).href + '?_=' + Date.now(), { cache: 'no-store' }); if (r.ok) { loadFrame(); return; } } catch { /* keep polling */ }
+    }
+    $('#notice') && $('#notice').remove();
+    toast('העמוד נוצר אבל עדיין לא התפרסם. רעננו בעוד כמה דקות.', true);
+  }
+  function newPageDialog() {
+    if (isDirty()) { toast('פרסמו קודם את השינויים, ואז צרו עמוד חדש.', true); return; }
+    const name = h('input', { type: 'text', placeholder: 'למשל: מדיניות פרטיות' });
+    const from = h('select', {}, site.pages.map((pg) => h('option', { value: pg, selected: pg === E.page }, pageLabel(pg))));
+    const err = h('p', { class: 'error', hidden: true });
+    const close = () => { dlg.close(); dlg.remove(); };
+    const go = h('button', { class: 'btn primary', onclick: async () => {
+      if (!name.value.trim()) { err.textContent = 'כתבו שם לעמוד.'; err.hidden = false; return; }
+      go.disabled = true; go.textContent = 'יוצר…';
+      try {
+        const r = await api('POST', `/sites/${siteId}/pages`, { title: name.value.trim(), from: from.value });
+        Object.assign(site, r.site);
+        await resyncEdits();
+        E.page = r.file; E.unit = null; close(); paintPages(); renderInsp();
+        toast('העמוד נוצר.');
+        waitPageLive(r.file);
+      } catch (e) { err.textContent = e.message; err.hidden = false; go.disabled = false; go.textContent = 'יצירת העמוד'; }
+    } }, 'יצירת העמוד');
+    const dlg = h('dialog', {}, h('h2', {}, 'עמוד חדש'),
+      h('p', { class: 'muted' }, 'העמוד החדש הוא עותק של עמוד קיים, כולל העריכות שלו. אחר כך אפשר לערוך אותו בנפרד.'),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'שם העמוד'), name),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'לשכפל מהעמוד'), from), err,
+      h('menu', {}, h('button', { class: 'btn ghost', onclick: close }, 'ביטול'), go));
+    dlg.addEventListener('cancel', close);
+    document.body.append(dlg); dlg.showModal(); name.focus();
+  }
+  async function deleteCurrentPage() {
+    if (isDirty()) { toast('פרסמו קודם את השינויים, ואז מחקו את העמוד.', true); return; }
+    const file = E.page;
+    if (!confirm(`למחוק את העמוד "${pageLabel(file)}"? אי אפשר לבטל את זה.\n(העמוד שממנו שוכפל לא ייפגע.)`)) return;
+    try {
+      const r = await api('DELETE', `/sites/${siteId}/pages?file=${encodeURIComponent(file)}`);
+      Object.assign(site, r.site);
+      await resyncEdits();
+      E.page = site.pages[0]; E.unit = null; paintPages(); renderInsp(); loadFrame();
+      toast('העמוד נמחק.');
+    } catch (e) { toast(e.message, true); }
+  }
+
   shell([
     h('header', { class: 'top' },
       h('img', { class: 'brand', src: 'brand/logo.png', alt: 'Femme Digital', onclick: () => leave() }),
@@ -1057,7 +1144,7 @@ async function viewEditor(siteId) {
       h('aside', { class: 'insp' }, tabsEl, insp),
       h('section', { class: 'stage' },
         h('div', { class: 'stage-bar' },
-          site.pages.length > 1 && h('select', { style: 'width:auto', onchange: (ev) => { E.page = ev.target.value; loadFrame(); } }, site.pages.map((p) => h('option', { value: p }, p))),
+          pagebar,
           h('span', { class: 'muted' }, 'תצוגה חיה'),
           h('span', { class: 'spacer' }),
           h('div', { class: 'seg' }, deviceBtn('desktop', 'מחשב'), deviceBtn('tablet', 'טאבלט'), deviceBtn('mobile', 'נייד'))),
@@ -1080,6 +1167,7 @@ async function viewEditor(siteId) {
     else if (mod && e.key.toLowerCase() === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   });
 
+  paintPages();
   renderInsp();
   loadFrame();
 }

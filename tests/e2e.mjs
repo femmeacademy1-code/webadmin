@@ -55,7 +55,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (p === '/git/blobs') { const b = Buffer.from(body.content, body.encoding === 'base64' ? 'base64' : 'utf8'); blobs[sha1(b)] = b; return R(201, { sha: sha1(b) }); }
   if (p === '/git/trees') { pending = body.tree; return R(201, { sha: 'nt' }); }
   if (p === '/git/commits') { commitLog.push({ message: body.message, paths: pending.map((t) => t.path) }); return R(201, { sha: 'c' + ++n }); }
-  if (p === '/git/refs/heads/main') { for (const t of pending) { const f = path.join(SITE, t.path); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, blobs[t.sha]); } return R(200, {}); }
+  if (p === '/git/refs/heads/main') { for (const t of pending) { const f = path.join(SITE, t.path); if (t.sha === null) { fs.rmSync(f, { force: true }); continue; } fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, blobs[t.sha]); } return R(200, {}); }
   if (p === '/commits') return R(200, commitLog.map((c, i) => ({ sha: 'abcdef' + i, commit: { author: { date: new Date(Date.now() - i * 60000).toISOString() }, message: c.message } })).reverse());
   return R(404, { message: 'unmocked ' + p });
 };
@@ -421,6 +421,54 @@ try {
   await pg.waitForSelector('.history li:has-text("הנוכחית")');   // wait for the real list, not the loading row
   const histN = await pg.locator('.history li').count(); ok(histN >= 2, 'history lists commits: ' + histN + ' ' + (await pg.locator('.history').innerText()).replace(/\n/g, ' | '));
   await pg.click('dialog button:has-text("סגירה")');
+
+
+  /* page copies + text-only pages */
+  await pg.waitForSelector('#publish:disabled');
+  await pg.click('button:has-text("＋ עמוד חדש (שכפול)")');
+  await pg.fill('dialog[open] input', 'Terms two');
+  await pg.click('dialog[open] button:has-text("יצירת העמוד")');
+  await pg.waitForFunction(() => document.querySelector('.pagebar select')?.value === 'terms-two.html', null, { timeout: 15000 });
+  const copyHtml = fs.readFileSync(path.join(SITE, 'terms-two.html'), 'utf8');
+  ok(/<title>Terms two<\/title>/.test(copyHtml) && /cms\/cms-kit\.js/.test(copyHtml), 'pages: a copy was created with its own title and the editing kit');
+  ok(JSON.parse(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')).pages['terms-two.html'].els !== undefined, 'pages: the copy starts with the source page edits');
+  await pg.locator('.pagebar button:has-text("מחיקת העמוד")').waitFor();
+  await fr.locator('.hero h1').waitFor({ timeout: 20000 });
+  await fr.locator('.hero h1').click();
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.fill('.insp-body textarea', 'כותרת העמוד המשוכפל');
+  await pg.waitForTimeout(300);
+  await pg.click('#publish'); await pg.waitForSelector('#publish:disabled');
+  ok(JSON.parse(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')).pages['terms-two.html'].els['.hero h1:nth-of-type(1)'] !== undefined || /כותרת העמוד המשוכפל/.test(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')), 'pages: the copy can be edited and published without a conflict');
+
+  // the owner locks it to text-only; the client then sees only the text field
+  const lg = await realFetch('http://localhost:9002/api/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'fd' }, body: JSON.stringify({ username: 'admin', password: 'owner-pass-123' }) });
+  const ownerCookie = lg.headers.get('set-cookie').split(';')[0];
+  const lock = await realFetch('http://localhost:9002/api/admin/sites/alternative', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-requested-with': 'fd', cookie: ownerCookie }, body: JSON.stringify({ textOnly: ['terms-two.html'] }) });
+  ok(lock.status === 200, 'text-only: the owner can lock a page');
+  await pg.reload();
+  await pg.waitForFunction(() => document.querySelector('.pagebar select'), null, { timeout: 15000 });
+  await pg.selectOption('.pagebar select', 'terms-two.html');
+  await fr.locator('.hero h1').waitFor({ timeout: 20000 });
+  await fr.locator('.hero h1').click();
+  await pg.waitForSelector('.insp-body textarea');
+  ok((await pg.locator('.insp-tabs button').count()) === 1 && (await pg.locator('.addblock').count()) === 0 && (await pg.locator('.insp-body input[type=color], .insp-body .colorrow').count()) === 0, 'text-only: only the text field is offered (no tabs for design, no add block, no colours)');
+  await shot('11-text-only-page');
+  await pg.fill('.insp-body textarea', 'נוסח מעודכן של התקנון');
+  await pg.waitForTimeout(300);
+  await pg.click('#publish'); await pg.waitForSelector('#publish:disabled');
+  ok(/נוסח מעודכן של התקנון/.test(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')), 'text-only: text changes are saved');
+  await pg.selectOption('.pagebar select', 'index.html');
+  await fr.locator('.hero h1').waitFor({ timeout: 20000 });
+  await fr.locator('.hero h1').click();
+  await pg.waitForSelector('.insp-body textarea');
+  ok((await pg.locator('.insp-tabs button').count()) === 4, 'text-only: other pages keep all the editing tools');
+
+  // delete the copy
+  await pg.selectOption('.pagebar select', 'terms-two.html');
+  await pg.locator('.pagebar button:has-text("מחיקת העמוד")').click();
+  await pg.waitForFunction(() => !document.querySelector('.pagebar select') || ![...document.querySelectorAll('.pagebar option')].some((o) => o.value === 'terms-two.html'), null, { timeout: 15000 });
+  ok(!fs.existsSync(path.join(SITE, 'terms-two.html')) && !/terms-two/.test(fs.readFileSync(path.join(SITE, 'cms/edits.json'), 'utf8')), 'pages: deleting a copy removes the file and its edits');
 
   /* mobile: a fresh phone-sized session, logging in as the client */
   const mctx = await browser.newContext({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });

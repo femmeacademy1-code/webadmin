@@ -201,3 +201,5 @@ input[type=range]{accent-color:var(--red)}
 .addtile:hover:not(:disabled){background:var(--mint);transform:translateY(-2px)}
 .addtile:disabled{opacity:.45;cursor:not-allowed}
 .addwhere{width:100%}
+.pagebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pagebar select{width:auto;max-width:200px}

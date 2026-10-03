@@ -198,6 +198,11 @@ export function validateSite(s, partial = false) {
     pages.forEach((p) => { if (!PAGE_KEY.test(p) || p.includes('..') || p.startsWith('/')) bad('שם עמוד לא תקין: ' + p); });
     out.pages = pages;
   }
+  if (s.textOnly != null) {
+    if (!Array.isArray(s.textOnly) || s.textOnly.length > 30) bad('רשימת עמודי טקסט בלבד לא תקינה');
+    s.textOnly.forEach((p) => { if (!PAGE_KEY.test(p) || p.includes('..') || p.startsWith('/')) bad('שם עמוד לא תקין: ' + p); });
+    out.textOnly = s.textOnly;
+  }
   if (s.root != null || !partial) {
     out.root = (s.root || '').replace(/^\/+|\/+$/g, '');
     if (out.root && !/^[\w./-]+$/.test(out.root) || out.root.includes('..')) bad('תיקיית שורש לא תקינה');
@@ -217,4 +222,5 @@ export function validateUser(u, partial = false) {
   }
   return out;
 }
+export { PAGE_KEY };
 export const PATHS = { UPLOAD, FILE_UPLOAD };

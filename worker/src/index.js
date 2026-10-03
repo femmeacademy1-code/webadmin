@@ -13,7 +13,7 @@ import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } fr
 import { GitHub } from './github.js';
 import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
 import { Cloudflare, projectName } from './cloudflare.js';
-import { HttpError, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
+import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
 const SESSION_DAYS = 14;
 const COOKIE = 'fd_session';
@@ -53,7 +53,15 @@ async function listKV(env, prefix) {
   } while (cursor);
   return out.filter(Boolean);
 }
-const publicSite = (s) => ({ id: s.id, name: s.name, url: s.url, pages: s.pages });
+const MAX_COPIES = 10;
+const allPages = (s) => [...s.pages, ...(s.copies || []).map((c) => c.file)];
+/** Pages whose design is locked for clients (only text can change): the owner's list + every copy of such a page. */
+function textOnlyPages(s) {
+  const set = new Set(s.textOnly || []);
+  for (const c of s.copies || []) if (set.has(c.from)) set.add(c.file);
+  return [...set];
+}
+const publicSite = (s) => ({ id: s.id, name: s.name, url: s.url, pages: allPages(s), copies: (s.copies || []).map((c) => ({ file: c.file, title: c.title, from: c.from })), maxCopies: MAX_COPIES, textOnly: textOnlyPages(s) });
 const publicUser = (u) => ({ username: u.username, name: u.name, sites: u.sites || [] });
 
 function cookie(env, req, value, maxAge) {
@@ -114,6 +122,12 @@ async function route(req, env, url) {
     if (m[2] === 'edits' && method === 'GET') return getEdits(env, site);
     if (m[2] === 'edits' && method === 'PUT') return putEdits(req, env, s, site);
     if (m[2] === 'history' && method === 'GET') return history(env, site);
+  }
+  if ((m = pathname.match(/^\/api\/sites\/([a-z0-9-]+)\/pages$/))) {
+    const s = await requireSession(req, env);
+    const site = await siteFor(env, s, m[1]);
+    if (method === 'POST') return createPage(req, env, site);
+    if (method === 'DELETE') return deletePage(env, site, url.searchParams.get('file') || '');
   }
   if ((m = pathname.match(/^\/api\/sites\/([a-z0-9-]+)\/version\/([0-9a-f]{7,40})$/)) && method === 'GET') {
     const s = await requireSession(req, env);
@@ -198,6 +212,14 @@ async function putEdits(req, env, s, site) {
   if (cur && b.baseSha && cur.sha !== b.baseSha && !b.force) {
     throw new HttpError(409, 'מישהו אחר עדכן את האתר בזמן שערכתם.');
   }
+  if (s.role !== 'owner') {
+    const lock = textOnlyPages(site);
+    if (lock.length) {
+      let before = EMPTY_EDITS;
+      try { before = cur ? validateEdits(JSON.parse(cur.text)) : EMPTY_EDITS; } catch { /* treat as empty */ }
+      for (const page of lock) edits.pages[page] = textOnlyMerge(before.pages[page], edits.pages[page]);
+    }
+  }
   const files = [{ path, text: JSON.stringify(edits, null, 2) + '\n' }];
   images.forEach((im) => files.push({ path: p(site, im.path), base64: im.base64 }));
 
@@ -208,6 +230,80 @@ async function putEdits(req, env, s, site) {
   }
   const res = await gh.commit(site.repo, site.branch, files, `עדכון תוכן מהמערכת – ${s.name} (${s.username})`);
   return json({ ok: true, sha: res.blobs[path], edits });   // the normalised document, so the editor can verify the live site against it
+}
+
+/** Locked page: keep everything that is already stored, accept only text changes (t / n) from the client. */
+function textOnlyMerge(old, neu) {
+  const o = old || { els: {} }, n = neu || { els: {} };
+  const out = { els: {} };
+  if (o.layout && o.layout.length) out.layout = o.layout;
+  for (const key of new Set([...Object.keys(o.els || {}), ...Object.keys(n.els || {})])) {
+    const os = (o.els || {})[key] || {}, ns = (n.els || {})[key] || {};
+    const m = {};
+    for (const k of Object.keys(os)) if (k !== 't' && k !== 'n') m[k] = os[k];
+    if (ns.t != null) m.t = ns.t;
+    if (ns.n != null) m.n = ns.n;
+    if (Object.keys(m).length) out.els[key] = m;
+  }
+  return out;
+}
+
+/* ---------------- page copies (up to 10 per site) ---------------- */
+const slugify = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+const escHtml = (t) => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function readEdits(gh, site) {
+  const f = await gh.getFile(site.repo, p(site, EDITS_PATH), site.branch);
+  let edits = EMPTY_EDITS;
+  try { if (f) edits = validateEdits(JSON.parse(f.text)); } catch { /* treat as empty */ }
+  return edits;
+}
+
+async function createPage(req, env, site) {
+  const b = await body(req);
+  const title = String(b.title || '').trim();
+  if (!title || title.length > 60) throw new HttpError(400, 'שם העמוד חסר או ארוך מדי');
+  const from = String(b.from || '');
+  if (!allPages(site).includes(from)) throw new HttpError(400, 'עמוד המקור לא נמצא באתר');
+  if ((site.copies || []).length >= MAX_COPIES) throw new HttpError(409, `אפשר לשכפל עד ${MAX_COPIES} עמודים באתר. מחקו עמוד משוכפל כדי ליצור חדש.`);
+
+  const gh = new GitHub(env);
+  const src = await gh.getFile(site.repo, p(site, from), site.branch);
+  if (!src) throw new HttpError(404, 'עמוד המקור לא נמצא בריפו');
+  const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : '';
+  const base = slugify(title) || 'page-' + crypto.randomUUID().slice(0, 4);
+  let file = null;
+  for (let i = 0; i < 30 && !file; i++) {
+    const cand = `${dir}${base}${i ? '-' + (i + 1) : ''}.html`;
+    if (!allPages(site).includes(cand) && !(await gh.getFile(site.repo, p(site, cand), site.branch))) file = cand;
+  }
+  if (!file || !PAGE_KEY.test(file) || file.includes('..')) throw new HttpError(500, 'לא ניתן ליצור שם קובץ לעמוד');
+
+  const html = src.text.replace(/<title[^>]*>[\s\S]*?<\/title>/i, () => `<title>${escHtml(title)}</title>`);
+  const edits = await readEdits(gh, site);
+  if (edits.pages[from]) edits.pages[file] = JSON.parse(JSON.stringify(edits.pages[from]));   // the copy starts with the same edits
+  await gh.commit(site.repo, site.branch, [
+    { path: p(site, file), text: html },
+    { path: p(site, EDITS_PATH), text: JSON.stringify(edits, null, 2) + '\n' },
+  ], `עמוד חדש: ${title}`);
+  site.copies = [...(site.copies || []), { file, title, from, createdAt: new Date().toISOString() }];
+  await putKV(env, 's:' + site.id, site);
+  return json({ ok: true, file, site: publicSite(site) });
+}
+
+async function deletePage(env, site, file) {
+  const copy = (site.copies || []).find((c) => c.file === file);
+  if (!copy) throw new HttpError(403, 'אפשר למחוק רק עמוד שנוצר בשכפול');   // original pages are never deleted
+  const gh = new GitHub(env);
+  const edits = await readEdits(gh, site);
+  delete edits.pages[file];
+  await gh.commit(site.repo, site.branch, [
+    { path: p(site, file), delete: true },
+    { path: p(site, EDITS_PATH), text: JSON.stringify(edits, null, 2) + '\n' },
+  ], `מחיקת עמוד: ${copy.title}`);
+  site.copies = site.copies.filter((c) => c.file !== file);
+  await putKV(env, 's:' + site.id, site);
+  return json({ ok: true, site: publicSite(site) });
 }
 
 async function history(env, site) {
@@ -284,9 +380,9 @@ async function connectSite(req, env, url, id) {
   if (!(await gh.getFile(site.repo, p(site, EDITS_PATH), site.branch))) {
     files.push({ path: p(site, EDITS_PATH), text: JSON.stringify(EMPTY_EDITS, null, 2) + '\n' });
   }
-  for (const page of site.pages) {
+  for (const page of allPages(site)) {
     const f = await gh.getFile(site.repo, p(site, page), site.branch);
-    if (!f) throw new HttpError(422, `העמוד ${page} לא נמצא בריפו`);
+    if (!f) { if (site.pages.includes(page)) throw new HttpError(422, `העמוד ${page} לא נמצא בריפו`); continue; }
     const depth = page.split('/').length - 1;
     files.push({ path: p(site, page), text: addKitTag(f.text, '../'.repeat(depth), origin, ver) });
   }

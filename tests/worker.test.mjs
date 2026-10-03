@@ -65,7 +65,7 @@ function githubMock() {
     if (path === '/git/blobs') { const b = Buffer.from(body.content, body.encoding === 'base64' ? 'base64' : 'utf8'); blobs[sha(b)] = b; return res(201, { sha: sha(b) }); }
     if (path === '/git/trees') { repo.pendingTree = body.tree; return res(201, { sha: 'newtree' }); }
     if (path === '/git/commits') { commits.push({ message: body.message, paths: repo.pendingTree.map((t) => t.path) }); return res(201, { sha: 'c' + commits.length }); }
-    if (path === '/git/refs/heads/main') { repo.pendingTree.forEach((t) => { repo.files[t.path] = blobs[t.sha]; }); return res(200, {}); }
+    if (path === '/git/refs/heads/main') { repo.pendingTree.forEach((t) => { if (t.sha === null) delete repo.files[t.path]; else repo.files[t.path] = blobs[t.sha]; }); return res(200, {}); }
     if (path === '/commits') return res(200, [{ sha: 'abc1234', commit: { author: { date: '2026-01-01T00:00:00Z' }, message: 'x\ny' } }]);
     return res(404, { message: 'unmocked ' + path });
   };
@@ -614,4 +614,99 @@ test('domain: a token without Pages access to the repo gives an actionable messa
   pages = 'forbidden';
   const r = await call('POST', '/api/admin/sites/demo/domain/check', { cookie: owner });
   assert.equal(r.status, 422); assert.match(r.data.error, /Repository access/); assert.match(r.data.error, /o\/site/);
+});
+
+/* ---------- page copies + text-only pages ---------- */
+async function pagesSetup(extra = {}) {
+  const owner = await ownerCookie();
+  repo.files['terms.html'] = Buffer.from('<html><head><meta charset="utf-8"><title>תקנון</title><script src="cms/cms-kit.js"></script></head><body><h1>תקנון</h1><p>סעיף</p></body></html>');
+  await call('POST', '/api/admin/sites', { cookie: owner, body: { id: 'demo', name: 'דמו', repo: 'o/site', branch: 'main', url: 'https://demo.example.com', pages: ['index.html', 'terms.html'], ...extra } });
+  await call('POST', '/api/admin/users', { cookie: owner, body: { username: 'dana', name: 'דנה', password: 'password-1', sites: ['demo'] } });
+  const client = cookieOf(await call('POST', '/api/login', { body: { username: 'dana', password: 'password-1' } }));
+  return { owner, client };
+}
+const putPage = (cookie, edits) => call('PUT', '/api/sites/demo/edits', { cookie, body: { edits } });
+
+test('pages: a client duplicates a page; the copy keeps the source edits and gets its own title', async () => {
+  const { client } = await pagesSetup();
+  await putPage(client, { v: 1, global: {}, pages: { 'terms.html': { els: { 'body>h1:nth-of-type(1)': { t: 'כותרת חדשה', color: '#112233' } } } } });
+  const r = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'Privacy policy', from: 'terms.html' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.file, 'privacy-policy.html');
+  assert.ok(r.data.site.pages.includes('privacy-policy.html'));
+  assert.match(repo.files['privacy-policy.html'].toString(), /<title>Privacy policy<\/title>/);
+  assert.match(repo.files['privacy-policy.html'].toString(), /cms-kit\.js/);
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString());
+  assert.equal(saved.pages['privacy-policy.html'].els['body>h1:nth-of-type(1)'].t, 'כותרת חדשה');
+  assert.equal(commits.at(-1).paths.length, 2);
+});
+
+test('pages: Hebrew-only title gets a safe generated name; same title twice gets a suffix; sub-folder pages stay in their folder', async () => {
+  const { client } = await pagesSetup();
+  const a = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'מדיניות פרטיות', from: 'terms.html' } });
+  assert.match(a.data.file, /^page-[0-9a-f]{4}\.html$/);
+  const b1 = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'About', from: 'terms.html' } });
+  const b2 = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'About', from: 'terms.html' } });
+  assert.equal(b1.data.file, 'about.html'); assert.equal(b2.data.file, 'about-2.html');
+  const { owner } = { owner: await ownerCookie() };
+  const sub = await call('POST', '/api/admin/sites', { cookie: owner, body: { id: 'sub', name: 'x', repo: 'o/site', url: 'https://x.test', pages: ['sub/page.html'] } });
+  assert.equal(sub.status, 200);
+  const r = await call('POST', '/api/sites/sub/pages', { cookie: owner, body: { title: 'Two', from: 'sub/page.html' } });
+  assert.equal(r.data.file, 'sub/two.html');
+});
+
+test('pages: at most 10 copies; only registered pages can be copied; bad input is refused', async () => {
+  const { client } = await pagesSetup();
+  assert.equal((await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'x', from: 'secret.html' } })).status, 400);
+  assert.equal((await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'x', from: '../index.html' } })).status, 400);
+  assert.equal((await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: '', from: 'terms.html' } })).status, 400);
+  for (let i = 1; i <= 10; i++) assert.equal((await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'Copy ' + i, from: 'terms.html' } })).status, 200);
+  const eleventh = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'Copy 11', from: 'terms.html' } });
+  assert.equal(eleventh.status, 409);
+  assert.equal(commits.length, 10);
+  // another client without access cannot use it
+  const owner = await ownerCookie();
+  await call('POST', '/api/admin/users', { cookie: owner, body: { username: 'noa', name: 'נועה', password: 'password-2', sites: [] } });
+  const noa = cookieOf(await call('POST', '/api/login', { body: { username: 'noa', password: 'password-2' } }));
+  assert.equal((await call('POST', '/api/sites/demo/pages', { cookie: noa, body: { title: 'x', from: 'terms.html' } })).status, 404);
+});
+
+test('pages: only copies can be deleted (file and its edits); original pages never', async () => {
+  const { client } = await pagesSetup();
+  const r = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'Temp', from: 'terms.html' } });
+  assert.equal((await call('DELETE', '/api/sites/demo/pages?file=terms.html', { cookie: client })).status, 403);
+  assert.equal((await call('DELETE', '/api/sites/demo/pages?file=index.html', { cookie: client })).status, 403);
+  assert.equal((await call('DELETE', '/api/sites/demo/pages?file=cms/edits.json', { cookie: client })).status, 403);
+  const d = await call('DELETE', '/api/sites/demo/pages?file=' + r.data.file, { cookie: client });
+  assert.equal(d.status, 200);
+  assert.ok(!repo.files[r.data.file]);
+  assert.ok(!d.data.site.pages.includes(r.data.file));
+  assert.ok(repo.files['terms.html']);
+});
+
+test('text-only pages: a client can change text but not colours, fonts, links, layout; the owner can; copies inherit the lock', async () => {
+  const { owner, client } = await pagesSetup({ textOnly: ['terms.html'] });
+  const key = 'body>h1:nth-of-type(1)';
+  // the owner sets the design first
+  const r0 = await putPage(owner, { v: 1, global: {}, pages: { 'terms.html': { els: { [key]: { t: 'תקנון האתר', color: '#112233', b: true } } } } }); assert.equal(r0.status, 200, JSON.stringify(r0.data));
+  // the client tries to change colour, font size, hide a block, add an element and the text
+  const sneaky = { v: 1, global: {}, pages: { 'terms.html': { els: { [key]: { t: 'נוסח חדש', color: '#ff0000', fs: 40 }, 'body>p:nth-of-type(1)': { href: 'https://evil.example', t: 'סעיף 1' } },
+    layout: [{ op: 'hide', key: 'body>p:nth-of-type(1)' }, { op: 'add', after: key, id: 'abc1', type: 'divider' }] } } };
+  assert.equal((await putPage(client, sneaky)).status, 200);
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString()).pages['terms.html'];
+  assert.equal(saved.els[key].t, 'נוסח חדש');
+  assert.equal(saved.els[key].color, '#112233');         // design untouched
+  assert.equal(saved.els[key].b, true);
+  assert.equal(saved.els[key].fs, undefined);
+  assert.equal(saved.els['body>p:nth-of-type(1)'].href, undefined);
+  assert.equal(saved.els['body>p:nth-of-type(1)'].t, 'סעיף 1');
+  assert.equal(saved.layout, undefined);
+  // other pages stay fully editable
+  assert.equal((await putPage(client, { v: 1, global: {}, pages: { 'terms.html': saved, 'index.html': { els: { 'h1': { color: '#abcdef' } } } } })).status, 200);
+  assert.equal(JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].els.h1.color, '#abcdef');
+  // a copy of a locked page is locked too
+  const c = await call('POST', '/api/sites/demo/pages', { cookie: client, body: { title: 'Copy', from: 'terms.html' } });
+  assert.deepEqual(c.data.site.textOnly.sort(), ['copy.html', 'terms.html']);
+  await putPage(client, { v: 1, global: {}, pages: { 'copy.html': { els: { [key]: { t: 'x', color: '#00ff00' } } } } });
+  assert.equal(JSON.parse(repo.files['cms/edits.json'].toString()).pages['copy.html'].els[key].color, '#112233');
 });

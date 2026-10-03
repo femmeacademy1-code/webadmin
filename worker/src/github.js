@@ -45,21 +45,21 @@ export class GitHub {
     }
   }
 
-  /** One atomic commit. files: [{path, text} | {path, base64}] → {commit, blobs:{path:sha}} */
+  /** One atomic commit. files: [{path, text} | {path, base64} | {path, delete:true}] → {commit, blobs:{path:sha}} */
   async commit(repo, branch, files, message) {
     const ref = await this.req('GET', `/repos/${repo}/git/ref/heads/${enc(branch)}`);
     const headSha = ref.object.sha;
     const head = await this.req('GET', `/repos/${repo}/git/commits/${headSha}`);
-    const blobs = await Promise.all(files.map((f) => this.req('POST', `/repos/${repo}/git/blobs`,
-      f.base64 != null ? { content: f.base64, encoding: 'base64' } : { content: f.text, encoding: 'utf-8' })));
+    const blobs = await Promise.all(files.map((f) => (f.delete ? null : this.req('POST', `/repos/${repo}/git/blobs`,
+      f.base64 != null ? { content: f.base64, encoding: 'base64' } : { content: f.text, encoding: 'utf-8' }))));
     const tree = await this.req('POST', `/repos/${repo}/git/trees`, {
       base_tree: head.tree.sha,
-      tree: files.map((f, i) => ({ path: f.path, mode: '100644', type: 'blob', sha: blobs[i].sha })),
+      tree: files.map((f, i) => ({ path: f.path, mode: '100644', type: 'blob', sha: f.delete ? null : blobs[i].sha })),
     });
     const commit = await this.req('POST', `/repos/${repo}/git/commits`, { message, tree: tree.sha, parents: [headSha] });
     await this.req('PATCH', `/repos/${repo}/git/refs/heads/${enc(branch)}`, { sha: commit.sha });
     const shas = {};
-    files.forEach((f, i) => { shas[f.path] = blobs[i].sha; });
+    files.forEach((f, i) => { if (!f.delete) shas[f.path] = blobs[i].sha; });
     return { commit: commit.sha, blobs: shas };
   }
 
