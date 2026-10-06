@@ -111,6 +111,17 @@ section{padding:clamp(48px,6vw,84px) 0}
 .peek-hint{text-align:center;color:var(--muted);font-size:15px;margin:0 0 34px}
 @media (max-width:640px){.lid{padding:8px 8px 11px;border-radius:12px 12px 4px 4px}.hinge{height:11px}.peek-tabs button{font-size:14px;padding:8px 13px}}
 
+
+/* who we are */
+.team{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;max-width:940px;margin:0 auto}
+.person{background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px 26px;text-align:center;box-shadow:var(--shadow)}
+.avatar{width:150px;height:150px;border-radius:50%;margin:0 auto 16px;overflow:hidden;border:4px solid #fff;box-shadow:0 0 0 3px var(--peach);background:var(--peach) center/46% no-repeat}
+.avatar.o{background-image:url(brand/butterfly.png)}.avatar.r{background-image:url(brand/flower.png);background-color:var(--mint);box-shadow:0 0 0 3px var(--mint)}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.person h3{font-size:26px;margin-bottom:4px}
+.person .role{color:var(--red);font-weight:800;font-size:17px;margin-bottom:14px}
+.person p{color:#524e55;font-size:17px;line-height:1.7;margin-top:10px;text-align:right}
+
 /* comparison */
 .tablewrap{overflow-x:auto;border-radius:16px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
 table{border-collapse:collapse;width:100%;min-width:560px;font-size:17px}
@@ -166,6 +177,7 @@ footer img{height:34px}
     <nav>
       <a href="#plans">החבילות</a>
       <a href="#editing">מערכת העריכה</a>
+      <a href="#about">מי אנחנו</a>
       <a href="#faq">שאלות נפוצות</a>
       <a class="btn small" href="/#/login">כניסה למערכת</a>
     </nav>
@@ -305,6 +317,30 @@ footer img{height:34px}
             <tr><td>דומיין חינם לשנה</td><td class="n">–</td><td class="best n">–</td><td class="y">✓</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="about" style="padding-top:20px">
+    <div class="wrap">
+      <div class="sec-head reveal"><h2>מי <span class="hl">אנחנו</span></h2></div>
+      <div class="team">
+        <article class="person reveal" style="--d:.05s">
+          <div class="avatar o"><img src="team/orin.jpg" alt="אורין" loading="lazy" onerror="this.style.display='none'"></div>
+          <h3>אני אורין</h3>
+          <div class="role">דולה עסקים ליוצרות עצמאיות</div>
+          <p>ליווי עשרות נשים לייצר עסק מצליח מהמתנות, הידע והכישרונות שלהן.</p>
+          <p>את דרכי התחלתי מגיל צעיר מאוד, מתוך תחביב ומשיכה לעיצוב גרפי ולמיתוג. כשהתבגרתי התגברה איתי התשוקה והחלטתי ללמוד בניית אתרים, שיווק ומיתוג באופן מקצועי.</p>
+          <p>אני מלאה בקריאייטיב שרק רוצה להשפיע ממנו, והכי מרגש אותי בעולם לעצב לך את העולם הדיגיטלי שלך.</p>
+        </article>
+        <article class="person reveal" style="--d:.15s">
+          <div class="avatar r"><img src="team/roni.jpg" alt="רוני" loading="lazy" onerror="this.style.display='none'"></div>
+          <h3>אני רוני</h3>
+          <div class="role">אמנית, יוצרת</div>
+          <p>אני בעלת שנים של ניסיון בעולמות הקריאייטיב, עיצוב ויצירה. יזמית של רעיונות ובעלת אש חזקה להוציא אותם לאור באמת.</p>
+          <p>יש לי תשוקה ענקית לעזור לך להוציא את המיטב מהשירות שלך בדיגיטל. אני עוזרת לך למצוא את האני האותנטי שלך, להבין את החסמים שלך ולעלות לשלב הבא שלך.</p>
+          <p>בתור אישה, יוצרת ובעלת עסק, הכי מתרגשת לעבור איתך מסע אישי מלב אל לב.</p>
+        </article>
       </div>
     </div>
   </section>
