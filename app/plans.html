@@ -33,8 +33,8 @@ a{color:var(--red)}
 .draft{background:var(--peach);color:var(--ink);text-align:center;font-size:15px;font-weight:700;padding:8px 14px}
 
 header{position:sticky;top:0;z-index:30;background:rgba(255,248,244,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-header .wrap{display:flex;align-items:center;gap:18px;height:68px}
-header img{height:44px;display:block}
+header .wrap{display:flex;align-items:center;gap:18px;height:80px}
+header img{height:64px;display:block}
 header nav{display:flex;gap:22px;margin-inline-start:auto;align-items:center;font-weight:700;font-size:16px}
 header nav a{text-decoration:none;color:var(--ink)}
 header nav a:hover{color:var(--red)}
@@ -149,7 +149,8 @@ details p{padding:0 0 18px;color:#5d5860}
 .final p{max-width:560px;margin:0 auto 24px;color:#524e55}
 footer{padding:30px 0;color:var(--muted);font-size:15px}
 footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-footer img{height:34px}
+footer img{height:56px}
+.team-logo{display:block;height:84px;margin:0 auto 14px}
 
 /* reveal on scroll */
 .reveal{opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
@@ -325,7 +326,7 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
 
   <section id="about" style="padding-top:20px">
     <div class="wrap">
-      <div class="sec-head reveal"><h2>מי <span class="hl">אנחנו</span></h2><p>אנחנו פאם דיגיטל, סוכנות שמלווה מאות בעלי עסקים ועוד.</p></div>
+      <div class="sec-head reveal"><img class="team-logo" src="brand/logo.png" alt="Femme Digital"><h2>מי <span class="hl">אנחנו</span></h2><p>אנחנו פאם דיגיטל, סוכנות שמלווה מאות בעלי עסקים ועוד.</p></div>
       <div class="team">
         <article class="person reveal" style="--d:.05s">
           <div class="avatar o"><img src="team/orin.jpg" alt="אורין" loading="lazy" onerror="this.style.display='none'"></div>
