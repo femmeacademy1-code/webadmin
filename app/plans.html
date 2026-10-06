@@ -100,56 +100,14 @@ section{padding:clamp(48px,6vw,84px) 0}
 .laptop{max-width:980px;margin:0 auto 14px;position:relative}
 .lid{background:#2f2e33;border-radius:20px 20px 6px 6px;padding:14px 14px 18px;box-shadow:0 26px 60px rgba(71,69,77,.28);position:relative}
 .lid::before{content:"";position:absolute;top:5px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#55535a}
-/* animated editor demo */
-.screen{aspect-ratio:16/10;border-radius:6px;background:#fff;position:relative;overflow:hidden;container-type:inline-size;font-size:1.05cqw;user-select:none;direction:rtl}
-.demo{position:absolute;inset:0;display:flex;flex-direction:column}
-.dbar{height:6.2cqw;border-bottom:1px solid #eadfd8;display:flex;align-items:center;gap:1.4cqw;padding:0 2cqw;background:#fff;flex:none;font-size:1.3cqw;font-weight:700}
-.dbar .brandx{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:2.1cqw;margin-inline-end:auto}
-.dbar .chip{padding:.7cqw 1.6cqw;border-radius:99px;border:1px solid #d9cfc8;color:#6b6770}
-.dbar .pub{padding:.9cqw 2cqw;border-radius:99px;background:var(--red);color:#fff;transition:transform .2s,box-shadow .2s}
-.dbar .pub.hit{transform:scale(.94)}
-.dmain{flex:1;display:flex;min-height:0}
-.dsite{flex:1;background:var(--cream);padding:2.4cqw 3cqw;overflow:hidden;position:relative}
-.dpanel{width:30%;border-inline-end:1px solid #eadfd8;background:#fff;padding:2cqw;position:relative;flex:none}
-.dnav{display:flex;gap:1.6cqw;align-items:center;font-size:1.25cqw;color:#6b6770;margin-bottom:2cqw}
-.dnav b{margin-inline-end:auto;font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:1.9cqw;color:var(--ink)}
-.dhero{display:flex;gap:3cqw;align-items:center}
-.dtxt{flex:1}
-.dh1{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:3.6cqw;line-height:1.15;color:var(--ink);min-height:8.4cqw;padding:.4cqw .6cqw;border-radius:.6cqw;outline:2px solid transparent;transition:outline-color .25s}
-.dh1 em{font-style:normal;color:var(--tan)}
-.dlines i{display:block;height:.9cqw;border-radius:9px;background:#e4d8d0;margin:1cqw 0;width:100%}
-.dlines i:nth-child(2){width:88%}.dlines i:nth-child(3){width:64%}
-.dbtn{display:inline-block;margin-top:1.4cqw;background:var(--red);color:#fff;border-radius:99px;padding:.9cqw 2.2cqw;font-size:1.3cqw;font-weight:700}
-.dimg{width:21cqw;height:21cqw;flex:none;border-radius:11cqw 11cqw 1.2cqw 1.2cqw;overflow:hidden;background:var(--peach);outline:2px solid transparent;outline-offset:3px;transition:border-radius .8s cubic-bezier(.3,.7,.2,1),outline-color .25s}
-.dimg img{width:100%;height:100%;object-fit:cover;display:block}
-.dcards{display:flex;flex-wrap:wrap;gap:1.6cqw;margin-top:2.4cqw;padding:.5cqw;border-radius:1cqw;outline:2px solid transparent;transition:outline-color .25s,gap .4s}
-.dcards div{flex:0 0 calc((100% - 1.6cqw*(var(--n) - 1))/var(--n));border-radius:1.6cqw;padding:1.3cqw 1.5cqw;font-size:1.3cqw;font-weight:800;color:var(--ink);transition:flex-basis .7s cubic-bezier(.3,.7,.2,1)}
-.dcards div small{display:block;font-weight:600;color:#6b6770;margin-top:.4cqw;font-size:1.1cqw}
-.dcards div:nth-child(1){background:#FFE5D6}.dcards div:nth-child(2){background:var(--mint)}.dcards div:nth-child(3){background:#F5EAE0}.dcards div:nth-child(4){background:#FBE9C8}
-.sel{outline-color:#3b82f6!important}
-.dpanel .pn{position:absolute;inset:2cqw;opacity:0;transform:translateY(1cqw);transition:opacity .3s,transform .3s;pointer-events:none}
-.dpanel .pn.on{opacity:1;transform:none}
-.pn h5{font-size:1.5cqw;margin:0 0 1.2cqw;color:var(--ink)}
-.pn .lbl{font-size:1.15cqw;color:#7a757d;margin:1.2cqw 0 .5cqw;font-weight:700}
-.tarea{border:1px solid #d9cfc8;border-radius:.8cqw;padding:1cqw;font-size:1.3cqw;line-height:1.4;min-height:7cqw;background:#fffdfb}
-.tarea::after{content:"";display:inline-block;width:1px;height:1.3cqw;background:var(--ink);vertical-align:middle;animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:.9cqw}
-.tile{border:2px solid #e4d8d0;border-radius:.9cqw;height:5.4cqw;display:grid;place-items:center;font-size:1cqw;color:#6b6770;transition:border-color .2s,background .2s}
-.tile span{display:block;width:2.4cqw;height:2.4cqw;background:#47454d}
-.tile.on{border-color:var(--ink);background:var(--mint)}
-.nums{display:flex;gap:.8cqw}
-.nums b{flex:1;border:2px solid #e4d8d0;border-radius:.8cqw;text-align:center;padding:.9cqw 0;font-size:1.4cqw;transition:border-color .2s,background .2s}
-.nums b.on{border-color:var(--ink);background:var(--mint)}
-.range{height:.7cqw;border-radius:9px;background:#e4d8d0;position:relative;margin-top:1.4cqw}
-.range::after{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:var(--g,20%);background:var(--red);border-radius:9px;transition:width .6s}
-.hintp{font-size:1.35cqw;color:#7a757d;line-height:1.5;margin-top:2cqw}
-.dtoast{position:absolute;inset-inline:0;bottom:2cqw;margin:auto;width:max-content;background:var(--ink);color:#fff;padding:1cqw 2.4cqw;border-radius:99px;font-size:1.5cqw;font-weight:700;opacity:0;transform:translateY(1.5cqw);transition:opacity .3s,transform .3s;z-index:4}
-.dtoast.on{opacity:1;transform:none}
-.dcur{position:absolute;top:0;left:0;width:3cqw;height:3cqw;z-index:6;pointer-events:none;transition:transform .95s cubic-bezier(.45,.05,.25,1);filter:drop-shadow(0 .3cqw .4cqw rgba(0,0,0,.35))}
-.dcur::after{content:"";position:absolute;left:-.4cqw;top:-.4cqw;width:1.6cqw;height:1.6cqw;border-radius:50%;border:2px solid var(--red);opacity:0;transform:scale(.3)}
+/* editor demo: real screenshots of our editor, with a cursor that clicks through them */
+.screen{aspect-ratio:16/10;border-radius:6px;background:#fff;position:relative;overflow:hidden}
+.screen .fr{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .28s}
+.screen .fr.on{opacity:1}
+.dcur{position:absolute;left:105%;top:60%;width:2.6%;min-width:16px;z-index:3;pointer-events:none;transition:left .95s cubic-bezier(.45,.05,.25,1),top .95s cubic-bezier(.45,.05,.25,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+.dcur::after{content:"";position:absolute;left:-30%;top:-30%;width:90%;aspect-ratio:1;border-radius:50%;border:2px solid var(--red);opacity:0;transform:scale(.3)}
 .dcur.click::after{animation:rip .5s ease-out}
-@keyframes rip{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.6)}}
+@keyframes rip{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.7)}}
 .hinge{height:16px;margin:0 -3.5%;background:linear-gradient(#d9d3cf,#bdb6b1);border-radius:0 0 22px 22px;position:relative;box-shadow:0 10px 22px rgba(71,69,77,.18)}
 .hinge::after{content:"";position:absolute;top:0;left:50%;width:18%;height:6px;margin-left:-9%;background:#aaa39e;border-radius:0 0 10px 10px}
 .peek-tabs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:26px 0 8px}
@@ -318,42 +276,25 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
         <p>נכנסים בשם משתמש וסיסמה, לוחצים על כל דבר באתר ומשנים אותו, ורואים את התוצאה חיה לפני שמפרסמים. כלול בחבילות של 80 ₪ ו-100 ₪.</p>
       </div>
       <div class="laptop reveal">
-        <div class="lid"><div class="screen" id="screen" role="img" aria-label="הדגמה חיה של מערכת העריכה: משנים כותרת, חותכים תמונה לעיגול ומסדרים קופסאות בעמודות">
-          <div class="demo">
-            <div class="dbar"><span class="brandx">מודעת הזהב</span><span class="chip">גרסאות קודמות</span><span class="chip">צפייה באתר</span><span class="pub" id="dPub">פרסום באתר</span></div>
-            <div class="dmain">
-              <div class="dsite">
-                <div class="dnav"><b>Biz Doula</b><span>המפגשים</span><span>מי אני</span><span>שאלות</span></div>
-                <div class="dhero">
-                  <div class="dtxt">
-                    <div class="dh1" id="dH1">הפסיקי לנחש איך להביא לקוחות.</div>
-                    <div class="dlines"><i></i><i></i><i></i></div>
-                    <span class="dbtn">אני רוצה מקום</span>
-                  </div>
-                  <div class="dimg" id="dImg"><img src="preview/hero.jpg" alt=""></div>
-                </div>
-                <div class="dcards" id="dCards" style="--n:2"><div>הפיצוח<small>שיעור 1</small></div><div>הכתיבה<small>שיעור 2</small></div><div>הטכני<small>שיעור 3</small></div><div>הבר״ז<small>שיעור 4</small></div></div>
-              </div>
-              <div class="dpanel">
-                <div class="pn on" data-p="0"><h5>עריכת האתר</h5><p class="hintp">לוחצים על כל דבר בדף כדי לערוך אותו.</p></div>
-                <div class="pn" data-p="1"><h5>עריכת טקסט</h5><div class="lbl">הטקסט</div><div class="tarea" id="dTa"></div></div>
-                <div class="pn" data-p="2"><h5>צורת תמונה</h5><div class="lbl">צורה וחיתוך</div><div class="tiles" id="dTiles"><div class="tile"><span></span>מקורי</div><div class="tile" data-t="circle"><span style="border-radius:50%"></span>עיגול</div><div class="tile"><span style="clip-path:polygon(50% 0,100% 100%,0 100%)"></span>משולש</div></div></div>
-                <div class="pn" data-p="3"><h5>גודל ועמודות</h5><div class="lbl">חלוקה לעמודות</div><div class="nums" id="dNums"><b>1</b><b>2</b><b>3</b><b>4</b></div><div class="lbl">מרווח בין הפריטים</div><div class="range" id="dRange"></div></div>
-              </div>
-            </div>
-            <div class="dtoast" id="dToast">✓ השינויים פורסמו באתר</div>
-            <svg class="dcur" id="dCur" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l14 9-6.2 1.4L9 19z" fill="#fff" stroke="#2f2e33" stroke-width="1.6" stroke-linejoin="round"/></svg>
-          </div>
+        <div class="lid"><div class="screen" id="screen" role="img" aria-label="הדגמה של מערכת העריכה האמיתית שלנו על דף הנחיתה של הקורס: משנים כותרת, מסדרים שלוש עמודות ומפרסמים">
+          <img class="fr on" src="preview/f0.jpg" alt="" width="1200" height="750">
+          <img class="fr" src="preview/f1.jpg" alt="" width="1200" height="750">
+          <img class="fr" src="preview/f2.jpg" alt="" width="1200" height="750" loading="lazy">
+          <img class="fr" src="preview/f3.jpg" alt="" width="1200" height="750" loading="lazy">
+          <img class="fr" src="preview/f4.jpg" alt="" width="1200" height="750" loading="lazy">
+          <img class="fr" src="preview/f5.jpg" alt="" width="1200" height="750" loading="lazy">
+          <img class="fr" src="preview/f6.jpg" alt="" width="1200" height="750" loading="lazy">
+          <img class="fr" src="preview/f7.jpg" alt="" width="1200" height="750" loading="lazy">
+          <svg class="dcur" id="dCur" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l14 9-6.2 1.4L9 19z" fill="#fff" stroke="#2f2e33" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </div></div>
         <div class="hinge"></div>
       </div>
       <div class="peek-tabs" id="peekTabs" role="group" aria-label="מעבר בין חלקי ההצצה">
         <button type="button" aria-pressed="true">עריכת טקסט</button>
-        <button type="button" aria-pressed="false">צורות לתמונות</button>
-        <button type="button" aria-pressed="false">קופסאות ועמודות</button>
+        <button type="button" aria-pressed="false">עמודות ומרווחים</button>
         <button type="button" aria-pressed="false">פרסום</button>
       </div>
-      <p class="peek-hint">הדגמה חיה על דף הנחיתה של הקורס "מודעת הזהב" שלנו. אפשר ללחוץ על שלב כדי לראות אותו שוב.</p>
+      <p class="peek-hint">זו מערכת העריכה האמיתית, על דף הנחיתה של הקורס "מודעת הזהב" שלנו. אפשר ללחוץ על שלב כדי לראות אותו שוב.</p>
       <div class="feat">
         <div class="card reveal"><div class="ic">✏️</div><h3>עריכת טקסטים</h3><p>שינוי הטקסט, גודל, הדגשה, קו תחתון ויישור. גם כתיבה ישירות על העמוד.</p></div>
         <div class="card reveal" style="--d:.06s"><div class="ic">🖼️</div><h3>תמונות וצורות</h3><p>החלפת תמונות, חיתוך לעיגול, משולש, כוכב ועוד, ובחירת איזה חלק נשאר בפריים.</p></div>
@@ -460,77 +401,41 @@ var PAY_LINKS = { landing: '', basic: '', pro: '' };
   if (missing) document.getElementById('draft').hidden = false;
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* editor preview: a scripted, looping demo of editing a real landing page */
+  /* editor demo: real screenshots of the editor; a cursor clicks through the steps and the frames cross-fade */
   var screen = document.getElementById('screen'), tabs = document.querySelectorAll('#peekTabs button');
   if (screen) {
-    var $ = function (id) { return document.getElementById(id); };
-    var h1 = $('dH1'), img = $('dImg'), cards = $('dCards'), ta = $('dTa'), cur = $('dCur'), toast = $('dToast'), pub = $('dPub');
-    var panels = screen.querySelectorAll('.pn'), tiles = screen.querySelectorAll('.tile'), nums = screen.querySelectorAll('#dNums b'), range = $('dRange');
-    var OLD = 'הפסיקי לנחש איך להביא לקוחות.', NEW = 'הפסיקי לנחש. בואי נבנה מודעה שעובדת';
-    var tok = 0, started = false, visible = false;
+    var frames = screen.querySelectorAll('.fr'), cur = document.getElementById('dCur');
+    var P = [[59.4, 60.4], [59.4, 60.4], [86.1, 33.8], [86.1, 33.8], [86.1, 33.8], [36.1, 59.0], [91.4, 85.8], [9.8, 3.9]];
+    var tok = 0, started = false;
     var wait = function (ms, t) { return new Promise(function (res, rej) { setTimeout(function () { t === tok ? res() : rej('x'); }, ms); }); };
-    var panel = function (i) { panels.forEach(function (p, k) { p.classList.toggle('on', k === i); }); };
-    var sel = function (el) { [h1, img, cards].forEach(function (e) { e.classList.toggle('sel', e === el); }); };
-    var mark = function (i) { tabs.forEach(function (b, k) { b.setAttribute('aria-pressed', k === i); }); };
-    var setCols = function (n) { cards.style.setProperty('--n', n); nums.forEach(function (b, k) { b.classList.toggle('on', k + 1 === n); }); range.style.setProperty('--g', n === 3 ? '60%' : '20%'); };
-    var setCircle = function (on) { img.style.borderRadius = on ? '50%' : ''; tiles[1].classList.toggle('on', on); tiles[0].classList.toggle('on', !on); };
-    var text = function (t) { h1.textContent = t; ta.textContent = t; };
-    /* state before step i (instant) */
-    var state = function (i) {
-      toast.classList.remove('on'); sel(null);
-      text(i > 0 ? NEW : OLD); setCircle(i > 1); setCols(i > 2 ? 3 : 2); panel(0);
-    };
-    var at = function (el, fx, fy) {
-      var s = screen.getBoundingClientRect(), r = el.getBoundingClientRect(), k = s.width / screen.offsetWidth;
-      cur.style.transform = 'translate(' + ((r.left - s.left + r.width * fx) / k) + 'px,' + ((r.top - s.top + r.height * fy) / k) + 'px)';
-    };
-    var click = function (t) { cur.classList.remove('click'); void cur.getBoundingClientRect(); cur.classList.add('click'); return wait(350, t); };
-    var steps = [
-      async function (t) {
-        at(h1, .5, .5); await wait(1100, t); await click(t); sel(h1); panel(1); text(OLD);
-        await wait(700, t); text('');
-        for (var i = 1; i <= NEW.length; i++) { text(NEW.slice(0, i)); await wait(55, t); }
-        await wait(900, t);
-      },
-      async function (t) {
-        at(img, .5, .55); await wait(1100, t); await click(t); sel(img); panel(2);
-        await wait(500, t); at(tiles[1], .5, .5); await wait(1100, t); await click(t); setCircle(true);
-        await wait(1400, t);
-      },
-      async function (t) {
-        at(cards, .5, .5); await wait(1100, t); await click(t); sel(cards); panel(3);
-        await wait(500, t); at(nums[2], .5, .5); await wait(1100, t); await click(t); setCols(3);
-        await wait(1500, t);
-      },
-      async function (t) {
-        sel(null); panel(0); at(pub, .5, .5); await wait(1100, t); await click(t);
-        pub.classList.add('hit'); setTimeout(function () { pub.classList.remove('hit'); }, 180); toast.classList.add('on');
-        await wait(2400, t);
-      }
-    ];
+    var show = function (i) { frames.forEach(function (f, k) { f.classList.toggle('on', k === i); }); tabs.forEach(function (b, k) { b.setAttribute('aria-pressed', k === (i < 5 ? 0 : i < 7 ? 1 : 2)); }); };
+    var moveTo = function (i) { cur.style.left = P[i][0] + '%'; cur.style.top = P[i][1] + '%'; };
+    var click = function () { cur.classList.remove('click'); void cur.getBoundingClientRect(); cur.classList.add('click'); };
+    /* [frame, cursor target, pause before the frame appears, hold] */
+    var script = [[0, null, 0, 1300], [1, 1, 1100, 800], [2, 2, 1000, 450], [3, null, 0, 450], [4, null, 0, 1400], [5, 5, 1100, 1300], [6, 6, 1100, 1700], [7, 7, 1100, 2600]];
     var play = async function (from) {
       var t = ++tok;
       try {
         for (;;) {
-          state(from); mark(from);
-          for (var i = from; i < steps.length; i++) { mark(i); await steps[i](t); }
-          await wait(700, t); from = 0; state(0); cur.style.transform = 'translate(-6cqw,40cqw)'; await wait(900, t);
+          cur.style.transition = 'none'; cur.style.left = '105%'; cur.style.top = '60%'; void cur.offsetWidth; cur.style.transition = '';
+          for (var n = from; n < script.length; n++) {
+            var s = script[n];
+            if (s[1] !== null) { moveTo(s[1]); await wait(s[2], t); if (n === 1 || n >= 5) click(); await wait(220, t); }
+            show(s[0]); await wait(s[3], t);
+          }
+          from = 0; await wait(500, t);
         }
       } catch (e) { if (e !== 'x') throw e; }
     };
-    var begin = function (i) { if (reduce) { state(i); mark(i); return; } play(i); };
-    tabs.forEach(function (b, i) { b.addEventListener('click', function () { started = true; begin(i); }); });
-    if (reduce) { state(3); at(pub, .5, .5); toast.classList.add('on'); mark(3); }
-    else {
-      state(0); cur.style.transform = 'translate(-6cqw,40cqw)';
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (es) {
-          visible = es[0].isIntersecting;
-          if (visible && !started) { started = true; play(0); }
-          else if (!visible && started) { tok++; started = false; }
-        }, { threshold: 0.5 }).observe(screen);
-      } else { started = true; play(0); }
-    }
+    var startAt = [0, 5, 7];
+    tabs.forEach(function (b, i) { b.addEventListener('click', function () { started = true; if (reduce) { show(startAt[i] === 7 ? 7 : startAt[i] === 5 ? 6 : 4); return; } show(startAt[i] === 5 ? 4 : startAt[i] === 7 ? 6 : 0); play(startAt[i]); }); });
+    if (reduce) show(7);
+    else if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        if (es[0].isIntersecting && !started) { started = true; play(0); }
+        else if (!es[0].isIntersecting && started) { tok++; started = false; }
+      }, { threshold: 0.5 }).observe(screen);
+    } else { started = true; play(0); }
   }
 
   var items = document.querySelectorAll('.reveal');
