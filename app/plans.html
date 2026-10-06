@@ -8,6 +8,7 @@
 <title>Femme Digital | אחסון ומערכת עריכה לאתר שלך</title>
 <meta name="description" content="אחסון מהיר ומאובטח לאתר או לדף נחיתה, חיבור דומיין ומערכת עריכה עצמאית: משנים טקסטים, תמונות וצבעים בלי לגעת בקוד.">
 <link rel="icon" type="image/png" href="brand/butterfly.png">
+<link rel="stylesheet" href="ui.css">
 <style>
 @font-face{font-family:"Ploni Yad";font-weight:400;font-display:swap;src:url(fonts/ploni-yad.woff2) format("woff2")}
 @font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-hebrew.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
@@ -278,6 +279,32 @@ section>.wrap{position:relative}
 .final .wrap{position:relative;z-index:1}
 @media (max-width:900px){.hero .wrap{grid-template-columns:1fr}.hero-art{min-height:340px;margin-top:10px}.hero-art .bt{width:110px}.hero-art .sp,.hero-art .ht,.hero-art .fl{width:56px}.final .fd{width:70px}}
 @media (max-width:640px){.hd-laptop{width:84%}.hd-phone{width:22%;left:0;bottom:-6%}.chips li{font-size:14px}.hero::before{width:260px;height:260px}.final .fd{display:none}}
+
+/* ---------- mobile pack ---------- */
+.mbar{display:none}
+@media (max-width:900px){
+  .hero .wrap>div:first-child{display:contents}
+  .hero .eyebrow{order:1;text-align:center}.hero h1{order:2}.hero p.lead{order:3}.hero-art{order:4!important;margin-block:8px 4px}.hero .forwho{order:5}.hero .cta{order:6}.hero .chips{order:7}
+  .plan.best{order:0}
+  .hero{text-align:start}
+}
+@media (max-width:760px){
+  .mbar{display:flex;gap:10px;position:fixed;inset-inline:0;bottom:0;z-index:40;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,248,244,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);transform:translateY(0);transition:transform .3s}
+  .mbar.off{transform:translateY(110%)}
+  .mbar .btn{flex:1;padding:12px 10px;font-size:16px}
+  body{padding-bottom:78px}
+}
+@media (max-width:640px){
+  .hero h1{font-size:clamp(36px,11.2vw,46px)}
+  .hero p.lead{font-size:19px}
+  .eyebrow{font-size:22px}
+  .sec-head h2{font-size:36px}
+  .sec-head p{font-size:17px}
+  .mobtxt h3,h3.more{font-size:32px}
+  .final h2{font-size:38px}
+  .laptop{display:block!important;margin-bottom:6px}
+  .lid{padding:6px 6px 8px}
+}
 </style>
 </head>
 <body>
@@ -427,7 +454,7 @@ section>.wrap{position:relative}
       </div>
       <div class="safe reveal">
         <strong>בלי לשבור כלום.</strong>
-        <span>עורכים רק את התוכן והעיצוב. הקוד והמבנה של האתר נשארים מוגנים, כך שלא ניתן להפיל את האתר בטעות.</span>
+        <span>עורכים רק את התוכן והעיצוב. הקוד והמבנה שבנינו עבורך נשארים מוגנים, כך שלא ניתן להפיל את האתר בטעות.</span>
       </div>
     </div>
   </section>
@@ -503,7 +530,7 @@ section>.wrap{position:relative}
 <footer>
   <div class="wrap">
     <img src="brand/logo.png" alt="Femme Digital">
-    <span>© Femme Digital · <a href="https://www.femme-digital.com/">femme-digital.com</a></span>
+    <span>© Femme Digital · <a href="https://www.femme-digital.com/">femme-digital.com</a> · <a href="terms.html#terms">תקנון</a> · <a href="terms.html#privacy">פרטיות</a> · <a href="terms.html#cookies">עוגיות</a> · <a href="terms.html#accessibility">הצהרת נגישות</a></span>
   </div>
 </footer>
 
@@ -541,6 +568,13 @@ var PAY_LINKS = { landing: 'https://pay.sumit.co.il/1g4j32/142esi1/142esr1/', ba
   });
   if (missing) document.getElementById('draft').hidden = false;
   document.addEventListener('DOMContentLoaded', function () {
+  var wa2 = document.getElementById('mbarWa');
+  if (wa2 && WHATSAPP) { wa2.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('שלום, יש לי שאלה על החבילות'); wa2.hidden = false; }
+  var mb = document.getElementById('mbar');
+  if (mb && 'IntersectionObserver' in window) {
+    var vis = {}, upd = function () { mb.classList.toggle('off', !!(vis.plans || vis.final)); };
+    [['plans', document.getElementById('plans')], ['final', document.querySelector('.final')]].forEach(function (p) { if (p[1]) new IntersectionObserver(function (es) { vis[p[0]] = es[0].isIntersecting; upd(); }, { threshold: 0.15 }).observe(p[1]); });
+  }
   var pd = document.getElementById('payDlg');
   if (pd) {
     var closePay = function () { pd.close(); document.getElementById('payFrame').src = 'about:blank'; };
@@ -599,6 +633,7 @@ var PAY_LINKS = { landing: 'https://pay.sumit.co.il/1g4j32/142esi1/142esr1/', ba
   items.forEach(function (e) { io.observe(e); });
 })();
 </script>
+<nav class="mbar" id="mbar" aria-label="פעולות מהירות"><a class="btn red" href="#plans">לבחירת חבילה</a><a class="btn mint" id="mbarWa" href="#" target="_blank" rel="noopener" hidden>💬 וואטסאפ</a></nav>
 <dialog class="paydlg" id="payDlg" aria-label="תשלום">
   <button type="button" id="payClose" class="payx" aria-label="סגירה">✕</button>
   <aside class="paysum">
@@ -607,7 +642,7 @@ var PAY_LINKS = { landing: 'https://pay.sumit.co.il/1g4j32/142esi1/142esr1/', ba
     <h3 id="payPlan"></h3>
     <div class="payprice" id="payPrice"></div>
     <ul id="payList"></ul>
-    <div class="paysafe">🔒 תשלום מאובטח. פרטי האשראי לא נשמרים אצלנו.</div>
+    <div class="paysafe">🔒 תשלום מאובטח. פרטי האשראי לא נשמרים אצלנו.<br><small>בהמשך לתשלום את מאשרת את <a href="terms.html#terms" target="_blank" rel="noopener">התקנון</a>.</small></div>
     <img class="paydoodle" src="brand/butterfly.png" alt="">
   </aside>
   <section class="payform">
@@ -616,5 +651,6 @@ var PAY_LINKS = { landing: 'https://pay.sumit.co.il/1g4j32/142esi1/142esr1/', ba
     <a id="payOpen" class="payopen" href="#" target="_blank" rel="noopener">לא נטען? פתיחה בחלון חדש ↗</a>
   </section>
 </dialog>
+<script src="ui.js"></script>
 </body>
 </html>
