@@ -587,6 +587,37 @@ async function viewEditor(siteId) {
     frameSend({ type: 'cms-select-key', key: '@' + id });
     return id;
   }
+  /* WhatsApp contact button: the owner picks the number, the pre-written message and the button text; the button opens a chat with that text ready to send */
+  function waNumber(raw) {
+    let d = String(raw || '').replace(/[^\d+]/g, '').replace(/^\+/, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith('0')) d = '972' + d.slice(1);
+    return /^\d{9,15}$/.test(d) ? d : null;
+  }
+  function askWhatsapp() {
+    return new Promise((resolve) => {
+      const num = h('input', { type: 'tel', dir: 'ltr', placeholder: '050-1234567', inputmode: 'tel' });
+      const msg = h('textarea', { rows: 3, placeholder: 'שלום, אשמח לשמוע פרטים על…' }); msg.value = 'שלום, הגעתי מהאתר ואשמח לשמוע פרטים';
+      const label = h('input', { type: 'text', value: 'שלחו לנו הודעה בוואטסאפ' });
+      const err = h('p', { class: 'error', hidden: true });
+      const done = (v) => { dlg.close(); dlg.remove(); resolve(v); };
+      const dlg = h('dialog', {}, h('h2', {}, 'כפתור וואטסאפ'),
+        h('p', { class: 'muted' }, 'לחיצה על הכפתור פותחת שיחה אליכם בוואטסאפ, עם ההודעה שתכתבו כאן כבר מוכנה לשליחה.'),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'מספר הוואטסאפ שלכם'), num),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'ההודעה שתופיע ללקוח'), msg),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'הכיתוב על הכפתור'), label), err,
+        h('menu', {}, h('button', { class: 'btn ghost', onclick: () => done(null) }, 'ביטול'),
+          h('button', { class: 'btn primary', onclick: () => {
+            const n = waNumber(num.value);
+            if (!n) { err.textContent = 'מספר הטלפון לא תקין. למשל 050-1234567.'; err.hidden = false; return; }
+            const text = msg.value.trim().slice(0, 500);
+            done({ t: label.value.trim().slice(0, 80) || 'שלחו לנו הודעה בוואטסאפ', href: 'https://wa.me/' + n + (text ? '?text=' + encodeURIComponent(text) : '') });
+          } }, 'הוספה')));
+      dlg.addEventListener('cancel', () => done(null));
+      document.body.append(dlg); dlg.showModal(); num.focus();
+    });
+  }
+
   function askVideoUrl() {
     return new Promise((resolve) => {
       const input = h('input', { type: 'text', dir: 'ltr', placeholder: 'https://www.youtube.com/watch?v=…' });
@@ -910,6 +941,10 @@ async function viewEditor(siteId) {
           toast('התמונה נוספה. לחצו "פרסום באתר" כדי לשמור.');
         }),
         tile('🔘', 'כפתור', 'כפתור עם קישור, בעיצוב הכפתורים של האתר', (k) => addElement(k, 'button', { spec: { t: 'לחצו כאן', href: '#' } })),
+        tile('💬', 'וואטסאפ', 'כפתור שפותח שיחת וואטסאפ אליכם עם הודעה מוכנה שאתם מנסחים', async (k) => {
+          const w = await askWhatsapp(); if (!w) return;
+          await addElement(k, 'button', { spec: w });
+        }),
         tile('▶', 'סרטון', 'סרטון מ-YouTube או Vimeo', async (k) => {
           const v = await askVideoUrl(); if (!v) return;
           await addElement(k, 'video', { p: v });

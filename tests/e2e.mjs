@@ -327,6 +327,17 @@ try {
   await pg.locator('.insp-body input[dir=ltr]:not([type=number])').first().fill('tel:0501234567');
   await pg.waitForTimeout(300);
   ok(await fr.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && (await fr.locator('[data-cms-add="button"]').innerText()) === 'התקשרו עכשיו', 'add button: text and link editable');
+  // WhatsApp contact button with a message the owner words
+  await selectBox(); await openAdd();
+  await pg.click('button.addtile:has-text("וואטסאפ")');
+  await pg.fill('dialog input[type=tel]', '050-1234567');
+  await pg.fill('dialog textarea', 'שלום, אשמח לשמוע על החבילות');
+  await pg.fill('dialog input[type=text]', 'כתבו לנו בוואטסאפ');
+  await pg.click('dialog .btn.primary');
+  await fr.locator('[data-cms-add="button"] >> text=כתבו לנו בוואטסאפ').waitFor({ timeout: 8000 });
+  const waHref = await fr.locator('a[data-cms-add="button"]:has-text("כתבו לנו בוואטסאפ")').getAttribute('href');
+  ok(waHref === 'https://wa.me/972501234567?text=' + encodeURIComponent('שלום, אשמח לשמוע על החבילות'), 'whatsapp button: opens a chat with the number and the owner\'s message: ' + waHref);
+  await pg.click('button:has-text("מחיקת האלמנט")'); await fr.locator('a[data-cms-add="button"]:has-text("כתבו לנו בוואטסאפ")').waitFor({ state: 'detached', timeout: 8000 });
 
   await selectBox();
   await openAdd();
