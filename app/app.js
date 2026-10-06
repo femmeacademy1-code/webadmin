@@ -979,7 +979,7 @@ async function viewEditor(siteId) {
     const spec = specOf(u.key);
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
     out.push(h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, kindName)));
-    if (u.kind !== 'text' && u.kind !== 'node') out.push(addSection(u));   // not needed while editing text
+    out.push(h('button', { class: 'link', id: 'deselect', onclick: () => { E.unit = null; frameSend({ type: 'cms-deselect' }); renderInsp(); } }, '✕ ביטול הבחירה (כדי להוסיף אלמנט חדש)'));
 
     if (u.added === 'video') out.push(videoField(u));
     if (u.kind === 'text' || u.kind === 'node') {

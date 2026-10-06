@@ -313,14 +313,10 @@ try {
   await pg.click('.insp-tabs button:has-text("עריכה")');
 
   /* adding elements: button, video, file, image */
-  await fr.locator('.hero h2').click();
-  await pg.waitForSelector('.insp-body textarea');
-  ok((await pg.locator('.insp .addblock').count()) === 0, 'text selected: the add-element block is not shown');
-  await pg.click('button:has-text("בחירת האלמנט שמעל")');
-  await pg.waitForFunction(() => /אלמנט/.test(document.querySelector('.insp-body h3')?.textContent || ''), null, { timeout: 5000 });
-  const selectBox = async () => { await fr.locator('.hero h2').click(); await pg.waitForSelector('.insp-body textarea'); await pg.click('button:has-text("בחירת האלמנט שמעל")'); await pg.waitForFunction(() => /אלמנט/.test(document.querySelector('.insp-body h3')?.textContent || ''), null, { timeout: 5000 }); };
+  const selectBox = async () => { await fr.locator('.hero h2').click(); await pg.waitForSelector('#deselect'); ok((await pg.locator('.insp .addblock').count()) === 0, 'selected element: no add-element block'); await pg.click('#deselect'); await pg.waitForSelector('.addblock .addtile'); await pg.waitForFunction(() => document.querySelectorAll('.addwhere option').length > 1, null, { timeout: 8000 }); };
   const openAdd = async () => { await pg.waitForSelector('.addblock .addtile'); };
-  ok((await pg.locator('.insp-body > *').first().evaluate((e) => e.tagName)) === 'H3' && (await pg.locator('.insp-body > .addblock').count()) === 1 && (await pg.locator('.addblock .addtile').first().isVisible()), 'add: a prominent block with all element types sits right under the title (no collapsed menu)');
+  await selectBox();
+  ok((await pg.locator('.insp-body > .addblock').count()) === 1 && (await pg.locator('.addblock .addtile').first().isVisible()), 'add: a prominent block with all element types sits right under the title (no collapsed menu)');
   await pg.waitForSelector('button.addtile:has-text("כפתור")');
   await pg.click('button.addtile:has-text("כפתור")');
   await pg.waitForSelector('.insp-body textarea');
