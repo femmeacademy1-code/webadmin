@@ -28,6 +28,7 @@ a{color:var(--red)}
 .btn.red{background:var(--red);border-color:var(--peach);color:#fff}
 .btn.red:hover{background:var(--red-d)}
 .btn.small{font-size:15px;padding:9px 18px}
+.btn[hidden]{display:none}
 .btn.mint{background:var(--mint);border-color:var(--ink)}
 .btn.mint:hover{background:#cdeee4}
 .forwho{display:flex;gap:12px;align-items:center;background:#fff;border:2px dashed var(--red);border-radius:14px;padding:12px 16px;margin-top:20px;max-width:34em;font-size:16.5px;line-height:1.5;color:var(--ink)}
@@ -270,6 +271,7 @@ section>.wrap{position:relative}
 .final h2{color:#fff}.final p{color:#ffeadf}
 .final .btn.red{background:#fff;color:var(--red);border-color:#fff}
 .final .btn.red:hover{background:#ffeadf}
+.final .sign{margin:22px auto 0;font-family:"Ploni Yad","Assistant",sans-serif;font-size:26px;color:#fff}
 .final .fd{position:absolute;width:120px;opacity:.5;top:50%;transform:translateY(-50%)}
 .final .fd.l{left:6%}.final .fd.r{right:6%}
 .final .wrap{position:relative;z-index:1}
@@ -487,9 +489,10 @@ section>.wrap{position:relative}
 
   <section class="final"><img class="fd l" src="brand/butterfly-cream.png" alt=""><img class="fd r" src="brand/flower-cream.png" alt="">
     <div class="wrap reveal">
-      <h2>מוכנה לקחת את האתר לידיים שלך?</h2>
-      <p>הבחירה המומלצת שלנו היא חבילת ה-80 ₪: עריכה עצמאית, עד 5 דפים, וקל להתחיל.</p>
-      <a class="btn red" href="#" data-plan="basic">לרכישת חבילת ה-80 ₪</a>
+      <h2>תודה שבחרת בנו 💛</h2>
+      <p>אנחנו כאן כדי שהאתר שלך יעבוד בשבילך, וגם אחרי שהוא באוויר אנחנו לצידך. יש שאלה על החבילות, על העריכה או על האתר? אנחנו זמינות לכל שאלה בוואטסאפ.</p>
+      <a class="btn red" id="waBtn" href="#" target="_blank" rel="noopener" hidden>💬 כתבו לנו בוואטסאפ</a>
+      <p class="sign">פאם דיגיטל · אורין ורוני</p>
     </div>
   </section>
 </main>
@@ -504,9 +507,13 @@ section>.wrap{position:relative}
 <script>
 /* Payment links: paste the checkout link of each plan (from the clearing provider) between the quotes.
    While a link is empty the button scrolls to the plans and the "draft" strip is shown. */
+/* WhatsApp number in international format without + (e.g. 972501234567). While empty, the WhatsApp button stays hidden. */
+var WHATSAPP = '';
 var PAY_LINKS = { landing: 'https://pay.sumit.co.il/1g4j32/142esi1/142esr1/', basic: 'https://pay.sumit.co.il/1g4j32/142esi1/142esox/', pro: 'https://pay.sumit.co.il/1g4j32/142esi1/142exg9/' };
 
 (function () {
+  var wa = document.getElementById('waBtn');
+  if (wa && WHATSAPP) { wa.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('שלום, יש לי שאלה על החבילות'); wa.hidden = false; }
   var missing = false;
   document.querySelectorAll('[data-plan]').forEach(function (a) {
     var url = PAY_LINKS[a.dataset.plan];
