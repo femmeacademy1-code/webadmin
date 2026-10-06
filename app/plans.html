@@ -94,6 +94,23 @@ section{padding:clamp(48px,6vw,84px) 0}
 .safe strong{font-size:20px}
 .safe span{color:#e8e1dc}
 
+
+/* laptop preview of the editor */
+.laptop{max-width:980px;margin:0 auto 14px;position:relative}
+.lid{background:#2f2e33;border-radius:20px 20px 6px 6px;padding:14px 14px 18px;box-shadow:0 26px 60px rgba(71,69,77,.28);position:relative}
+.lid::before{content:"";position:absolute;top:5px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#55535a}
+.screen{aspect-ratio:16/10;overflow-y:auto;overflow-x:hidden;border-radius:6px;background:#fff;scroll-snap-type:y proximity;scrollbar-width:thin;scrollbar-color:var(--red) #f1ebe6;overscroll-behavior:contain}
+.screen img{display:block;width:100%;height:auto;scroll-snap-align:start}
+.screen::-webkit-scrollbar{width:9px}.screen::-webkit-scrollbar-thumb{background:var(--red);border-radius:6px}.screen::-webkit-scrollbar-track{background:#f1ebe6}
+.hinge{height:16px;margin:0 -3.5%;background:linear-gradient(#d9d3cf,#bdb6b1);border-radius:0 0 22px 22px;position:relative;box-shadow:0 10px 22px rgba(71,69,77,.18)}
+.hinge::after{content:"";position:absolute;top:0;left:50%;width:18%;height:6px;margin-left:-9%;background:#aaa39e;border-radius:0 0 10px 10px}
+.peek-tabs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:26px 0 8px}
+.peek-tabs button{font:inherit;font-weight:700;font-size:16px;cursor:pointer;padding:9px 18px;border-radius:99px;border:2px solid var(--line);background:#fff;color:var(--ink);transition:background .15s,border-color .15s,transform .15s}
+.peek-tabs button:hover{transform:translateY(-1px)}
+.peek-tabs button[aria-pressed=true]{background:var(--mint);border-color:var(--ink)}
+.peek-hint{text-align:center;color:var(--muted);font-size:15px;margin:0 0 34px}
+@media (max-width:640px){.lid{padding:8px 8px 11px;border-radius:12px 12px 4px 4px}.hinge{height:11px}.peek-tabs button{font-size:14px;padding:8px 13px}}
+
 /* comparison */
 .tablewrap{overflow-x:auto;border-radius:16px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
 table{border-collapse:collapse;width:100%;min-width:560px;font-size:17px}
@@ -237,6 +254,22 @@ footer img{height:34px}
         <h2>מערכת העריכה: <span class="hl">את שולטת באתר</span></h2>
         <p>נכנסים בשם משתמש וסיסמה, לוחצים על כל דבר באתר ומשנים אותו, ורואים את התוצאה חיה לפני שמפרסמים. כלול בחבילות של 80 ₪ ו-100 ₪.</p>
       </div>
+      <div class="laptop reveal">
+        <div class="lid"><div class="screen" id="screen" tabindex="0" aria-label="הצצה למערכת העריכה. אפשר לגלול בתוך המסך">
+          <img src="preview/s1-start.jpg" alt="מסך העריכה: האתר מימין לתצוגה ולוח העריכה משמאל, עם הוספת אלמנטים" width="1440" height="900">
+          <img src="preview/s2-text.jpg" alt="עריכת טקסט: משנים את הכותרת והאתר מתעדכן מיד" width="1440" height="900" loading="lazy">
+          <img src="preview/s3-shapes.jpg" alt="חיתוך תמונה לצורה: עיגול, משולש, כוכב ועוד" width="1440" height="900" loading="lazy">
+          <img src="preview/s4-columns.jpg" alt="קופסאות בשלוש עמודות עם מרווחים" width="1440" height="900" loading="lazy">
+        </div></div>
+        <div class="hinge"></div>
+      </div>
+      <div class="peek-tabs" id="peekTabs" role="group" aria-label="מעבר בין חלקי ההצצה">
+        <button type="button" aria-pressed="true">הוספת אלמנטים</button>
+        <button type="button" aria-pressed="false">עריכת טקסט</button>
+        <button type="button" aria-pressed="false">צורות לתמונות</button>
+        <button type="button" aria-pressed="false">קופסאות ועמודות</button>
+      </div>
+      <p class="peek-hint">גוללים בתוך המסך כדי לראות עוד. זו דוגמה על אתר לדוגמה.</p>
       <div class="feat">
         <div class="card reveal"><div class="ic">✏️</div><h3>עריכת טקסטים</h3><p>שינוי הטקסט, גודל, הדגשה, קו תחתון ויישור. גם כתיבה ישירות על העמוד.</p></div>
         <div class="card reveal" style="--d:.06s"><div class="ic">🖼️</div><h3>תמונות וצורות</h3><p>החלפת תמונות, חיתוך לעיגול, משולש, כוכב ועוד, ובחירת איזה חלק נשאר בפריים.</p></div>
@@ -318,8 +351,29 @@ var PAY_LINKS = { landing: '', basic: '', pro: '' };
     else { a.href = '#plans'; missing = true; }
   });
   if (missing) document.getElementById('draft').hidden = false;
-
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* editor preview: tabs scroll the laptop screen; a gentle auto-tour starts when it comes into view and stops at the first touch */
+  var screen = document.getElementById('screen'), tabs = document.querySelectorAll('#peekTabs button');
+  if (screen) {
+    var go = function (i) { screen.scrollTo({ top: i * screen.clientHeight, behavior: reduce ? 'auto' : 'smooth' }); };
+    var mark = function () { var i = Math.round(screen.scrollTop / screen.clientHeight); tabs.forEach(function (b, k) { b.setAttribute('aria-pressed', k === i); }); };
+    screen.addEventListener('scroll', mark, { passive: true });
+    var tour = null, step = 0;
+    var stop = function () { if (tour) { clearInterval(tour); tour = null; } };
+    ['wheel', 'touchstart', 'pointerdown', 'keydown'].forEach(function (ev) { screen.addEventListener(ev, stop, { passive: true }); });
+    tabs.forEach(function (b, i) { b.addEventListener('click', function () { stop(); go(i); }); });
+    if (!reduce && 'IntersectionObserver' in window) {
+      var seen = new IntersectionObserver(function (es) {
+        if (es[0].isIntersecting && !tour && step === 0) {
+          seen.disconnect();
+          tour = setInterval(function () { step++; if (step > 3) { stop(); return; } go(step); }, 2800);
+        }
+      }, { threshold: 0.6 });
+      seen.observe(screen);
+    }
+  }
+
   var items = document.querySelectorAll('.reveal');
   if (reduce || !('IntersectionObserver' in window)) { items.forEach(function (e) { e.classList.add('in'); }); return; }
   var io = new IntersectionObserver(function (es) {
