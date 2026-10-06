@@ -314,6 +314,11 @@ try {
 
   /* adding elements: button, video, file, image */
   await fr.locator('.hero h2').click();
+  await pg.waitForSelector('.insp-body textarea');
+  ok((await pg.locator('.insp .addblock').count()) === 0, 'text selected: the add-element block is not shown');
+  await pg.click('button:has-text("בחירת האלמנט שמעל")');
+  await pg.waitForFunction(() => /אלמנט/.test(document.querySelector('.insp-body h3')?.textContent || ''), null, { timeout: 5000 });
+  const selectBox = async () => { await fr.locator('.hero h2').click(); await pg.waitForSelector('.insp-body textarea'); await pg.click('button:has-text("בחירת האלמנט שמעל")'); await pg.waitForFunction(() => /אלמנט/.test(document.querySelector('.insp-body h3')?.textContent || ''), null, { timeout: 5000 }); };
   const openAdd = async () => { await pg.waitForSelector('.addblock .addtile'); };
   ok((await pg.locator('.insp-body > *').first().evaluate((e) => e.tagName)) === 'H3' && (await pg.locator('.insp-body > .addblock').count()) === 1 && (await pg.locator('.addblock .addtile').first().isVisible()), 'add: a prominent block with all element types sits right under the title (no collapsed menu)');
   await pg.waitForSelector('button.addtile:has-text("כפתור")');
@@ -327,7 +332,7 @@ try {
   await pg.waitForTimeout(300);
   ok(await fr.locator('[data-cms-add="button"]').getAttribute('href') === 'tel:0501234567' && (await fr.locator('[data-cms-add="button"]').innerText()) === 'התקשרו עכשיו', 'add button: text and link editable');
 
-  await fr.locator('.hero h2').click();
+  await selectBox();
   await openAdd();
   await pg.waitForSelector('button.addtile:has-text("סרטון")');
   await pg.click('button.addtile:has-text("סרטון")');
@@ -345,7 +350,7 @@ try {
   await pg.waitForTimeout(300);
   ok(await fr.locator('[data-cms-add="video"] iframe').getAttribute('src') === 'https://player.vimeo.com/video/123456789', 'add video: the link can be changed to Vimeo afterwards');
 
-  await fr.locator('.hero h2').click();
+  await selectBox();
   await openAdd();
   await pg.waitForSelector('button.addtile:has-text("קובץ להורדה")');
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
@@ -355,7 +360,7 @@ try {
   await pg.waitForTimeout(500);
   const fl = await fr.locator('[data-cms-add="file"]').evaluate((e) => ({ href: e.getAttribute('href'), dl: e.hasAttribute('download'), text: e.textContent }));
   ok(/^cms\/uploads\/.+\.pdf$/.test(fl.href) && fl.dl && fl.text.includes('חוברת מידע'), 'add file: PDF upload becomes a download link named after the file: ' + JSON.stringify(fl));
-  await fr.locator('.hero h2').click();
+  await selectBox();
   await openAdd();
   await pg.waitForSelector('button.addtile:has-text("תמונה")');
   await pg.locator('.insp-body').evaluate((e) => { e.scrollTop = e.scrollHeight; });
@@ -379,10 +384,11 @@ try {
   ok(await fr.locator('[data-cms-add="image"]').count() === 0, 'delete: an added element can be removed');
 
   // a content box with its own corner radius, border and shadow
-  await fr.locator('.hero h2').click();
+  await selectBox();
   await pg.waitForSelector('button.addtile:has-text("קופסה")');
   await pg.click('button.addtile:has-text("קופסה")');
   await fr.locator('[data-cms-add="box"]').waitFor({ timeout: 8000 });
+  await pg.waitForTimeout(900);   // the parent box was selected before: let the new one take over the panel
   await pg.waitForSelector('.insp-body h4:has-text("פינות, מסגרת וצל")');
   await pg.fill('.insp-body input[type=number][min="0"][max="200"]', '30');
   await pg.locator('.insp-body input[type=number][min="0"][max="200"]').dispatchEvent('change');
@@ -393,10 +399,11 @@ try {
 
   await shot('13-box');
   // a row of 3 boxes: switch it to 2 columns and set the gap from the editor
-  await fr.locator('.hero h2').click();
+  await selectBox();
   await pg.waitForSelector('button.addtile:has-text("3 עמודות")');
   await pg.click('button.addtile:has-text("3 עמודות")');
   await fr.locator('[data-cms-add="cols"]').waitFor({ timeout: 8000 });
+  await pg.waitForTimeout(900);
   await pg.waitForSelector('.insp-body h4:has-text("גודל, מרווחים ועמודות")');
   ok(await fr.locator('[data-cms-add="cols"] > div').count() === 3, 'columns: "3 עמודות" adds a row of three boxes and selects the row');
   await pg.click('.insp-body .tg:text-is("2")');
@@ -519,19 +526,18 @@ try {
   await mp.fill('#u', 'dana'); await mp.fill('#p', pw); await mp.click('button[type=submit]');
   await mp.waitForSelector('.card:has-text("Alternative Dream")', { timeout: 20000 });
   await mp.click('text=עריכת האתר');
-  await mp.waitForSelector('.mobile-switch');
   const mfr = mp.frameLocator('#frame');
   await mp.waitForSelector('.hint', { timeout: 15000 });
-  ok(await mp.locator('.stage').isHidden() && await mp.locator('.insp').isVisible(), 'mobile: starts on the editing panel, preview hidden');
+  await mfr.locator('.hero h1').waitFor();
+  const [sb, ib] = [await mp.locator('.stage').boundingBox(), await mp.locator('.insp').boundingBox()];
+  ok(sb && ib && sb.y < ib.y && sb.height > 120 && ib.height > 200 && ib.y >= sb.y + sb.height - 2, 'mobile: live site on top and the editor underneath, both visible at once');
   await mp.waitForTimeout(500);
   await mp.screenshot({ path: path.join(OUT, '09-editor-mobile.png') });
-  await mp.click('.mobile-switch button:nth-child(2)');
-  await mfr.locator('.hero h1').waitFor();
-  ok(await mp.locator('.stage').isVisible() && await mp.locator('.insp').isHidden(), 'mobile: switch to live preview');
-  await mfr.locator('.hero h1').tap();
+  await mfr.locator('.hero h1').evaluate((e) => { e.scrollIntoView(); e.click(); });
   await mp.waitForTimeout(500);
   await mp.waitForSelector('.insp-body textarea');
-  ok(await mp.locator('.insp').isVisible() && await mp.locator('.stage').isHidden(), 'mobile: tapping an element jumps to its editing panel');
+  ok(await mp.locator('.insp .addblock').count() === 0, 'text editing: no add-element block');
+  ok(await mp.locator('.insp').isVisible() && await mp.locator('.stage').isVisible(), 'mobile: tapping an element opens its editor while the site stays in view');
   await mp.screenshot({ path: path.join(OUT, '10-editor-mobile-selected.png') });
 } catch (e) {
   console.log('FAIL exception: ' + e.message.split('\n').slice(0, 3).join(' | '));

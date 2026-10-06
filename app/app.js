@@ -979,7 +979,7 @@ async function viewEditor(siteId) {
     const spec = specOf(u.key);
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
     out.push(h('h3', {}, 'עריכת ', h('span', { class: 'hl' }, kindName)));
-    out.push(addSection(u));   // the add block sits right under the title
+    if (u.kind !== 'text' && u.kind !== 'node') out.push(addSection(u));   // not needed while editing text
 
     if (u.added === 'video') out.push(videoField(u));
     if (u.kind === 'text' || u.kind === 'node') {
@@ -1099,7 +1099,6 @@ async function viewEditor(siteId) {
       if (!d.refresh) {
         if (!(d.programmatic && E.tab === 'struct')) E.tab = 'sel';   // picking from the structure list keeps that list open
         renderInsp();
-        if (d.unit && matchMedia('(max-width:900px)').matches) setMobileView('edit');
       }
     } else if (d.type === 'cms-text') {
       if (E.unit && E.unit.key === d.key) E.unit.text = d.value;
@@ -1235,16 +1234,7 @@ async function viewEditor(siteId) {
           h('span', { class: 'spacer' }),
           h('div', { class: 'seg' }, deviceBtn('desktop', 'מחשב'), deviceBtn('tablet', 'טאבלט'), deviceBtn('mobile', 'נייד'))),
         h('div', { class: 'frame-wrap', id: 'frame-wrap', 'data-w': 'desktop' }, h('iframe', { id: 'frame', title: 'תצוגה מקדימה של האתר' })))),
-    h('nav', { class: 'mobile-switch' },
-      h('button', { 'aria-pressed': true, onclick: (ev) => mv('edit', ev) }, '✏️ עריכה'),
-      h('button', { 'aria-pressed': false, onclick: (ev) => mv('preview', ev) }, '👁 תצוגה')),
   ], { editor: true });
-  function setMobileView(v) {
-    $('#shell').dataset.view = v;
-    document.querySelectorAll('.mobile-switch button').forEach((b, i) => b.setAttribute('aria-pressed', (i === 0) === (v === 'edit')));
-  }
-  function mv(v) { setMobileView(v); }
-  $('#shell').dataset.view = 'edit';
 
   document.addEventListener('keydown', function ks(e) {
     if (!$('#frame')) { document.removeEventListener('keydown', ks); return; }
