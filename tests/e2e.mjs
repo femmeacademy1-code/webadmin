@@ -257,13 +257,20 @@ try {
   await pg.waitForTimeout(300);
   ok(await fr.locator('.hero h2').evaluate((e) => getComputedStyle(e).fontWeight) === '700', 'formatting: bold toggle applies live');
   await pg.click('.tg.u'); await pg.click('.tg.i');
-  await pg.locator('.insp-body input[type=number]').fill('36'); await pg.locator('.insp-body input[type=number]').dispatchEvent('change');
+  await pg.locator('.insp-body input[type=number]').first().fill('36'); await pg.locator('.insp-body input[type=number]').first().dispatchEvent('change');
   await pg.waitForTimeout(300);
   const f1 = await fr.locator('.hero h2').evaluate((e) => { const c = getComputedStyle(e); return [parseFloat(c.fontSize), c.textDecorationLine, c.fontStyle]; });
   ok(f1[0] >= 20 && f1[0] <= 36 && /underline/.test(f1[1]) && f1[2] === 'italic', 'formatting: size + underline + italic applied: ' + f1.join(' '));
   await pg.click('.insp-body .tgrow .tg >> nth=5');   // align centre
   await pg.waitForTimeout(200);
   ok(await fr.locator('.hero h2').evaluate((e) => getComputedStyle(e).textAlign) === 'center', 'formatting: alignment applied');
+  const lhRange = pg.locator('.insp-body label:has-text("גובה שורה") input[type=range]');
+  await lhRange.evaluate((e) => { e.value = 25; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  const mtNum = pg.locator('.insp-body label:has-text("מרווח מעל") input[type=number]');
+  await mtNum.fill('20'); await mtNum.dispatchEvent('change');
+  await pg.waitForTimeout(500);
+  const sp1 = await fr.locator('.hero h2').evaluate((e) => { const c = getComputedStyle(e); return { r: parseFloat(c.lineHeight) / parseFloat(c.fontSize), mt: c.marginTop }; });
+  ok(Math.abs(sp1.r - 2.5) < 0.06 && sp1.mt === '20px', 'spacing: line height and margin above are applied live from the editor: ' + JSON.stringify(sp1));
 
   await shot('06a-formatting');
   await pg.click('.insp-tabs button:has-text("מבנה")');
@@ -537,7 +544,7 @@ try {
   await mp.waitForSelector('.hint', { timeout: 15000 });
   await mfr.locator('.hero h1').waitFor();
   const [sb, ib] = [await mp.locator('.stage').boundingBox(), await mp.locator('.insp').boundingBox()];
-  ok(sb && ib && sb.y < ib.y && sb.height > 120 && ib.height > 200 && ib.y >= sb.y + sb.height - 2, 'mobile: live site on top and the editor underneath, both visible at once');
+  ok(sb && ib && sb.y < ib.y && sb.height > 250 && ib.height > 100 && ib.y >= sb.y + sb.height - 2, 'mobile: live site on top and the editor underneath, both visible at once');
   await mp.waitForTimeout(500);
   await mp.screenshot({ path: path.join(OUT, '09-editor-mobile.png') });
   await mfr.locator('.hero h1').evaluate((e) => { e.scrollIntoView(); e.click(); });

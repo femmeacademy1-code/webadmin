@@ -103,6 +103,7 @@ textarea{resize:vertical;min-height:84px}
 .chip[data-s=live]{background:var(--mint);color:#1f6a4c}
 .chip[data-s=error]{background:#FBE0DE;color:var(--danger)}
 .ed-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(340px,400px) 1fr}
+.splitter{display:none}
 .insp{background:#fff;border-inline-end:1.5px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .insp-tabs{display:flex;border-bottom:1.5px solid var(--line)}
 .insp-tabs button{flex:1;border:0;background:transparent;padding:13px 6px;font-weight:700;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent}
@@ -160,10 +161,13 @@ dialog menu{padding:0;margin:18px 0 0;display:flex;justify-content:flex-end;gap:
   .ed .top .btn.primary{padding:4px 11px;font-size:12.5px}
   .ed .top .spacer{flex-basis:100%;height:0}
   /* phones: the live site on top, the editor underneath, both visible at once */
-  .ed-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,42%) minmax(0,1fr)}
+  .ed-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,var(--sh,75%)) 26px minmax(0,1fr)}
+  .splitter{display:flex;order:0;align-items:center;justify-content:center;background:var(--ink);cursor:row-resize;touch-action:none;user-select:none}
+  .splitter span{width:64px;height:6px;border-radius:9px;background:#fff;opacity:.85}
+  .insp{order:1}
   .insp,.stage{min-width:0;min-height:0}
   .stage{order:-1}
-  .insp{border-inline-end:0;border-top:2px solid var(--ink)}
+  .insp{border-inline-end:0}
   .insp-tabs button{padding:9px 6px}
   .insp-body{padding:12px}
   .stage-bar{padding:5px 10px}.stage-bar .seg,.stage-bar .muted{display:none}

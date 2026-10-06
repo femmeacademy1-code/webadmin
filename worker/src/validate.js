@@ -80,7 +80,7 @@ function element(spec, key) {
   if (spec.al != null) { if (!ALIGN.has(spec.al)) bad('יישור לא תקין'); out.al = spec.al; }
   // boxes and pictures: corner radius, shadow, border, shape, crop ratio and focal point
   const int = (k, min, max, what) => { if (spec[k] != null) { if (!Number.isInteger(spec[k]) || spec[k] < min || spec[k] > max) bad(what + ' לא תקין'); out[k] = spec[k]; } };
-  int('cols', 1, 4, 'מספר עמודות'); int('gap', 0, 120, 'מרווח'); int('pad', 0, 120, 'ריפוד'); int('mb', 0, 160, 'מרווח תחתון'); int('w', 10, 100, 'רוחב'); int('mh', 0, 800, 'גובה מינימלי');
+  int('cols', 1, 4, 'מספר עמודות'); int('gap', 0, 120, 'מרווח'); int('pad', 0, 120, 'ריפוד'); int('mb', 0, 160, 'מרווח תחתון'); int('w', 10, 100, 'רוחב'); int('mh', 0, 800, 'גובה מינימלי'); int('lh', 10, 30, 'גובה שורה'); int('ls', -2, 12, 'ריווח אותיות'); int('mt', 0, 160, 'מרווח עליון');
   int('rad', 0, 200, 'רדיוס פינות'); int('sh', 0, 3, 'צל'); int('bw', 0, 12, 'עובי מסגרת'); int('fx', 0, 100, 'מיקום חיתוך'); int('fy', 0, 100, 'מיקום חיתוך');
   if (spec.bc != null) { if (!HEX.test(spec.bc)) bad('צבע מסגרת לא תקין'); out.bc = spec.bc; }
   if (spec.shape != null) { if (!SHAPES.has(spec.shape)) bad('צורה לא מותרת'); out.shape = spec.shape; }

@@ -35,7 +35,7 @@ const edits = { v: 1, global: {}, pages: { 'page2.html': {
     { op: 'hide', key: C },
   ],
   els: {
-    [B + '>h2:nth-of-type(1)']: { t: 'ב ערוך', b: true, fs: 40, u: true, al: 'center' },
+    [B + '>h2:nth-of-type(1)']: { t: 'ב ערוך', b: true, fs: 40, u: true, al: 'center', lh: 25, ls: 3, mt: 24 },
     '@cp1>h2:nth-of-type(1)': { t: 'סקשן ב (עותק)', i: true, st: true, color: '#aa0000' },
     '@cp1>p:nth-of-type(1)': { t: 'פסקה בעותק בלבד' },
     '#dyn>h2:nth-of-type(1)': { t: 'דינמי ערוך' },
@@ -176,12 +176,14 @@ try {
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 6, 'edit: kit reports its version');
+  ok(ready.version === 7, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);
   await pg.waitForTimeout(500);
   ok(JSON.stringify(await texts('main h2', fr)) === JSON.stringify(['ב ערוך', 'סקשן א', 'סקשן ב (עותק)', 'סקשן ג', 'דינמי ערוך']), 'edit: same result when edits arrive from the editor');
+  const spc = await fr.locator('main h2').first().evaluate((e) => { const c = getComputedStyle(e); return { r: parseFloat(c.lineHeight) / parseFloat(c.fontSize), ls: c.letterSpacing, mt: c.marginTop }; });
+  ok(Math.abs(spc.r - 2.5) < 0.05 && spc.ls === '3px' && spc.mt === '24px', 'text spacing: line height, letter spacing and margin above are applied ' + JSON.stringify(spc));
   const sec = await pg.evaluate(() => window.__msgs.filter((m) => m.type === 'cms-sections').pop().sections);
   ok(sec.map((x) => x.label).join('|') === 'ב ערוך|סקשן א|סקשן ב (עותק)|סקשן ג|דינמי ערוך' && sec[2].clone === 'cp1' && sec[3].hidden, 'edit: section list reflects order, clone and hidden flag');
   ok(await fr.locator('[data-cms-hidden]').count() === 1 && await fr.locator('[data-cms-hidden]').isVisible(), 'edit: hidden section stays visible (dimmed) so it can be shown again');

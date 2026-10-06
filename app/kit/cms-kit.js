@@ -45,7 +45,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 6;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size
+  var KIT_VERSION = 7;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above)
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -377,6 +377,9 @@
       setStyle(el, 'text-decoration', deco.trim() || 'none');
     }
     if (spec.al) setStyle(el, 'text-align', spec.al);
+    if (spec.lh != null) setStyle(el, 'line-height', String(spec.lh / 10));
+    if (spec.ls != null) setStyle(el, 'letter-spacing', spec.ls + 'px');
+    if (spec.mt != null) setStyle(el, 'margin-top', spec.mt + 'px');
     applyShape(el, spec);
   }
 

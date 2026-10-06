@@ -726,6 +726,16 @@ test('boxes and shapes: valid values are saved, junk is refused', async () => {
   }
 });
 
+test('text spacing: line height, letter spacing and margin above are validated', async () => {
+  const { client } = await setup();
+  const r = await putWith(client, withPage({ els: { t1: { lh: 25, ls: -1, mt: 24, mb: 8 } } }));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].els.t1, { lh: 25, ls: -1, mt: 24, mb: 8 });
+  for (const bad of [{ lh: 9 }, { lh: 31 }, { lh: 1.5 }, { ls: -3 }, { ls: 13 }, { mt: -1 }, { mt: 161 }, { lh: '20' }]) {
+    assert.equal((await putWith(client, withPage({ els: { x: bad } }))).status, 400, JSON.stringify(bad));
+  }
+});
+
 test('columns and spacing: valid values are saved, junk is refused', async () => {
   const { client } = await setup();
   const good = withPage({ els: { '@cl1': { cols: 3, gap: 24, pad: 16, mb: 40, w: 80, mh: 300 } } });

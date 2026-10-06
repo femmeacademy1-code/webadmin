@@ -786,8 +786,9 @@ async function viewEditor(siteId) {
   const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
   const ADD_KIT = 4;       // first kit version that can add elements
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
+  const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 6;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 7;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -821,6 +822,27 @@ async function viewEditor(siteId) {
       u.kind === 'node' && h('span', { class: 'help' }, 'העיצוב חל על כל הפסקה שהטקסט הזה נמצא בה.'),
       (spec.fs || spec.b != null || spec.i != null || spec.u != null || spec.st != null || spec.al) &&
         h('div', {}, h('button', { class: 'link', onclick: () => set({ fs: undefined, b: undefined, i: undefined, u: undefined, st: undefined, al: undefined }) }, 'איפוס העיצוב')));
+  }
+
+  /* Text spacing: line height, letter spacing, space above and below. */
+  function spaceSection(u, spec) {
+    const old = E.ready && E.kitVersion < SPACE_KIT;
+    const row = (label, key, cur, min, max, step, show, help) => {
+      const n = h('input', { type: 'number', min, max, step, value: show(cur), style: 'width:84px', dir: 'ltr', disabled: old });
+      const r = h('input', { type: 'range', min, max, step, value: cur, style: 'flex:1', disabled: old });
+      const set = (v) => { v = Math.min(max, Math.max(min, Math.round((+v || 0) / step) * step)); n.value = show(v); r.value = v; setSpec(u.key, { [key]: v }); };
+      r.addEventListener('input', () => set(r.value));
+      n.addEventListener('change', () => set(key === 'lh' ? n.value * 10 : n.value));
+      return h('label', { class: 'field' }, h('span', { class: 'lbl' }, label), h('div', { style: 'display:flex;gap:10px;align-items:center' }, r, n), help && h('span', { class: 'help' }, help));
+    };
+    const val = (k, d) => (spec[k] != null ? spec[k] : d);
+    return h('div', { class: 'sect' }, h('h4', {}, 'מרווחים'), old && oldKitNote(),
+      row('גובה שורה (מרווח בין שורות)', 'lh', val('lh', 16), 10, 30, 1, (v) => (v / 10).toFixed(1), 'ככל שהמספר גבוה יותר השורות רחוקות יותר זו מזו.'),
+      row('ריווח בין אותיות (px)', 'ls', val('ls', 0), -2, 12, 1, (v) => v),
+      row('מרווח מעל (px)', 'mt', val('mt', 0), 0, 160, 4, (v) => v),
+      row('מרווח מתחת (px)', 'mb', val('mb', 0), 0, 160, 4, (v) => v),
+      (spec.lh != null || spec.ls != null || spec.mt != null || spec.mb != null) &&
+        h('div', {}, h('button', { class: 'link', onclick: () => { setSpec(u.key, { lh: undefined, ls: undefined, mt: undefined, mb: undefined }, { force: true }); renderInsp(); } }, 'איפוס המרווחים')));
   }
 
   /* Corner radius, shadow and border for boxes / pictures. */
@@ -1065,6 +1087,7 @@ async function viewEditor(siteId) {
     }
     const plainBox = u.added === 'video' || u.added === 'divider';   // nothing to format on these
     if (u.kind !== 'image' && u.kind !== 'bg' && !plainBox) out.push(fmtSection(u, spec));
+    if (u.kind === 'text' || u.kind === 'node') out.push(spaceSection(u, spec));
     if (style.length && !plainBox) out.push(h('div', { class: 'sect' }, h('h4', {}, 'צבעים ופונט'), ...style));
     if (u.kind === 'image') out.push(shapeSection(u, spec));
     if (u.kind === 'image' || u.kind === 'box' || u.kind === 'bg') { out.push(boxSection(u, spec)); out.push(layoutSection(u, spec)); }
@@ -1261,6 +1284,7 @@ async function viewEditor(siteId) {
       h('button', { class: 'btn primary', id: 'publish', disabled: true, onclick: publish }, 'פרסום באתר'),
       h('button', { class: 'btn ghost small', onclick: () => leave() }, 'יציאה')),
     h('div', { class: 'ed-main' },
+      h('div', { class: 'splitter', role: 'separator', 'aria-orientation': 'horizontal', 'aria-label': 'גרירה לשינוי גודל העורך', title: 'גררו כדי להגדיל או להקטין את העורך. לחיצה כפולה: מעבר בין גדול לקטן' }, h('span', {})),
       h('aside', { class: 'insp' }, tabsEl, insp),
       h('section', { class: 'stage' },
         h('div', { class: 'stage-bar' },
@@ -1270,6 +1294,20 @@ async function viewEditor(siteId) {
           h('div', { class: 'seg' }, deviceBtn('desktop', 'מחשב'), deviceBtn('tablet', 'טאבלט'), deviceBtn('mobile', 'נייד'))),
         h('div', { class: 'frame-wrap', id: 'frame-wrap', 'data-w': 'desktop' }, h('iframe', { id: 'frame', title: 'תצוגה מקדימה של האתר' })))),
   ], { editor: true });
+
+  (function splitter() {
+    const sp = document.querySelector('.splitter'), main = document.querySelector('.ed-main');
+    if (!sp || !main) return;
+    const setH = (pct) => main.style.setProperty('--sh', Math.min(88, Math.max(18, pct)) + '%');
+    let drag = false;
+    sp.addEventListener('pointerdown', (e) => { drag = true; sp.setPointerCapture(e.pointerId); e.preventDefault(); });
+    sp.addEventListener('pointermove', (e) => { if (!drag) return; const r = main.getBoundingClientRect(); setH(((e.clientY - r.top) / r.height) * 100); });
+    const end = () => { drag = false; };
+    sp.addEventListener('pointerup', end); sp.addEventListener('pointercancel', end);
+    sp.addEventListener('dblclick', () => { const cur = parseFloat(main.style.getPropertyValue('--sh')) || 75; setH(cur > 60 ? 38 : 75); });
+    sp.tabIndex = 0;
+    sp.addEventListener('keydown', (e) => { const cur = parseFloat(main.style.getPropertyValue('--sh')) || 75; if (e.key === 'ArrowUp') { setH(cur - 5); e.preventDefault(); } if (e.key === 'ArrowDown') { setH(cur + 5); e.preventDefault(); } });
+  })();
 
   document.addEventListener('keydown', function ks(e) {
     if (!$('#frame')) { document.removeEventListener('keydown', ks); return; }
