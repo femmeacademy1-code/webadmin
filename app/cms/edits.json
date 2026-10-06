@@ -1,5 +1,16 @@
 {
   "v": 1,
   "global": {},
-  "pages": {}
+  "pages": {
+    "plans.html": {
+      "els": {
+        "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>span:nth-of-type(1)": {
+          "t": "חבילת אחסון ומערכת העריכה של \nפאם דיגיטל"
+        }
+      }
+    },
+    "terms.html": {
+      "els": {}
+    }
+  }
 }
