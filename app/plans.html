@@ -118,12 +118,25 @@ section{padding:clamp(48px,6vw,84px) 0}
 .mobtxt p{color:#524e55;font-size:18px;line-height:1.7;max-width:420px}
 h3.more{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:clamp(28px,3.6vw,40px);text-align:center;margin:50px 0 26px}
 @media (max-width:640px){.laptop{display:none}.phone{width:min(250px,70vw)}.mobnote{margin-top:10px}.tablewrap table{min-width:0;font-size:13px}.tablewrap th,.tablewrap td{padding:10px 6px}.tablewrap thead th{font-size:13px}th:first-child,td:first-child{width:38%}.tablewrap{border-radius:12px}.mobnote{flex-direction:column;text-align:center}.mobtxt p{margin:0 auto}}
-.paydlg{border:0;border-radius:18px;padding:0;width:min(640px,96vw);height:min(86vh,760px);box-shadow:0 30px 80px rgba(71,69,77,.4);overflow:hidden;background:#fff}
-.paydlg::backdrop{background:rgba(47,46,51,.55)}
-.paydlg .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-weight:700}
-.paydlg .bar a{color:var(--red);font-size:14px}
-.paydlg .bar button{font:inherit;font-size:22px;line-height:1;border:0;background:transparent;cursor:pointer;padding:4px 8px}
-.paydlg iframe{display:block;width:100%;height:calc(100% - 49px);border:0}
+.paydlg{border:0;border-radius:22px;padding:0;width:min(940px,96vw);height:min(88vh,780px);box-shadow:0 30px 90px rgba(71,69,77,.45);overflow:hidden;background:var(--cream);position:fixed;inset:0;margin:auto}
+.paydlg[open]{display:grid;grid-template-columns:.8fr 1.2fr}
+.paydlg::backdrop{background:rgba(47,46,51,.6);backdrop-filter:blur(3px)}
+.payx{position:absolute;top:12px;left:12px;z-index:5;width:38px;height:38px;border-radius:50%;border:0;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:18px;cursor:pointer}
+.paysum{position:relative;background:linear-gradient(160deg,#ffe6d4,#ffd6bc 55%,#f6c3a6);padding:28px 26px;overflow:auto;display:flex;flex-direction:column}
+.paylogo{height:62px;width:auto;align-self:flex-start;margin-bottom:14px}
+.paytag{font-weight:800;font-size:14px;color:var(--red);letter-spacing:.04em}
+.paysum h3{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:30px;margin:4px 0 6px}
+.payprice{font-size:15px;color:var(--ink);margin-bottom:14px}.payprice b{font-size:44px;font-weight:800;line-height:1;margin-inline-end:4px}
+.paysum ul{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:8px;font-size:15.5px}
+.paysum li{position:relative;padding-inline-start:28px}
+.paysum li::before{content:"✓";position:absolute;inset-inline-start:0;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;color:var(--red);font-weight:800;font-size:12px;display:grid;place-items:center}
+.paysafe{margin-top:auto;background:rgba(255,255,255,.65);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;color:var(--ink)}
+.paydoodle{position:absolute;width:74px;bottom:70px;left:16px;opacity:.55;pointer-events:none}
+.payform{display:flex;flex-direction:column;background:#fff;min-width:0}
+.payhead{font-family:"Ploni Yad","Assistant",sans-serif;font-size:26px;padding:18px 26px 8px;color:var(--ink)}
+.payform iframe{flex:1;width:100%;border:0;min-height:0}
+.payopen{text-align:center;font-size:13.5px;padding:8px;color:var(--muted)}
+@media (max-width:760px){.paydlg[open]{grid-template-columns:1fr;grid-template-rows:auto 1fr}.paysum{padding:14px 60px 12px 16px;overflow:visible}.paysum ul,.paydoodle,.paylogo,.paytag{display:none}.paysum h3{font-size:22px;margin:0 0 2px}.payprice{margin:0 0 8px}.payprice b{font-size:26px}.paysafe{margin-top:0;font-size:12.5px;padding:6px 10px}.payhead{font-size:22px;padding:10px 18px 4px}.payx{top:8px;left:8px}}
 .hinge{height:16px;margin:0 -3.5%;background:linear-gradient(#d9d3cf,#bdb6b1);border-radius:0 0 22px 22px;position:relative;box-shadow:0 10px 22px rgba(71,69,77,.18)}
 .hinge::after{content:"";position:absolute;top:0;left:50%;width:18%;height:6px;margin-left:-9%;background:#aaa39e;border-radius:0 0 10px 10px}
 .peek-tabs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:26px 0 8px}
@@ -192,6 +205,71 @@ footer img{height:56px}
   .plan .for{min-height:0}
 }
 h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400}
+
+/* ---------- design layer ---------- */
+body{background:var(--cream)}
+.hero{background:radial-gradient(60% 80% at 85% 10%,#ffe6d4 0,transparent 70%),radial-gradient(50% 60% at 5% 90%,#e4f7f1 0,transparent 70%)}
+.hero::before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:var(--mint);opacity:.55;top:-190px;left:-120px;z-index:0}
+.hero .wrap{grid-template-columns:1fr 1fr;position:relative;z-index:1}
+.hero-art{min-height:380px}
+.hero-art .blob{inset:2% 0;opacity:.85;background:linear-gradient(145deg,#ffd6bc,#ffe9dc)}
+.hd-laptop{position:relative;width:min(430px,92%);margin-inline-end:8%;transform:rotate(-2deg)}
+.hd-lid{background:#2f2e33;border-radius:12px 12px 3px 3px;padding:7px 7px 9px;box-shadow:0 22px 44px rgba(71,69,77,.3)}
+.hd-lid img{display:block;width:100%;height:auto;border-radius:3px}
+.hd-base{height:9px;margin:0 -4%;background:linear-gradient(#d9d3cf,#bdb6b1);border-radius:0 0 14px 14px}
+.hd-phone{position:absolute;width:24%;max-width:112px;inset-inline-start:2%;bottom:3%;background:#2f2e33;border-radius:18px;padding:5px;box-shadow:0 18px 36px rgba(71,69,77,.35);transform:rotate(4deg)}
+.hd-phone img{display:block;width:100%;height:auto;border-radius:13px}
+.hero-art .sp{top:0;right:6%}.hero-art .fl{bottom:2%;left:42%;width:54px}.hero-art .ht{top:8%;left:2%;bottom:auto;width:50px}
+.hero-art .bt{position:absolute;width:64px;top:-2%;left:36%;animation:float 6s ease-in-out infinite;transform-origin:center}
+.chips{list-style:none;margin:26px 0 0;padding:0;display:flex;gap:10px;flex-wrap:wrap}
+.chips li{background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 12px 5px 10px;font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(120,70,50,.07)}
+.chips li::before{content:"✓";width:20px;height:20px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-size:12px}
+
+section.tint{background:#F3FBF8;position:relative}
+section.tint::before,.edit.wavy::before,.final::before{content:"";position:absolute;top:-1px;left:0;right:0;height:46px;background-size:100% 100%;background-repeat:no-repeat;pointer-events:none}
+#plans.tint::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath fill='%23FFF8F4' d='M0 0h1440v22c-120 30-240 38-360 24S840 6 600 12 180 52 0 28z'/%3E%3C/svg%3E")}
+.edit.wavy{position:relative;background:#fff radial-gradient(circle at 92% 8%,#ffe9dc 0,transparent 32%),radial-gradient(circle at 6% 55%,#e4f7f1 0,transparent 30%)}
+.edit.wavy::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath fill='%23F3FBF8' d='M0 0h1440v22c-120 30-240 38-360 24S840 6 600 12 180 52 0 28z'/%3E%3C/svg%3E")}
+#about.tint{background:linear-gradient(180deg,#F3FBF8,#FFF8F4)}
+#about.tint::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath fill='%23FFF8F4' d='M0 0h1440v22c-120 30-240 38-360 24S840 6 600 12 180 52 0 28z'/%3E%3C/svg%3E")}
+section{position:relative}
+section>.wrap{position:relative}
+.sec-head::before{content:"";display:block;width:40px;height:40px;margin:0 auto 10px;background:url(brand/sparkles.png) center/contain no-repeat}
+#editing .sec-head::before{background-image:url(brand/butterfly.png)}
+#compare .sec-head::before{background-image:url(brand/heart.png)}
+#faq .sec-head::before{background-image:url(brand/flower.png)}
+#about .sec-head::before{display:none}
+
+.plan{border-width:0;border-top:6px solid var(--mint);padding-top:34px}
+.plan:nth-child(3){border-top-color:var(--peach)}
+.plan.best{border:2px solid var(--red);border-top:6px solid var(--red)}
+.plan::after{content:"";position:absolute;top:22px;inset-inline-end:20px;width:46px;height:46px;background:center/contain no-repeat;opacity:.9}
+.plan:nth-child(1)::after{background-image:url(brand/flower.png)}
+.plan.best::after{background-image:url(brand/butterfly.png)}
+.plan:nth-child(3)::after{background-image:url(brand/sparkles.png)}
+.plan.best .price b{color:var(--red)}
+.price b{font-size:64px}
+
+.card{border:0;box-shadow:0 8px 22px rgba(120,70,50,.07)}
+.feat .card:nth-child(3n+1){background:#EAF8F3}
+.feat .card:nth-child(3n+2){background:#FFEADB}
+.feat .card:nth-child(3n){background:#F6EDE4}
+.card .ic{background:#fff!important;box-shadow:0 4px 10px rgba(120,70,50,.1)}
+
+.person{border:0;border-top:6px solid var(--peach)}
+.person:nth-child(2){border-top-color:var(--mint)}
+.tablewrap{border:0}
+
+.final{position:relative;overflow:hidden;background:linear-gradient(135deg,#b85150,#d1736b);color:#fff;padding-block:clamp(60px,8vw,100px)}
+.final::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath fill='%23FFF8F4' d='M0 0h1440v22c-120 30-240 38-360 24S840 6 600 12 180 52 0 28z'/%3E%3C/svg%3E");transform:none}
+.final h2{color:#fff}.final p{color:#ffeadf}
+.final .btn.red{background:#fff;color:var(--red);border-color:#fff}
+.final .btn.red:hover{background:#ffeadf}
+.final .fd{position:absolute;width:120px;opacity:.5;top:50%;transform:translateY(-50%)}
+.final .fd.l{left:6%}.final .fd.r{right:6%}
+.final .wrap{position:relative;z-index:1}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr}.hero-art{min-height:300px;margin-top:10px}.final .fd{width:70px}}
+@media (max-width:640px){.hd-phone{width:26%}.chips li{font-size:14px}.hero::before{width:260px;height:260px}.final .fd{display:none}}
 </style>
 </head>
 <body>
@@ -222,18 +300,21 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
           <a class="btn red" href="#plans">לבחירת חבילה</a>
           <a class="btn" href="#editing">מה אפשר לערוך?</a>
         </div>
+        <ul class="chips"><li>מלווות מאות בעלי עסקים</li><li>אחסון מהיר ומאובטח</li><li>עריכה מהמחשב ומהנייד</li></ul>
       </div>
       <div class="hero-art" aria-hidden="true">
         <div class="blob"></div>
-        <img class="main" src="brand/butterfly.png" alt="">
+        <div class="hd-laptop"><div class="hd-lid"><img src="preview/f4.jpg" alt="" width="1200" height="750"></div><div class="hd-base"></div></div>
+        <div class="hd-phone"><img src="preview/p1.jpg" alt="" width="520" height="1040"></div>
         <img class="sp" src="brand/sparkles.png" alt="">
         <img class="fl" src="brand/flower.png" alt="">
         <img class="ht" src="brand/heart.png" alt="">
+        <img class="bt" src="brand/butterfly.png" alt="">
       </div>
     </div>
   </div>
 
-  <section id="plans" style="padding-top:20px">
+  <section id="plans" class="tint" style="padding-top:20px">
     <div class="wrap">
       <div class="sec-head reveal">
         <h2>בוחרים חבילה, <span class="hl">מתחילים</span></h2>
@@ -277,6 +358,8 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
           <ul>
             <li>אחסון לאתר <strong>עד 20 דפים</strong></li>
             <li><strong>מערכת עריכה עצמאית</strong>, כניסה בשם משתמש וסיסמה</li>
+            <li>טקסטים, תמונות, צבעים ופונטים</li>
+            <li>הוספת אלמנטים, קופסאות ועמודות</li>
             <li>יצירה ושכפול של עמודים נוספים</li>
             <li><strong>דומיין חינם לשנה</strong></li>
             <li>חיבור הדומיין שלך ו-HTTPS</li>
@@ -288,7 +371,7 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
     </div>
   </section>
 
-  <section class="edit" id="editing">
+  <section class="edit wavy" id="editing">
     <div class="wrap">
       <div class="sec-head reveal">
         <h2>מערכת העריכה: <span class="hl">את שולטת באתר</span></h2>
@@ -359,7 +442,7 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
     </div>
   </section>
 
-  <section id="about" style="padding-top:20px">
+  <section id="about" class="tint" style="padding-top:40px">
     <div class="wrap">
       <div class="sec-head reveal"><img class="team-logo" src="brand/logo.png" alt="Femme Digital"><h2>מי <span class="hl">אנחנו</span></h2><p>אנחנו פאם דיגיטל, סוכנות שמלווה מאות בעלי עסקים ועוד.</p></div>
       <div class="team">
@@ -396,7 +479,7 @@ h1,h2,.plan .price b{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:
     </div>
   </section>
 
-  <section class="final">
+  <section class="final"><img class="fd l" src="brand/butterfly-cream.png" alt=""><img class="fd r" src="brand/flower-cream.png" alt="">
     <div class="wrap reveal">
       <h2>מוכנה לקחת את האתר לידיים שלך?</h2>
       <p>הבחירה המומלצת שלנו היא חבילת ה-80 ₪: עריכה עצמאית, עד 5 דפים, וקל להתחיל.</p>
@@ -428,6 +511,12 @@ var PAY_LINKS = { landing: PAY_LINK, basic: PAY_LINK, pro: PAY_LINK };
         var dlg = document.getElementById('payDlg');
         if (!dlg || !dlg.showModal) return;   /* old browsers: normal link */
         e.preventDefault();
+        var card = a.closest('.plan');
+        var h = card ? card.querySelector('h3') : null, pr = card ? card.querySelector('.price') : null;
+        document.getElementById('payPlan').textContent = h ? h.textContent : 'החבילה שבחרת';
+        document.getElementById('payPrice').innerHTML = pr ? '<b>' + pr.querySelector('b').textContent + '</b> ₪ לחודש' : '';
+        var ul = document.getElementById('payList'); ul.innerHTML = '';
+        if (card) card.querySelectorAll('li:not(.no)').forEach(function (li) { var n = document.createElement('li'); n.textContent = li.textContent; ul.appendChild(n); });
         document.getElementById('payFrame').src = url;
         document.getElementById('payOpen').href = url;
         dlg.showModal();
@@ -496,8 +585,21 @@ var PAY_LINKS = { landing: PAY_LINK, basic: PAY_LINK, pro: PAY_LINK };
 })();
 </script>
 <dialog class="paydlg" id="payDlg" aria-label="תשלום">
-  <div class="bar"><button type="button" id="payClose" aria-label="סגירה">✕</button><span>תשלום מאובטח</span><a id="payOpen" href="#" target="_blank" rel="noopener">פתיחה בחלון חדש ↗</a></div>
-  <iframe id="payFrame" title="דף תשלום" allow="payment"></iframe>
+  <button type="button" id="payClose" class="payx" aria-label="סגירה">✕</button>
+  <aside class="paysum">
+    <img class="paylogo" src="brand/logo.png" alt="Femme Digital">
+    <div class="paytag">החבילה שבחרת</div>
+    <h3 id="payPlan"></h3>
+    <div class="payprice" id="payPrice"></div>
+    <ul id="payList"></ul>
+    <div class="paysafe">🔒 תשלום מאובטח. פרטי האשראי לא נשמרים אצלנו.</div>
+    <img class="paydoodle" src="brand/butterfly.png" alt="">
+  </aside>
+  <section class="payform">
+    <div class="payhead">פרטי תשלום</div>
+    <iframe id="payFrame" title="דף תשלום" allow="payment"></iframe>
+    <a id="payOpen" class="payopen" href="#" target="_blank" rel="noopener">לא נטען? פתיחה בחלון חדש ↗</a>
+  </section>
 </dialog>
 </body>
 </html>
