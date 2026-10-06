@@ -15,7 +15,7 @@
 :root{--cream:#FFF8F4;--ink:#47454D;--text:#3D3D3D;--red:#B85150;--red-d:#9B3F3E;--peach:#FFD6BC;--mint:#DDF5EE;--tan:#BC967A;--line:#EBDDD3;--muted:#837D82;
   --font:"Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;--shadow:0 14px 36px rgba(120,70,50,.12)}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:84px}
+html{scroll-behavior:smooth;scroll-padding-top:112px}
 body{margin:0;font:18px/1.65 var(--font);color:var(--text);background:var(--cream);overflow-x:hidden}
 h1,h2,h3,p{margin:0}
 h1,h2,h3{color:var(--ink);font-weight:800;line-height:1.15}
@@ -39,8 +39,8 @@ a{color:var(--red)}
 .draft{background:var(--peach);color:var(--ink);text-align:center;font-size:15px;font-weight:700;padding:8px 14px}
 
 header{position:sticky;top:0;z-index:30;background:rgba(255,248,244,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-header .wrap{display:flex;align-items:center;gap:18px;height:80px}
-header img{height:64px;display:block}
+header .wrap{display:flex;align-items:center;gap:18px;height:104px}
+header img{height:90px;display:block}
 header nav{display:flex;gap:22px;margin-inline-start:auto;align-items:center;font-weight:700;font-size:16px}
 header nav a{text-decoration:none;color:var(--ink)}
 header nav a:hover{color:var(--red)}
@@ -123,7 +123,7 @@ section{padding:clamp(48px,6vw,84px) 0}
 .mobtxt h3{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:clamp(28px,3.4vw,38px);margin-bottom:10px}
 .mobtxt p{color:#524e55;font-size:18px;line-height:1.7;max-width:420px}
 h3.more{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400;font-size:clamp(28px,3.6vw,40px);text-align:center;margin:50px 0 26px}
-@media (max-width:640px){.mobnote{flex-direction:column!important}.sec-head::before{width:68px;height:68px}.team-logo{height:96px!important}.laptop{display:none}.phone{width:min(250px,70vw)}.mobnote{margin-top:10px}.tablewrap table{min-width:0;font-size:13px}.tablewrap th,.tablewrap td{padding:10px 6px}.tablewrap thead th{font-size:13px}th:first-child,td:first-child{width:38%}.tablewrap{border-radius:12px}.mobnote{flex-direction:column;text-align:center}.mobtxt p{margin:0 auto}}
+@media (max-width:640px){header .wrap{height:84px}header img{height:70px}.mobnote{flex-direction:column!important}.sec-head::before{width:68px;height:68px}.team-logo{height:96px!important}.laptop{display:none}.phone{width:min(250px,70vw)}.mobnote{margin-top:10px}.tablewrap table{min-width:0;font-size:13px}.tablewrap th,.tablewrap td{padding:10px 6px}.tablewrap thead th{font-size:13px}th:first-child,td:first-child{width:38%}.tablewrap{border-radius:12px}.mobnote{flex-direction:column;text-align:center}.mobtxt p{margin:0 auto}}
 .paydlg{border:0;border-radius:22px;padding:0;width:min(940px,96vw);height:min(88vh,780px);box-shadow:0 30px 90px rgba(71,69,77,.45);overflow:hidden;background:var(--cream);position:fixed;inset:0;margin:auto}
 .paydlg[open]{display:grid;grid-template-columns:.8fr 1.2fr}
 .paydlg::backdrop{background:rgba(47,46,51,.6);backdrop-filter:blur(3px)}
