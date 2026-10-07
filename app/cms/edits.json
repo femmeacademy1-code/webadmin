@@ -6,8 +6,34 @@
       "els": {
         "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>span:nth-of-type(1)": {
           "t": "חבילת אחסון ומערכת העריכה של\nפאם דיגיטל",
-          "fs": 31,
+          "fs": 40,
           "al": "center"
+        },
+        "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>h1:nth-of-type(1)>span:nth-of-type(1)": {
+          "al": "right"
+        },
+        "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>h1:nth-of-type(1)>span:nth-of-type(2)>span:nth-of-type(1)": {
+          "t": "והשליטה בידיים שלך",
+          "al": "right"
+        },
+        "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>p:nth-of-type(1)": {
+          "fs": 18,
+          "al": "center"
+        },
+        "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>span:nth-of-type(1)": {
+          "fs": 28
+        },
+        "#editing>div:nth-of-type(1)>div:nth-of-type(1)>p:nth-of-type(1)": {
+          "fs": 24
+        },
+        "#editing>div:nth-of-type(1)>div:nth-of-type(1)>h2:nth-of-type(1)>span:nth-of-type(1)": {
+          "t": "את שולטת באתר"
+        },
+        "#editing>div:nth-of-type(1)>div:nth-of-type(1)>h2:nth-of-type(1)": {
+          "fs": 81
+        },
+        "#editing>div:nth-of-type(1)>h3:nth-of-type(1)": {
+          "fs": 46
         }
       }
     },
