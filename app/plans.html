@@ -292,6 +292,8 @@ section>.wrap{position:relative}
 @media (max-width:760px){
   .mbar{display:flex;gap:10px;position:fixed;inset-inline:0;bottom:0;z-index:40;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,248,244,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);transform:translateY(0);transition:transform .3s}
   .mbar.off{transform:translateY(110%)}
+  :root{--a11y-b:84px;--cookie-b:80px}
+  html:has(.mbar.off){--a11y-b:16px}
   .mbar .btn{flex:1;padding:12px 10px;font-size:16px}
   body{padding-bottom:78px}
 }
