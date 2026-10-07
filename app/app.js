@@ -1099,6 +1099,7 @@ async function viewEditor(siteId) {
     if (u.kind === 'image') out.push(shapeSection(u, spec));
     if (u.kind === 'image' || u.kind === 'box' || u.kind === 'bg') { out.push(boxSection(u, spec)); out.push(layoutSection(u, spec)); }
     out.push(elementSection(u));
+    out.push(h('p', { class: 'help diag' }, `ערכה v${E.kitVersion || '?'} · עמוד ${E.page} · ${me.user.role === 'owner' ? 'בעלים' : 'לקוח'}${locked() ? ' · טקסט בלבד' : ''}`));
     if (Object.keys(spec).length || (u.linkKey && Object.keys(specOf(u.linkKey)).length)) {
       out.push(h('button', { class: 'btn small danger', onclick: () => { setSpec(u.key, Object.fromEntries(Object.keys(spec).map((k) => [k, undefined])), { force: true }); if (u.linkKey) setSpec(u.linkKey, { href: undefined }, { force: true }); renderInsp(); } }, 'ביטול כל השינויים באלמנט הזה'));
     }

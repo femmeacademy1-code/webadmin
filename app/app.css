@@ -226,3 +226,5 @@ input[type=range]{accent-color:var(--red)}
 .shp-pentagon{clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%)}
 .shp-hexagon{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
 .shp-star{clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+
+.help.diag{color:var(--muted);font-size:12px;text-align:center;opacity:.7;margin:4px 0 0}
