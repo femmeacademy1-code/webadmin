@@ -12,7 +12,7 @@
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
 import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
-import { checkDomains } from './domains.js';
+import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
@@ -115,6 +115,7 @@ async function route(req, env, url) {
   if (pathname === '/api/login' && method === 'POST') return login(req, env);
   if (pathname === '/api/logout' && method === 'POST') return json({ ok: true }, 200, { 'set-cookie': cookie(env, req, '', 0) });
   if (pathname === '/api/me' && method === 'GET') return me(req, env);
+  if (pathname === '/api/public/domains/order' && method === 'POST') { const o = await createOrder(env, req, await body(req)); return json({ ok: true, id: o.id, ils: o.ils }); }
   if (pathname === '/api/public/domains/check' && method === 'POST') { const input = await body(req); return json(await checkDomains(env, req, input.name)); }
 
   let m;
@@ -139,6 +140,8 @@ async function route(req, env, url) {
   if (pathname.startsWith('/api/admin/')) {
     await requireOwner(req, env);
     if (pathname === '/api/admin/state' && method === 'GET') return adminState(env);
+    if (pathname === '/api/admin/domain-orders' && method === 'GET') return json({ orders: await listOrders(env) });
+    if ((m = pathname.match(/^\/api\/admin\/domain-orders\/([a-z0-9]+)\/(paid|register|cancel|manual|delete)$/)) && method === 'POST') return json({ order: await orderAction(env, m[1], m[2], await body(req).catch(() => ({}))) });
     if (pathname === '/api/admin/sites' && method === 'POST') return saveSite(req, env, null);
     if ((m = pathname.match(/^\/api\/admin\/sites\/([a-z0-9-]+)$/))) {
       if (method === 'PUT') return saveSite(req, env, m[1]);

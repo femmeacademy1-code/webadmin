@@ -17,7 +17,7 @@ const sha = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`
 let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
-let regMode, regAsked;
+let regMode, regAsked, regCalls, regPrice;
 let dns, pages, pagesCalls, cf, cfCalls, zones, records, rid;
 function githubMock() {
   const blobs = {};
@@ -29,10 +29,15 @@ function githubMock() {
       return new Response(JSON.stringify({ Answer: list }));
     }
     if (u.host === 'cf.test') {
+      if (u.pathname.endsWith('/registrar/registrations')) {
+        regCalls.push(JSON.parse(init.body));
+        if (regMode === 'regfail') return new Response(JSON.stringify({ success: false, errors: [{ message: 'payment method declined' }] }), { status: 400 });
+        return new Response(JSON.stringify({ success: true, result: { domain_name: JSON.parse(init.body).domain_name, status: 'pending' } }));
+      }
       if (u.pathname.endsWith('/registrar/domain-check')) {
         if (regMode === 'forbidden') return new Response(JSON.stringify({ success: false, errors: [{ message: 'forbidden' }] }), { status: 403 });
         const asked = JSON.parse(init.body).domains; regAsked.push(asked);
-        return new Response(JSON.stringify({ success: true, result: { domains: asked.map((n) => (n === 'mybrand.com' ? { name: n, registrable: false } : { name: n, registrable: true, tier: n.endsWith('.xyz') ? 'premium' : 'standard', pricing: { currency: 'USD', registration_cost: '10.44', renewal_cost: '10.44' } })) } }));
+        return new Response(JSON.stringify({ success: true, result: { domains: asked.map((n) => (n === 'mybrand.com' ? { name: n, registrable: false } : { name: n, registrable: true, tier: n.endsWith('.xyz') ? 'premium' : 'standard', pricing: { currency: 'USD', registration_cost: regPrice, renewal_cost: regPrice } })) } }));
       }
       if (u.pathname === '/zones') { const n = u.searchParams.get('name'); return new Response(JSON.stringify({ success: true, result: zones[n] ? [{ id: 'z1', name: n }] : [] })); }
       let zm = u.pathname.match(/^\/zones\/z1\/dns_records(?:\/(.+))?$/);
@@ -86,7 +91,7 @@ beforeEach(() => {
   commits = [];
   zones = { 'client.com': 1 }; records = []; rid = 0;
   cf = { project: null, domains: [] }; cfCalls = [];
-  regMode = ''; regAsked = [];
+  regMode = ''; regAsked = []; regCalls = []; regPrice = '10.44';
   dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
   env = {
@@ -793,4 +798,52 @@ test('public domain search: junk names are refused, a missing Registrar permissi
   regMode = '';
   env.CMS.put('rl:dom:x:' + Math.floor(Date.now() / 60000), '30');
   assert.equal((await call('POST', '/api/public/domains/check', { body: { name: 'shop2' } })).status, 429);
+});
+
+test('domain orders: public request is validated and re-checked, the owner marks paid and registers in one click', async () => {
+  const owner = await ownerCookie();
+  const ask = (b) => call('POST', '/api/public/domains/order', { body: b });
+  for (const bad of [{}, { domain: 'x.co.il', name: 'דנה', phone: '0501234567' }, { domain: 'shop1.com', name: 'ד', phone: '0501234567' }, { domain: 'shop1.com', name: 'דנה', phone: '12' }, { domain: 'shop1.com', name: 'דנה', phone: '0501234567', email: 'nope' }]) {
+    assert.equal((await ask(bad)).status, 400, JSON.stringify(bad));
+  }
+  assert.equal((await ask({ domain: 'mybrand.com', name: 'דנה', phone: '050-123-4567' })).status, 409);   // taken
+  const r = await ask({ domain: 'shop1.com', name: 'דנה כהן', phone: '050-123-4567', email: 'd@x.co' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.ils, Math.ceil(10.44 * 3.7));
+
+  // owner only
+  assert.equal((await call('GET', '/api/admin/domain-orders')).status, 401);
+  const { client } = await setup();
+  assert.equal((await call('GET', '/api/admin/domain-orders', { cookie: client })).status, 403);
+  const list = (await call('GET', '/api/admin/domain-orders', { cookie: owner })).data.orders;
+  assert.equal(list.length, 1); assert.equal(list[0].status, 'new'); assert.equal(list[0].phone, '0501234567');
+  const id = list[0].id;
+  const act = (a, b) => call('POST', `/api/admin/domain-orders/${id}/${a}`, { cookie: owner, body: b });
+
+  assert.equal((await act('register')).status, 409);          // not paid yet
+  assert.equal((await act('paid')).status, 200);
+  assert.equal((await act('paid')).status, 409);
+
+  regPrice = '14.00';                                         // price went up by more than 10%
+  assert.equal((await act('register')).status, 409);
+  assert.equal(regCalls.length, 0);
+  assert.equal((await act('register', { force: true })).data.order.status, 'registered');
+  assert.deepEqual(regCalls, [{ domain_name: 'shop1.com' }]);
+  assert.equal((await act('cancel')).status, 409);            // already registered
+});
+
+test('domain orders: a failed registration keeps the order paid with the reason; manual and cancel work', async () => {
+  const owner = await ownerCookie();
+  const mk = async (d) => { await call('POST', '/api/public/domains/order', { body: { domain: d, name: 'דנה כהן', phone: '0501234567' } }); return (await call('GET', '/api/admin/domain-orders', { cookie: owner })).data.orders.find((o) => o.domain === d).id; };
+  const id = await mk('shop2.net');
+  await call('POST', `/api/admin/domain-orders/${id}/paid`, { cookie: owner });
+  regMode = 'regfail';
+  const f = await call('POST', `/api/admin/domain-orders/${id}/register`, { cookie: owner });
+  assert.equal(f.status, 502); assert.match(f.data.error, /payment method declined/);
+  let o = (await call('GET', '/api/admin/domain-orders', { cookie: owner })).data.orders.find((x) => x.id === id);
+  assert.equal(o.status, 'paid'); assert.match(o.lastError, /declined/);
+  assert.equal((await call('POST', `/api/admin/domain-orders/${id}/manual`, { cookie: owner })).data.order.status, 'registered');
+  const id2 = await mk('shop3.org');
+  assert.equal((await call('POST', `/api/admin/domain-orders/${id2}/cancel`, { cookie: owner })).data.order.status, 'cancelled');
+  assert.equal((await call('POST', `/api/admin/domain-orders/${id2}/delete`, { cookie: owner })).status, 200);
 });

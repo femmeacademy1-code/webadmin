@@ -95,8 +95,11 @@ footer{padding:26px 0 40px;text-align:center;color:var(--muted);font-size:15px}
     <div id="dp" class="hint"></div>
     <label>השם שלך<input type="text" id="on" autocomplete="name" required maxlength="60"></label>
     <label>טלפון<input type="tel" id="op" autocomplete="tel" inputmode="tel" required maxlength="20"></label>
-    <div class="row"><button type="button" class="btn" id="oc">ביטול</button><button class="btn red" id="os" type="submit">שליחה בוואטסאפ</button></div>
-    <div class="note">ההזמנה נשלחת אלינו בוואטסאפ. התשלום נעשה אחרי אישור, והמחיר הסופי יאושר לפניו.</div>
+    <label>מייל (לא חובה)<input type="text" id="oe" autocomplete="email" inputmode="email" dir="ltr" maxlength="80"></label>
+    <div id="oerr" class="hint" style="color:#a03030;font-weight:700" hidden></div>
+    <div id="odone" hidden><h2 style="font-size:26px;margin-top:14px">ההזמנה התקבלה ✓</h2><p style="margin:4px 0">מספר הזמנה: <b id="oid"></b>. נחזור אלייך עם קישור לתשלום. כדי לזרז, אפשר לשלוח לנו הודעה:</p><a class="btn red" id="owa" href="#" target="_blank" rel="noopener">שליחה בוואטסאפ</a></div>
+    <div class="row"><button type="button" class="btn" id="oc">סגירה</button><button class="btn red" id="os" type="submit">שליחת הזמנה</button></div>
+    <div class="note">ההזמנה נשלחת אלינו. התשלום נעשה אחרי אישור, ובדיקה אחרונה של המחיר והזמינות תתבצע לפניו.</div>
   </form>
 </dialog>
 
@@ -108,7 +111,7 @@ var USD_ILS = 3.7, SERVICE_FEE_ILS = 0;
 var WHATSAPP = '972515490099';
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var ils = function (usd) { return Math.ceil(usd * USD_ILS + SERVICE_FEE_ILS); };
+  var ils = function (x) { return x.ils != null ? x.ils : Math.ceil(x.usd * USD_ILS + SERVICE_FEE_ILS); };
   var current = null;
   var msg = function (t, err) { $('msg').textContent = t || ''; $('msg').className = err ? 'err' : ''; };
   $('f').addEventListener('submit', function (e) {
@@ -130,10 +133,10 @@ var WHATSAPP = '972515490099';
           var st = document.createElement('div'); st.className = 'st'; st.textContent = x.available ? '✓ פנוי' : 'תפוס'; d.appendChild(st);
           if (x.premium && x.available) { var t = document.createElement('span'); t.className = 'tag'; t.textContent = 'דומיין פרימיום'; d.appendChild(t); }
           if (x.available && x.usd != null) {
-            var p = document.createElement('div'); p.className = 'pr'; p.innerHTML = '<b>' + ils(x.usd) + ' ₪</b> לשנה';
+            var p = document.createElement('div'); p.className = 'pr'; p.innerHTML = '<b>' + ils(x) + ' ₪</b> לשנה';
             d.appendChild(p);
             var b = document.createElement('button'); b.type = 'button'; b.className = 'btn red'; b.textContent = 'להזמנה';
-            b.addEventListener('click', function () { current = { name: x.name, price: ils(x.usd) }; $('dn').textContent = x.name; $('dp').textContent = 'מחיר משוער: ' + current.price + ' ₪ לשנה'; $('dlg').showModal(); $('on').focus(); });
+            b.addEventListener('click', function () { current = { name: x.name, price: ils(x) }; $('dn').textContent = x.name; $('dp').textContent = 'מחיר משוער: ' + current.price + ' ₪ לשנה'; $('odone').hidden = true; $('oerr').hidden = true; $('os').hidden = false; $('os').disabled = false; Array.prototype.forEach.call($('of').querySelectorAll('label'), function (l) { l.hidden = false; }); $('dlg').showModal(); $('on').focus(); });
             d.appendChild(b);
           }
           $('grid').appendChild(d);
@@ -145,9 +148,18 @@ var WHATSAPP = '972515490099';
   $('of').addEventListener('submit', function (e) {
     e.preventDefault();
     if (!current) return;
-    var text = 'שלום, אני רוצה לרכוש את הדומיין ' + current.name + ' (מחיר משוער ' + current.price + ' ₪ לשנה).\nשמי: ' + $('on').value.trim() + '\nטלפון: ' + $('op').value.trim();
-    window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
-    $('dlg').close();
+    var name = $('on').value.trim(), phone = $('op').value.trim();
+    $('os').disabled = true; $('oerr').hidden = true;
+    fetch('/api/public/domains/order', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-requested-with': 'fd' }, body: JSON.stringify({ domain: current.name, name: name, phone: phone, email: $('oe').value.trim() }) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) {
+        if (!r.ok) { $('os').disabled = false; $('oerr').textContent = (r.j && r.j.error) || 'משהו השתבש. נסו שוב'; $('oerr').hidden = false; return; }
+        var text = 'שלום, הזמנתי את הדומיין ' + current.name + ' (מחיר משוער ' + current.price + ' ₪ לשנה). מספר הזמנה ' + r.j.id + '.\nשמי: ' + name;
+        $('oid').textContent = r.j.id; $('owa').href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(text);
+        Array.prototype.forEach.call($('of').querySelectorAll('label'), function (l) { l.hidden = true; });
+        $('os').hidden = true; $('odone').hidden = false;
+      })
+      .catch(function () { $('os').disabled = false; $('oerr').textContent = 'אין חיבור. נסו שוב'; $('oerr').hidden = false; });
   });
 })();
 </script>

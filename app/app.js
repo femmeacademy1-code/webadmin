@@ -328,14 +328,44 @@ async function viewAdmin() {
   let showForm = null;   // {type:'site'|'user', item}
   let creds = null;
 
+  let orders = null;
+  async function loadOrders() { try { orders = (await api('GET', '/admin/domain-orders')).orders; } catch (e) { toast(e.message, true); orders = []; } draw(); }
+  function ordersView() {
+    if (orders === null) { loadOrders(); return h('p', { class: 'muted' }, 'טוען הזמנות…'); }
+    const labels = { new: 'חדשה, מחכה לתשלום', paid: 'שולמה, מחכה לרישום', registered: 'נרשם ✓', cancelled: 'בוטלה' };
+    const act = async (o, action, extra, okMsg) => {
+      try { await api('POST', `/admin/domain-orders/${o.id}/${action}`, extra || {}); if (okMsg) toast(okMsg); await loadOrders(); }
+      catch (e) {
+        if (action === 'register' && /עלה מ/.test(e.message) && confirm(e.message + '\n\nלרשום בכל זאת במחיר החדש?')) return act(o, action, { force: true }, okMsg);
+        toast(e.message, true); await loadOrders();
+      }
+    };
+    if (!orders.length) return h('div', { class: 'empty' }, h('p', {}, 'עוד אין הזמנות דומיינים. הן יופיעו כאן כשלקוחות יזמינו מדף הדומיינים.'), h('a', { class: 'btn', href: 'domains.html', target: '_blank' }, 'פתיחת דף הדומיינים'));
+    return h('div', { class: 'list' }, orders.map((o) => h('div', { class: 'item', style: 'flex-wrap:wrap' },
+      h('div', { class: 'grow' },
+        h('div', { class: 't', dir: 'ltr', style: 'text-align:right' }, o.domain, o.premium ? ' (פרימיום)' : ''),
+        h('div', { class: 's' }, `${o.name} · ${o.phone}${o.email ? ' · ' + o.email : ''}`),
+        h('div', { class: 's' }, `${o.ils} ₪ ללקוח · $${o.usd} ל-Cloudflare · הזמנה ${o.id} · ${new Date(o.created).toLocaleString('he-IL')}`),
+        h('div', { class: 's' }, h('b', {}, labels[o.status] || o.status), o.manual ? ' (ידני)' : '', o.lastError ? h('span', { style: 'color:#a03030' }, '  ·  שגיאה: ' + o.lastError) : '')),
+      h('a', { class: 'btn small mint', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + o.phone.replace(/^0/, '972').replace(/\D/g, '') + '?text=' + encodeURIComponent(`שלום ${o.name}, לגבי הדומיין ${o.domain}: מחיר ${o.ils} ₪ לשנה.`) }, 'וואטסאפ ללקוח'),
+      o.status === 'new' && h('button', { class: 'btn small primary', onclick: () => act(o, 'paid', null, 'סומן כשולם') }, 'סימון כשולם'),
+      o.status === 'paid' && h('button', { class: 'btn small primary', onclick: async (ev) => { if (!confirm(`לרשום את ${o.domain} בחשבון Cloudflare?\nהחיוב יהיה בכרטיס שמוגדר שם (כ-$${o.usd}).`)) return; ev.currentTarget.disabled = true; await act(o, 'register', null, 'הדומיין נרשם'); } }, 'רישום ב-Cloudflare'),
+      (o.status === 'new' || o.status === 'paid') && h('button', { class: 'btn small', title: 'כשרשמתם ידנית בחשבון Cloudflare', onclick: () => act(o, 'manual', null, 'סומן כנרשם') }, 'נרשם ידנית'),
+      o.status !== 'registered' && o.status !== 'cancelled' && h('button', { class: 'btn small danger', onclick: () => confirm('לבטל את ההזמנה?') && act(o, 'cancel') }, 'ביטול'),
+      (o.status === 'registered' || o.status === 'cancelled') && h('button', { class: 'btn small', onclick: () => confirm('למחוק מהרשימה?') && act(o, 'delete') }, 'מחיקה'))));
+  }
+
   function draw() {
     sessionStorage.setItem('adm-tab', tab);
     const tabs = h('div', { class: 'tabs' },
       h('button', { 'aria-selected': tab === 'sites', onclick: () => { tab = 'sites'; showForm = null; draw(); } }, 'אתרים'),
-      h('button', { 'aria-selected': tab === 'users', onclick: () => { tab = 'users'; showForm = null; draw(); } }, 'לקוחות'));
+      h('button', { 'aria-selected': tab === 'users', onclick: () => { tab = 'users'; showForm = null; draw(); } }, 'לקוחות'),
+      h('button', { 'aria-selected': tab === 'domains', onclick: async () => { tab = 'domains'; showForm = null; draw(); await loadOrders(); } }, 'הזמנות דומיינים'));
     const body = [];
 
-    if (tab === 'sites') {
+    if (tab === 'domains') {
+      body.push(ordersView());
+    } else if (tab === 'sites') {
       body.push(h('div', { style: 'margin-bottom:16px' }, h('button', { class: 'btn primary', onclick: () => { showForm = { type: 'site' }; draw(); } }, '＋ הוספת אתר')));
       if (showForm && showForm.type === 'site') body.push(siteForm(showForm.item));
       if (showForm && showForm.type === 'domain') body.push(domainPanel(state.sites.find((x) => x.id === showForm.item.id) || showForm.item));
