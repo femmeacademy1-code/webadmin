@@ -25,6 +25,8 @@
   var pageKey = (function () {
     var rel = location.pathname.indexOf(SITE_BASE.pathname) === 0 ? location.pathname.slice(SITE_BASE.pathname.length) : location.pathname.replace(/^\//, '');
     if (!rel || rel.charAt(rel.length - 1) === '/') rel += 'index.html';
+    // Hosts such as Cloudflare redirect /plans.html to /plans: keep the file name the editor stores edits under.
+    else if (!/\.[a-z0-9]+$/i.test(rel)) rel += '.html';
     return rel;
   })();
 
