@@ -150,7 +150,7 @@ dialog menu{padding:0;margin:18px 0 0;display:flex;justify-content:flex-end;gap:
 .toast.show{opacity:1;transform:translate(-50%,0)}.toast.err{background:var(--danger)}
 
 @media (max-width:900px){
-  .login{grid-template-columns:1fr}.login-art{display:none}
+  .login{grid-template-columns:1fr;grid-template-rows:auto 1fr}.login-art{order:-1;min-height:200px;padding:28px 16px}.art-card{width:min(260px,72%);padding:10px}.d1{width:40px;top:-14px;left:-10px}.d2{width:34px;bottom:-14px;left:20px}.d3{width:38px;top:-14px;right:-8px}.d4{width:32px;bottom:-12px;right:18px}.login-form{padding:28px 20px 40px;align-items:start}.login-form h1{font-size:30px}
   .top{padding:8px 12px;flex-wrap:wrap;gap:6px}.top .who{display:none}
   .top img.brand{height:40px}
   .ed .top{flex-wrap:wrap;row-gap:4px;column-gap:3px;padding:5px 8px}
