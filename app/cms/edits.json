@@ -5,7 +5,9 @@
     "plans.html": {
       "els": {
         "body>main:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>span:nth-of-type(1)": {
-          "t": "חבילת אחסון ומערכת העריכה של \nפאם דיגיטל"
+          "t": "חבילת אחסון ומערכת העריכה של\nפאם דיגיטל",
+          "fs": 31,
+          "al": "center"
         }
       }
     },
