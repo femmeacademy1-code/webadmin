@@ -12,6 +12,7 @@
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
 import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
+import { checkDomains } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
@@ -114,6 +115,7 @@ async function route(req, env, url) {
   if (pathname === '/api/login' && method === 'POST') return login(req, env);
   if (pathname === '/api/logout' && method === 'POST') return json({ ok: true }, 200, { 'set-cookie': cookie(env, req, '', 0) });
   if (pathname === '/api/me' && method === 'GET') return me(req, env);
+  if (pathname === '/api/public/domains/check' && method === 'POST') { const input = await body(req); return json(await checkDomains(env, req, input.name)); }
 
   let m;
   if ((m = pathname.match(/^\/api\/sites\/([a-z0-9-]+)\/(edits|history)$/))) {

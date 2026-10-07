@@ -17,6 +17,7 @@ const sha = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`
 let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
+let regMode, regAsked;
 let dns, pages, pagesCalls, cf, cfCalls, zones, records, rid;
 function githubMock() {
   const blobs = {};
@@ -28,6 +29,11 @@ function githubMock() {
       return new Response(JSON.stringify({ Answer: list }));
     }
     if (u.host === 'cf.test') {
+      if (u.pathname.endsWith('/registrar/domain-check')) {
+        if (regMode === 'forbidden') return new Response(JSON.stringify({ success: false, errors: [{ message: 'forbidden' }] }), { status: 403 });
+        const asked = JSON.parse(init.body).domains; regAsked.push(asked);
+        return new Response(JSON.stringify({ success: true, result: { domains: asked.map((n) => (n === 'mybrand.com' ? { name: n, registrable: false } : { name: n, registrable: true, tier: n.endsWith('.xyz') ? 'premium' : 'standard', pricing: { currency: 'USD', registration_cost: '10.44', renewal_cost: '10.44' } })) } }));
+      }
       if (u.pathname === '/zones') { const n = u.searchParams.get('name'); return new Response(JSON.stringify({ success: true, result: zones[n] ? [{ id: 'z1', name: n }] : [] })); }
       let zm = u.pathname.match(/^\/zones\/z1\/dns_records(?:\/(.+))?$/);
       if (zm) {
@@ -80,6 +86,7 @@ beforeEach(() => {
   commits = [];
   zones = { 'client.com': 1 }; records = []; rid = 0;
   cf = { project: null, domains: [] }; cfCalls = [];
+  regMode = ''; regAsked = [];
   dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
   env = {
@@ -762,4 +769,28 @@ test('columns and spacing: valid values are saved, junk is refused', async () =>
     const e = withPage({}); e.pages['index.html'].layout = [{ op: 'add', after: 'p', id: 'cl2', type: 'cols', ...(p ? { p } : {}) }];
     assert.equal((await putWith(client, e)).status, 400, JSON.stringify(p));
   }
+});
+
+test('public domain search: availability and price per extension, name cleaned, no login needed', async () => {
+  const r = await call('POST', '/api/public/domains/check', { body: { name: 'https://www.MyBrand.com/path' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.label, 'mybrand');
+  assert.equal(regAsked[0][0], 'mybrand.com');
+  assert.equal(regAsked[0].length, 12);
+  const com = r.data.results.find((x) => x.name === 'mybrand.com'), net = r.data.results.find((x) => x.name === 'mybrand.net'), xyz = r.data.results.find((x) => x.name === 'mybrand.xyz');
+  assert.equal(com.available, false); assert.equal(com.usd, null);
+  assert.equal(net.available, true); assert.equal(net.usd, 10.44); assert.equal(net.premium, false);
+  assert.equal(xyz.premium, true);
+});
+
+test('public domain search: junk names are refused, a missing Registrar permission is explained, and visitors are rate limited', async () => {
+  for (const bad of ['', 'a b', '-x', 'x-', 'מותג', 'a'.repeat(60), '<script>']) {
+    assert.equal((await call('POST', '/api/public/domains/check', { body: { name: bad } })).status, 400, bad);
+  }
+  regMode = 'forbidden';
+  const r = await call('POST', '/api/public/domains/check', { body: { name: 'shop1' } });
+  assert.equal(r.status, 503); assert.match(r.data.error, /Registrar/);
+  regMode = '';
+  env.CMS.put('rl:dom:x:' + Math.floor(Date.now() / 60000), '30');
+  assert.equal((await call('POST', '/api/public/domains/check', { body: { name: 'shop2' } })).status, 429);
 });

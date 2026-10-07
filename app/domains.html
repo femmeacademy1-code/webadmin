@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>רכישת דומיין | פאם דיגיטל</title>
+<meta name="description" content="בודקים אם שם האתר שלכם פנוי ורוכשים דומיין דרך פאם דיגיטל.">
+<link rel="icon" type="image/png" href="brand/butterfly.png">
+<link rel="stylesheet" href="ui.css">
+<style>
+@font-face{font-family:"Ploni Yad";font-weight:400;font-display:swap;src:url(fonts/ploni-yad.woff2) format("woff2")}
+@font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-hebrew.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Ploni Yad";font-weight:400;font-display:swap;src:url(fonts/ploni-yad.woff2) format("woff2")}
+:root{--cream:#FFF8F4;--ink:#47454D;--text:#3D3D3D;--red:#B85150;--peach:#FFD6BC;--mint:#DDF5EE;--line:#EBDDD3;--muted:#837D82;--shadow:0 14px 36px rgba(120,70,50,.12)}
+*{box-sizing:border-box}
+body{margin:0;font:18px/1.7 "Assistant",system-ui,sans-serif;color:var(--text);background:var(--cream);overflow-x:hidden}
+h1,h2,h3{color:var(--ink);line-height:1.15;margin:0}
+h1,h2{font-family:"Ploni Yad","Assistant",sans-serif;font-weight:400}
+a{color:var(--red)}
+.wrap{max-width:980px;margin:0 auto;padding:0 clamp(18px,4vw,32px)}
+header{background:#fff;border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:96px}
+header img{height:80px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border:2px solid var(--ink);border-radius:8px;background:var(--mint);color:var(--ink);font:inherit;font-weight:800;font-size:17px;text-decoration:none;cursor:pointer}
+.btn.red{background:var(--red);border-color:var(--peach);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hero{padding:clamp(36px,6vw,64px) 0 28px;text-align:center;background:radial-gradient(60% 80% at 80% 0,#ffe6d4 0,transparent 70%),linear-gradient(180deg,#FFF8F4,#F3FBF8)}
+.hero .eyebrow{color:var(--red);font-weight:800;font-size:20px}
+.hero h1{font-size:clamp(36px,5.6vw,60px);margin:6px 0 10px}
+.hero p.lead{color:#5d5860;max-width:34em;margin:0 auto}
+.search{display:flex;gap:10px;max-width:640px;margin:26px auto 8px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:8px;box-shadow:var(--shadow)}
+.search input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:20px;padding:8px 12px;direction:ltr;text-align:left;background:transparent;color:var(--ink)}
+.search input::placeholder{color:#b3adb2}
+.hint{color:var(--muted);font-size:15px}
+.free{max-width:720px;margin:18px auto 0;background:#fff;border:2px dashed var(--red);border-radius:14px;padding:12px 16px;font-size:16.5px;color:var(--ink)}
+main{padding:30px 0 50px}
+#msg{text-align:center;color:var(--muted);min-height:28px;margin-bottom:10px}
+#msg.err{color:#a03030;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.res{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 22px rgba(120,70,50,.07);border-top:5px solid var(--mint)}
+.res.no{border-top-color:#e6e0e0;opacity:.7}
+.res .nm{font-weight:800;font-size:20px;direction:ltr;text-align:right;color:var(--ink);word-break:break-all}
+.res .st{font-size:15px;font-weight:700}
+.res.yes .st{color:#1f6a4c}.res.no .st{color:#8a8489}
+.res .pr{font-size:15px;color:#5d5860}.res .pr b{font-size:26px;color:var(--ink)}
+.res .btn{margin-top:6px;padding:9px 14px;font-size:16px}
+.tag{display:inline-block;background:var(--peach);border-radius:99px;padding:1px 10px;font-size:13px;font-weight:800;color:#7a3a1c}
+dialog{border:0;border-radius:20px;padding:0;width:min(520px,94vw);box-shadow:0 30px 80px rgba(71,69,77,.45)}
+dialog::backdrop{background:rgba(47,46,51,.55)}
+dialog form{padding:24px 24px 20px}
+dialog h2{font-size:32px;margin-bottom:4px}
+dialog .dn{direction:ltr;text-align:right;font-weight:800;font-size:22px;color:var(--red)}
+dialog label{display:block;font-weight:700;font-size:15px;margin-top:12px}
+dialog input[type=text],dialog input[type=tel]{width:100%;font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:10px;margin-top:4px}
+dialog .row{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+dialog .note{font-size:14px;color:var(--muted);margin-top:12px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:40px}
+.how div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.how b{display:block;font-size:19px;color:var(--ink);margin-bottom:4px}
+.how span.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--mint);font-weight:800;margin-inline-end:8px}
+.coil{margin-top:24px;text-align:center;color:var(--muted);font-size:15.5px}
+footer{padding:26px 0 40px;text-align:center;color:var(--muted);font-size:15px}
+@media (max-width:640px){header .wrap{height:84px}header img{height:68px}.search{flex-direction:column}.search .btn{width:100%}.hero .eyebrow{font-size:18px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="plans.html" aria-label="חזרה לדף החבילות"><img src="brand/logo.png" alt="Femme Digital"></a><a class="btn" href="plans.html">לחבילות האחסון</a></div></header>
+
+<div class="hero"><div class="wrap">
+  <div class="eyebrow">פאם דיגיטל</div>
+  <h1>רוכשים דומיין לאתר שלכם</h1>
+  <p class="lead">מקלידים את שם העסק באנגלית ובודקים מיד אילו כתובות פנויות. אנחנו מטפלות ברכישה ובחיבור הדומיין לאתר.</p>
+  <form class="search" id="f" role="search"><input id="q" type="text" placeholder="mybrand" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="שם הדומיין" maxlength="60"><button class="btn red" id="go" type="submit">בדיקת זמינות</button></form>
+  <div class="hint">אפשר להקליד גם mybrand.com, נבדוק את כל הסיומות.</div>
+  <div class="free">בחבילות האחסון של <b>80 ₪ ו-100 ₪</b> הדומיין השנה הראשונה כלול חינם, ואין צורך לרכוש אותו כאן. <a href="plans.html#plans">לחבילות</a></div>
+</div></div>
+
+<main class="wrap">
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="grid" id="grid"></div>
+  <div class="coil">צריכים דומיין ישראלי (.co.il)? כתבו לנו בוואטסאפ ונסדר את זה.</div>
+  <div class="how">
+    <div><b><span class="n">1</span>בודקים</b>מקלידים שם ורואים מה פנוי ובכמה.</div>
+    <div><b><span class="n">2</span>מזמינים</b>בוחרים כתובת ומשאירים פרטים. ההזמנה נשלחת אלינו בוואטסאפ.</div>
+    <div><b><span class="n">3</span>אנחנו מטפלות</b>שולחות קישור לתשלום, רושמות את הדומיין ומחברות אותו לאתר.</div>
+  </div>
+</main>
+
+<dialog id="dlg" aria-label="הזמנת דומיין">
+  <form id="of" method="dialog">
+    <h2>הזמנת דומיין</h2>
+    <div class="dn" id="dn"></div>
+    <div id="dp" class="hint"></div>
+    <label>השם שלך<input type="text" id="on" autocomplete="name" required maxlength="60"></label>
+    <label>טלפון<input type="tel" id="op" autocomplete="tel" inputmode="tel" required maxlength="20"></label>
+    <div class="row"><button type="button" class="btn" id="oc">ביטול</button><button class="btn red" id="os" type="submit">שליחה בוואטסאפ</button></div>
+    <div class="note">ההזמנה נשלחת אלינו בוואטסאפ. התשלום נעשה אחרי אישור, והמחיר הסופי יאושר לפניו.</div>
+  </form>
+</dialog>
+
+<footer><div class="wrap">© פאם דיגיטל · <a href="terms.html#terms">תקנון</a> · <a href="terms.html#privacy">פרטיות</a> · <a href="terms.html#cookies">עוגיות</a> · <a href="terms.html#accessibility">הצהרת נגישות</a></div></footer>
+
+<script>
+/* Pricing shown to the visitor: Cloudflare's price in USD x this rate + the service fee, rounded up. Edit both to taste. */
+var USD_ILS = 3.7, SERVICE_FEE_ILS = 0;
+var WHATSAPP = '972515490099';
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ils = function (usd) { return Math.ceil(usd * USD_ILS + SERVICE_FEE_ILS); };
+  var current = null;
+  var msg = function (t, err) { $('msg').textContent = t || ''; $('msg').className = err ? 'err' : ''; };
+  $('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('q').value.trim();
+    if (!name) { msg('כתבו שם לבדיקה', true); return; }
+    $('go').disabled = true; msg('בודקות זמינות…'); $('grid').innerHTML = '';
+    fetch('/api/public/domains/check', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-requested-with': 'fd' }, body: JSON.stringify({ name: name }) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) {
+        $('go').disabled = false;
+        if (!r.ok) { msg((r.j && r.j.error) || 'משהו השתבש. נסו שוב', true); return; }
+        var res = r.j.results || [], any = res.some(function (x) { return x.available; });
+        msg(any ? 'אלו הכתובות עבור "' + r.j.label + '":' : 'אין כתובת פנויה בשם הזה. נסו שם אחר.');
+        res.sort(function (a, b) { return (b.available - a.available) || a.name.localeCompare(b.name); });
+        res.forEach(function (x) {
+          var d = document.createElement('div'); d.className = 'res ' + (x.available ? 'yes' : 'no');
+          var nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = x.name; d.appendChild(nm);
+          var st = document.createElement('div'); st.className = 'st'; st.textContent = x.available ? '✓ פנוי' : 'תפוס'; d.appendChild(st);
+          if (x.premium && x.available) { var t = document.createElement('span'); t.className = 'tag'; t.textContent = 'דומיין פרימיום'; d.appendChild(t); }
+          if (x.available && x.usd != null) {
+            var p = document.createElement('div'); p.className = 'pr'; p.innerHTML = '<b>' + ils(x.usd) + ' ₪</b> לשנה';
+            d.appendChild(p);
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'btn red'; b.textContent = 'להזמנה';
+            b.addEventListener('click', function () { current = { name: x.name, price: ils(x.usd) }; $('dn').textContent = x.name; $('dp').textContent = 'מחיר משוער: ' + current.price + ' ₪ לשנה'; $('dlg').showModal(); $('on').focus(); });
+            d.appendChild(b);
+          }
+          $('grid').appendChild(d);
+        });
+      })
+      .catch(function () { $('go').disabled = false; msg('אין חיבור. נסו שוב', true); });
+  });
+  $('oc').addEventListener('click', function () { $('dlg').close(); });
+  $('of').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!current) return;
+    var text = 'שלום, אני רוצה לרכוש את הדומיין ' + current.name + ' (מחיר משוער ' + current.price + ' ₪ לשנה).\nשמי: ' + $('on').value.trim() + '\nטלפון: ' + $('op').value.trim();
+    window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    $('dlg').close();
+  });
+})();
+</script>
+<script src="ui.js"></script>
+</body>
+</html>
