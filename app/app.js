@@ -788,7 +788,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 7;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 8;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -798,30 +798,37 @@ async function viewEditor(siteId) {
 
   function fmtSection(u, spec) {
     const cur = (k, fallback) => (spec[k] != null ? spec[k] : fallback);
-    const size = cur('fs', u.fs);
+    const fr0 = $('#frame');
+    const phone = !!fr0 && fr0.clientWidth < 768;   // phone-sized preview (or a real phone): the size is stored separately
+    const sk = phone ? 'fsm' : 'fs';
+    const size = cur(sk, u.fs);
     const num = h('input', { type: 'number', min: 8, max: 200, value: size, style: 'width:84px', dir: 'ltr' });
     const range = h('input', { type: 'range', min: 10, max: 120, value: Math.min(120, Math.max(10, size)), style: 'flex:1' });
     const current = () => +num.value || size;
-    const setFs = (v) => { v = Math.round(Math.min(200, Math.max(8, +v || current()))); num.value = v; range.value = Math.min(120, Math.max(10, v)); setSpec(u.key, { fs: v }); };
+    const setFs = (v) => { v = Math.round(Math.min(200, Math.max(8, +v || current()))); num.value = v; range.value = Math.min(120, Math.max(10, v)); setSpec(u.key, { [sk]: v }); };
     range.addEventListener('input', () => setFs(range.value));
     num.addEventListener('change', () => setFs(num.value));
     const set = (patch) => { setSpec(u.key, patch, { force: true }); renderInsp(); };
     const aligns = [['right', 'ימין', '☰'], ['center', 'מרכז', '≡'], ['left', 'שמאל', '☷']];
     const al = cur('al', u.al);
     return h('div', { class: 'sect' }, h('h4', {}, 'עיצוב טקסט'), kitTooOld() && oldKitNote(),
-      h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'גודל (פיקסלים בדסקטופ; בנייד מתכווץ אוטומטית)'),
+      h('div', { class: 'field' }, h('span', { class: 'lbl' }, phone ? 'גודל בטלפון (px)' : 'גודל במחשב (px)'),
         h('div', { class: 'colorrow' },
           h('button', { class: 'tg', type: 'button', onclick: () => setFs(current() - 2) }, '−'), range, h('button', { class: 'tg', type: 'button', onclick: () => setFs(current() + 2) }, '+'), num)),
+      h('span', { class: 'help' }, phone ? 'זה הגודל בטלפון בלבד. הגודל במחשב נשמר בנפרד: עברו לתצוגת מחשב כדי לשנות אותו.' : 'זה הגודל במחשב. בטלפון הכתב מתכווץ אוטומטית, ואפשר לקבוע לו גודל משלו מתצוגת "נייד" או מהטלפון.'),
+      h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'עובי הכתב'),
+        h('select', { onchange: (ev) => { const w = +ev.target.value; set({ fw: w, b: w >= 600 }); } },
+          [[300, 'דק'], [400, 'רגיל'], [500, 'בינוני'], [600, 'חצי עבה'], [700, 'עבה'], [800, 'עבה מאוד'], [900, 'שחור']].map(([v, l]) => h('option', { value: v, selected: (spec.fw != null ? spec.fw : (cur('b', u.b) ? 700 : 400)) === v }, l)))),
       h('div', { class: 'tgrow' },
-        tgBtn('B', 'מודגש', cur('b', u.b), () => set({ b: !cur('b', u.b) }), 'b'),
+        tgBtn('B', 'מודגש', cur('b', u.b), () => set({ b: !cur('b', u.b), fw: undefined }), 'b'),
         tgBtn('I', 'נטוי', cur('i', u.i), () => set({ i: !cur('i', u.i) }), 'i'),
         tgBtn('U', 'קו תחתון', cur('u', u.u), () => set({ u: !cur('u', u.u) }), 'u'),
         tgBtn('S', 'קו חוצה', cur('st', u.st), () => set({ st: !cur('st', u.st) }), 's'),
         h('span', { class: 'sep' }),
         ...aligns.map(([v, t, ic]) => tgBtn(ic, 'יישור ' + t, al === v, () => set({ al: v })))),
       u.kind === 'node' && h('span', { class: 'help' }, 'העיצוב חל על כל הפסקה שהטקסט הזה נמצא בה.'),
-      (spec.fs || spec.b != null || spec.i != null || spec.u != null || spec.st != null || spec.al) &&
-        h('div', {}, h('button', { class: 'link', onclick: () => set({ fs: undefined, b: undefined, i: undefined, u: undefined, st: undefined, al: undefined }) }, 'איפוס העיצוב')));
+      (spec.fs || spec.fsm || spec.fw || spec.b != null || spec.i != null || spec.u != null || spec.st != null || spec.al) &&
+        h('div', {}, h('button', { class: 'link', onclick: () => set({ fs: undefined, fsm: undefined, fw: undefined, b: undefined, i: undefined, u: undefined, st: undefined, al: undefined }) }, 'איפוס העיצוב')));
   }
 
   /* Text spacing: line height, letter spacing, space above and below. */

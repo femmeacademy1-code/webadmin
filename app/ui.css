@@ -29,3 +29,5 @@ html.a11y-cursor,html.a11y-cursor *{cursor:url("data:image/svg+xml,%3Csvg xmlns=
 .cookiebar button.pri{background:#B85150;border-color:#FFD6BC;color:#fff}
 @media (max-width:760px){.a11y-btn{bottom:88px;width:48px;height:48px;font-size:24px}.a11y-panel{bottom:146px}.cookiebar{bottom:84px}}
 body>*:not(.a11y-btn):not(.a11y-panel):not(.cookiebar):not(dialog):not(script){zoom:var(--a11y-z,1)}
+html.cms-editing .a11y-btn,html.cms-editing .a11y-panel,html.cms-editing .cookiebar,html.cms-editing .mbar{display:none!important}
+html.cms-editing body{padding-bottom:0!important}

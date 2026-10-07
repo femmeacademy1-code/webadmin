@@ -1,6 +1,8 @@
 /* shared: accessibility widget + cookie consent. Choices are kept in localStorage only (no tracking). */
 (function () {
   var K = 'fd-a11y', C = 'fd-cookies', root = document.documentElement;
+  /* inside the editor's preview these overlays would cover the page and swallow clicks */
+  if (/[?&]cms-edit=1\b/.test(location.search)) { root.classList.add('cms-editing'); return; }
   var get = function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
   var set = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   var st = Object.assign({ size: 0, contrast: false, gray: false, links: false, font: false, nomotion: false, cursor: false }, get(K) || {});

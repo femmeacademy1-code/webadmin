@@ -35,7 +35,7 @@ const edits = { v: 1, global: {}, pages: { 'page2.html': {
     { op: 'hide', key: C },
   ],
   els: {
-    [B + '>h2:nth-of-type(1)']: { t: 'ב ערוך', b: true, fs: 40, u: true, al: 'center', lh: 25, ls: 3, mt: 24 },
+    [B + '>h2:nth-of-type(1)']: { t: 'ב ערוך', b: true, fs: 40, u: true, al: 'center', lh: 25, ls: 3, mt: 24, fsm: 22 },
     '@cp1>h2:nth-of-type(1)': { t: 'סקשן ב (עותק)', i: true, st: true, color: '#aa0000' },
     '@cp1>p:nth-of-type(1)': { t: 'פסקה בעותק בלבד' },
     '#dyn>h2:nth-of-type(1)': { t: 'דינמי ערוך' },
@@ -112,10 +112,12 @@ try {
   ok(await pg.locator('[data-cms-id="cp1"] p').innerText() === 'פסקה בעותק בלבד', 'public: editing the copy does not touch the original');
   ok((await pg.locator('main > section:nth-of-type(2) p').innerText()) !== 'פסקה בעותק בלבד' && (await pg.locator('p.x').first().innerText()) === 'טקסט ב', 'public: original keeps its text');
   ok(!(await pg.locator('main section', { hasText: 'סקשן ג' }).isVisible()), 'public: hidden section is display:none');
-  // narrow screen: font size scales down instead of overflowing
+  // wide screen: the size is exact; narrow screen: the phone size is used
+  const wide = await pg.locator('main section').first().locator('h2').evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  ok(wide === 40, 'public: exact font size on wide screens (' + wide + 'px)');
   await pg.setViewportSize({ width: 390, height: 800 });
   const small = await pg.locator('main section').first().locator('h2').evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
-  ok(small < 20 && small >= 11, 'public: size scales with the viewport on phones (' + small + 'px)');
+  ok(small === 22, 'public: a separate phone size (fsm) is applied exactly on phones (' + small + 'px)');
   await pg.setViewportSize({ width: 1280, height: 800 });
 
   /* ---------- adding elements ---------- */
@@ -176,7 +178,7 @@ try {
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 7, 'edit: kit reports its version');
+  ok(ready.version === 8, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);
@@ -206,7 +208,7 @@ try {
   await fr.locator('main section').first().locator('h2').click();
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-select' && m.unit));
   sel = await pg.evaluate(() => window.__msgs.filter((m) => m.type === 'cms-select').pop().unit);
-  ok(sel.fs === 30 && sel.b === true && sel.u === true && sel.al === 'center', 'edit: current formatting reported (size 40 scaled to the 900px frame = 30, bold, underline, centre): ' + JSON.stringify([sel.key, sel.fs, sel.b, sel.u, sel.al]));
+  ok(sel.fs === 40 && sel.b === true && sel.u === true && sel.al === 'center', 'edit: current formatting reported (exact size 40 in the 900px frame, bold, underline, centre): ' + JSON.stringify([sel.key, sel.fs, sel.b, sel.u, sel.al]));
 
   // parent selection and select-by-key
   await pg.evaluate(() => { window.__msgs = []; window.post({ type: 'cms-select-parent' }); });

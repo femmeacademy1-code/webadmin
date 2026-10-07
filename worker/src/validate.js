@@ -74,6 +74,14 @@ function element(spec, key) {
     if (!Number.isInteger(spec.fs) || spec.fs < 8 || spec.fs > 200) bad('גודל טקסט לא תקין');
     out.fs = spec.fs;
   }
+  if (spec.fsm != null) {
+    if (!Number.isInteger(spec.fsm) || spec.fsm < 8 || spec.fsm > 200) bad('גודל טקסט לנייד לא תקין');
+    out.fsm = spec.fsm;
+  }
+  if (spec.fw != null) {
+    if (!Number.isInteger(spec.fw) || spec.fw < 100 || spec.fw > 900 || spec.fw % 100) bad('עובי טקסט לא תקין');
+    out.fw = spec.fw;
+  }
   for (const k of ['b', 'i', 'u', 'st']) {
     if (spec[k] != null) { if (typeof spec[k] !== 'boolean') bad('ערך עיצוב לא תקין'); out[k] = spec[k]; }
   }

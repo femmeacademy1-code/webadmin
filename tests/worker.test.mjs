@@ -726,6 +726,16 @@ test('boxes and shapes: valid values are saved, junk is refused', async () => {
   }
 });
 
+test('font sizes: desktop size, phone size and weight are validated', async () => {
+  const { client } = await setup();
+  const r = await putWith(client, withPage({ els: { t1: { fs: 32, fsm: 20, fw: 600 } } }));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].els.t1, { fs: 32, fsm: 20, fw: 600 });
+  for (const bad of [{ fsm: 7 }, { fsm: 201 }, { fsm: 12.5 }, { fw: 50 }, { fw: 950 }, { fw: 450 }, { fw: '700' }]) {
+    assert.equal((await putWith(client, withPage({ els: { x: bad } }))).status, 400, JSON.stringify(bad));
+  }
+});
+
 test('text spacing: line height, letter spacing and margin above are validated', async () => {
   const { client } = await setup();
   const r = await putWith(client, withPage({ els: { t1: { lh: 25, ls: -1, mt: 24, mb: 8 } } }));
