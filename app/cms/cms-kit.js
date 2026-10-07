@@ -45,7 +45,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 7;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above)
+  var KIT_VERSION = 8;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -344,6 +344,25 @@
 
   /* ---------- applying edits ---------- */
   function setStyle(el, prop, val) { snapStyle(el, prop); el.style.setProperty(prop, val, 'important'); }
+  /* Font sizes: exact px on wide screens, and a separate size (or an automatic gentle shrink) on phones.
+   * Rules live in one stylesheet keyed by a data attribute, so a media query can be used. */
+  var szRules = [], szCount = 0, szEl = null;
+  function szFlush() {
+    if (!szEl || !szEl.parentNode) { szEl = document.createElement('style'); szEl.id = 'cms-kit-sizes'; (document.head || document.documentElement).appendChild(szEl); }
+    szEl.textContent = szRules.join('\n');
+  }
+  function sizeRules(el, spec) {
+    if (spec.fs == null && spec.fsm == null) return;
+    snapAttr(el, 'data-cms-sz');
+    var id = el.getAttribute('data-cms-sz');
+    if (!id) { id = String(++szCount); el.setAttribute('data-cms-sz', id); }
+    var sel = '[data-cms-sz="' + id + '"]';
+    if (spec.fs != null) szRules.push(sel + '{font-size:' + spec.fs + 'px!important}');
+    var m = null;
+    if (spec.fsm != null) m = spec.fsm + 'px';
+    else if (spec.fs != null && spec.fs > 18) m = 'clamp(' + Math.max(16, Math.round(spec.fs * 0.6)) + 'px,' + (spec.fs / 7.67).toFixed(3) + 'vw,' + spec.fs + 'px)';
+    if (m) szRules.push('@media (max-width:767px){' + sel + '{font-size:' + m + '!important}}');
+  }
   function applyEl(el, spec) {
     if (spec.t != null) { snapChildren(el); setText(el, spec.t); }
     if (spec.n) {
@@ -369,8 +388,9 @@
     if (spec.bgc) setStyle(el, 'background-color', spec.bgc);
     if (spec.font && loadFont(spec.font)) setStyle(el, 'font-family', '"' + spec.font.family + '", sans-serif');
     // Text formatting. Font size scales down with the viewport so big headings don't overflow on phones.
-    if (spec.fs) setStyle(el, 'font-size', 'clamp(' + Math.min(11, spec.fs) + 'px, ' + (spec.fs / 12).toFixed(3) + 'vw, ' + spec.fs + 'px)');
+    sizeRules(el, spec);
     if (spec.b != null) setStyle(el, 'font-weight', spec.b ? '700' : '400');
+    if (spec.fw != null) setStyle(el, 'font-weight', String(spec.fw));
     if (spec.i != null) setStyle(el, 'font-style', spec.i ? 'italic' : 'normal');
     if (spec.u != null || spec.st != null) {
       var deco = (spec.u ? 'underline ' : '') + (spec.st ? 'line-through' : '');
@@ -592,6 +612,7 @@
       var pg = (edits.pages || {})[pageKey] || {};
       applyLayout(pg.layout || []);
       var els = pg.els || {};
+      szRules = [];
       Object.keys(els).forEach(function (p) {
         var el = resolve(p);
         if (el && el !== editingEl) applyEl(el, els[p]);
@@ -599,6 +620,7 @@
       applyColors((edits.global || {}).colors);
       applyFonts((edits.global || {}).fonts);
     } finally {
+      szFlush();
       applying = false;
       if (observer) observe();
     }
