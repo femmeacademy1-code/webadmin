@@ -15,7 +15,7 @@
 
   function build() {
     var btn = document.createElement('button');
-    btn.className = 'a11y-btn'; btn.type = 'button'; btn.setAttribute('aria-label', 'פתיחת תפריט נגישות'); btn.setAttribute('aria-expanded', 'false'); btn.innerHTML = '<svg viewBox="0 0 32 32" width="32" height="32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="9.3" r="1.7" fill="#fff"/><path d="M8.5 13.3c5 1.6 10 1.6 15 0M16 14.4v5M16 19.4l-3.6 6M16 19.4l3.6 6"/></svg>';
+    btn.className = 'a11y-btn'; btn.type = 'button'; btn.setAttribute('aria-label', 'פתיחת תפריט נגישות'); btn.setAttribute('aria-expanded', 'false'); btn.innerHTML = '<svg viewBox="0 0 32 32" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="9.3" r="1.7" fill="currentColor"/><path d="M8.5 13.3c5 1.6 10 1.6 15 0M16 14.4v5M16 19.4l-3.6 6M16 19.4l3.6 6"/></svg>';
     var p = document.createElement('div');
     p.className = 'a11y-panel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'תפריט נגישות');
     p.innerHTML = '<h2>נגישות <button type="button" aria-label="סגירה">✕</button></h2><div class="a11y-grid">' +
