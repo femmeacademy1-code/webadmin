@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 9;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat
+  var KIT_VERSION = 10;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -807,12 +807,15 @@
     send({ type: 'cms-select', unit: u ? describe(u) : null, programmatic: !!programmatic });
   }
 
+  var editWs = '';
   function stopEditing(commit) {
     if (!editingEl) return;
     var el = editingEl;
+    el.style.whiteSpace = editWs;
+    if (!el.getAttribute('style')) el.removeAttribute('style');
     el.removeAttribute('contenteditable');
     editingEl = null;
-    if (commit) send({ type: 'cms-text', key: pathOf(el), value: getText(el) });
+    if (commit) { var v = getText(el); if (v.indexOf('\n') >= 0) setText(el, v); send({ type: 'cms-text', key: pathOf(el), value: v }); }   // typed line breaks become <br>
   }
 
   document.addEventListener('mouseover', function (e) {
@@ -836,6 +839,8 @@
     e.preventDefault();
     select(u);
     editingEl = u.el;
+    editWs = u.el.style.whiteSpace;
+    u.el.style.whiteSpace = 'pre-wrap';                       // so a typed line break is visible while editing
     u.el.setAttribute('contenteditable', 'plaintext-only');
     if (u.el.contentEditable !== 'plaintext-only') u.el.setAttribute('contenteditable', 'true');
     u.el.focus();
@@ -848,7 +853,8 @@
   }, true);
   document.addEventListener('keydown', function (e) {
     if (!editingEl) return;
-    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); stopEditing(true); }
+    if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); stopEditing(true); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (!document.execCommand('insertLineBreak')) document.execCommand('insertText', false, '\n'); }   // Enter = new line; Esc / Ctrl+Enter / click away = done
   }, true);
   document.addEventListener('focusout', function (e) { if (editingEl && e.target === editingEl) stopEditing(true); }, true);
   document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
