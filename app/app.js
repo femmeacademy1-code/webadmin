@@ -368,7 +368,16 @@ async function viewAdmin() {
     if (tab === 'domains') {
       body.push(ordersView());
     } else if (tab === 'sites') {
-      body.push(h('div', { style: 'margin-bottom:16px' }, h('button', { class: 'btn primary', onclick: () => { showForm = { type: 'site' }; draw(); } }, '＋ הוספת אתר')));
+      body.push(h('div', { style: 'margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap' }, h('button', { class: 'btn primary', onclick: () => { showForm = { type: 'site' }; draw(); } }, '＋ הוספת אתר'),
+        state.sites.length ? h('button', { class: 'btn mint', title: 'מעדכן את ערכת העריכה בכל האתרים, אחד אחרי השני', onclick: async (ev) => {
+          const b = ev.currentTarget; b.disabled = true; const bad = [];
+          for (let i = 0; i < state.sites.length; i++) {
+            b.textContent = `מעדכן ${i + 1}/${state.sites.length}…`;
+            try { await api('POST', `/admin/sites/${state.sites[i].id}/connect`); } catch (e) { bad.push(state.sites[i].name + ': ' + e.message); }
+          }
+          b.disabled = false; b.textContent = 'חיבור מחדש של כל האתרים';
+          bad.length ? toast('לא הצליח: ' + bad.join(' | '), true) : toast('כל האתרים עודכנו. ייקח כדקה עד שהשינוי יתפרסם.');
+        } }, 'חיבור מחדש של כל האתרים') : null));
       if (showForm && showForm.type === 'site') body.push(siteForm(showForm.item));
       if (showForm && showForm.type === 'domain') body.push(domainPanel(state.sites.find((x) => x.id === showForm.item.id) || showForm.item));
       body.push(h('div', { class: 'list' }, state.sites.map((s) => h('div', { class: 'item' },
