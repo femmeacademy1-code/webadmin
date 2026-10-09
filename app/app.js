@@ -618,10 +618,12 @@ async function viewEditor(siteId) {
     return id;
   }
   // Add a new element (image, button, video, file, text, heading, divider) right after `afterKey`.
+  let dropBefore = false;   // set by drag & drop: the next added element goes before (not after) the given block
   async function addElement(afterKey, type, { p, spec } = {}) {
     const id = newId();
+    const before = dropBefore; dropBefore = false;
     mutate(() => {
-      layoutOps().push({ op: 'add', after: afterKey, id, type, ...(p ? { p } : {}) });
+      layoutOps().push({ op: 'add', after: afterKey, id, type, ...(before ? { before: true } : {}), ...(p ? { p } : {}) });
       if (spec) els()['@' + id] = spec;
     }, { force: true });
     sendToFrame();
@@ -827,11 +829,12 @@ async function viewEditor(siteId) {
   }
 
   const NEED_KIT = 2;      // first kit version that supports formatting and structure edits (see kit/cms-kit.js)
+  const DRAG_KIT = 12;     // first kit version that supports drag & drop
   const ADD_KIT = 4;       // first kit version that can add elements
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 11;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 12;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -1108,17 +1111,50 @@ async function viewEditor(siteId) {
 
   /* Always-visible "add element" block: big tiles, directly under the "select anything" header / hint.
    * With an element selected the new element goes right after it; otherwise the owner picks a section (default: end of the page). */
+  /* Drag a tile onto the page: a ghost follows the pointer, the site draws an orange line where the element will land, release to add it there. Mouse and pen only (touch keeps scrolling the panel). */
+  function startDrag(ev, btn, label, onDrop, onMoved) {
+    if (ev.button !== 0 || ev.pointerType === 'touch' || btn.disabled || !E.ready || E.kitVersion < DRAG_KIT) return;
+    const x0 = ev.clientX, y0 = ev.clientY; let ghost = null, over = false;
+    const frameEl = $('#frame');
+    const pos = (e) => { const r = frameEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom }; };
+    const move = (e) => {
+      if (!ghost) {
+        if (Math.hypot(e.clientX - x0, e.clientY - y0) < 6) return;
+        ghost = h('div', { class: 'drag-ghost' }, label); document.body.appendChild(ghost); document.body.classList.add('dragging'); onMoved();
+      }
+      ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+      const p = pos(e); over = p.inside;
+      frameSend({ type: 'cms-drag', x: over ? p.x : -1, y: over ? p.y : -1 });
+    };
+    const up = async (e) => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+      if (!ghost) return;
+      ghost.remove(); document.body.classList.remove('dragging');
+      const p = pos(e), reqId = Math.random();
+      const answer = new Promise((res) => { waiters.set(reqId, res); setTimeout(() => res(null), 2000); });
+      frameSend({ type: 'cms-drag-end', reqId, x: p.x, y: p.y, drop: p.inside && e.type === 'pointerup' });
+      const r = await answer;
+      if (p.inside && e.type === 'pointerup') { if (r && r.key) await onDrop(r.key, !!r.before); else toast('אי אפשר להוסיף כאן. נסו מקום אחר בדף.', true); }
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  }
   function addSection(u) {
     const old = E.ready && E.kitVersion < ADD_KIT;
     const list = E.sections || [];
     const sel = u ? null : h('select', { class: 'addwhere', 'aria-label': 'היכן להוסיף' },
       list.map((x, i) => h('option', { value: x.key, selected: i === list.length - 1 }, 'אחרי: ' + (x.label || x.tag))));
     const at = () => { const k = u ? u.key : (sel && sel.value); if (!k) throw new Error('הדף עוד נטען. נסו שוב בעוד רגע.'); return k; };
-    const tile = (icon, label, title, fn, needKit) => h('button', { class: 'addtile', disabled: old || (needKit && E.ready && E.kitVersion < needKit), title, onclick: async () => { try { await fn(at()); } catch (e) { toast(e.message, true); } } },
-      h('span', { class: 'ico' }, icon), h('span', {}, label));
+    let dragged = false;
+    const tile = (icon, label, title, fn, needKit) => {
+      const btn = h('button', { class: 'addtile', disabled: old || (needKit && E.ready && E.kitVersion < needKit), title, onclick: async () => { if (dragged) { dragged = false; return; } try { await fn(at()); } catch (e) { toast(e.message, true); } } },
+        h('span', { class: 'ico' }, icon), h('span', {}, label));
+      btn.addEventListener('pointerdown', (ev) => startDrag(ev, btn, label, async (key, before) => { dragged = true; dropBefore = before; try { await fn(key); } catch (e) { toast(e.message, true); } finally { dropBefore = false; } }, () => { dragged = true; }));
+      return btn;
+    };
     return h('section', { class: 'addblock' },
       h('h3', {}, 'הוספת ', h('span', { class: 'hl' }, 'אלמנט')),
       old && h('p', { class: 'help warnbox' }, 'הוספת אלמנטים תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).'),
+      !old && h('p', { class: 'help' }, 'אפשר גם לגרור אלמנט ישר למקום בדף.'),
       u ? h('p', { class: 'muted' }, 'האלמנט החדש יופיע מיד אחרי האלמנט שבחרתם.')
         : h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'היכן להוסיף'), list.length ? sel : h('span', { class: 'muted' }, 'הקטעים נטענים…')),
       h('div', { class: 'addgrid' },
@@ -1321,7 +1357,7 @@ async function viewEditor(siteId) {
     } else if (d.type === 'cms-sections') {
       E.sections = d.sections || []; E.optional = d.optional || []; E.todo = d.todo || 0;
       if (E.tab === 'struct' || (E.tab === 'sel' && !E.unit)) renderInsp();   // the empty state has a "where to add" list
-    } else if (d.type === 'cms-subtree-map-result' || d.type === 'cms-outline-result') {
+    } else if (d.type === 'cms-subtree-map-result' || d.type === 'cms-outline-result' || d.type === 'cms-drop-result') {
       const w = waiters.get(d.reqId); if (w) { waiters.delete(d.reqId); w(d); }
     } else if (d.type === 'cms-select') {
       E.unit = d.unit;

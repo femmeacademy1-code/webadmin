@@ -220,6 +220,24 @@ try {
   ok(await fr.locator('.hero h1').evaluate((e) => Math.round(parseFloat(getComputedStyle(e).fontSize))) !== 61, 'chat: undo restores the heading size');
   await pg.click('.insp-tabs button:has-text("עריכה")');
 
+  /* drag & drop: pull a tile from the add block onto the page; it lands before/after the block under the pointer */
+  if (await pg.locator('#deselect').count()) await pg.click('#deselect');
+  await pg.waitForSelector('button.addtile:has-text("מפריד")');
+  const tileBox = await pg.locator('button.addtile:has-text("מפריד")').boundingBox();
+  await fr.locator('.hero h2').scrollIntoViewIfNeeded();
+  const h2Box = await fr.locator('.hero h2').boundingBox();
+  await pg.mouse.move(tileBox.x + tileBox.width / 2, tileBox.y + tileBox.height / 2);
+  await pg.mouse.down();
+  await pg.mouse.move(tileBox.x + 40, tileBox.y + 40, { steps: 3 });
+  await pg.mouse.move(h2Box.x + h2Box.width / 2, h2Box.y + 3, { steps: 8 });
+  ok(await pg.locator('.drag-ghost').count() === 1, 'drag: a ghost follows the pointer');
+  ok(await fr.locator('body').evaluate(() => [...document.documentElement.children].some((e) => e.hasAttribute('data-cms-ui') && e.style.display === 'block' && e.style.height === '4px')), 'drag: the page shows an insertion line');
+  await pg.mouse.up();
+  await fr.locator('[data-cms-add="divider"]').waitFor({ timeout: 8000 });
+  ok(await fr.locator('.hero h2').evaluate((e) => e.previousElementSibling && e.previousElementSibling.getAttribute('data-cms-add') === 'divider'), 'drag: dropped on the upper half of a block -> added before it');
+  await pg.click('button:has-text("מחיקת האלמנט")');
+  await pg.waitForSelector('.hint', { timeout: 8000 });
+
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
   ok(await pg.inputValue('.insp-body textarea') === 'קטלוג אוהלי גלאמפינג', 'click text -> inspector shows its text');

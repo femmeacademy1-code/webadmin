@@ -120,6 +120,7 @@ function layout(ops) {
       ids.add(op.id);
       if (!ADD_TYPES.has(op.type)) bad('סוג אלמנט לא מותר');
       const added = { op: 'add', after: key(op.after), id: op.id, type: op.type };
+      if (op.before === true) added.before = true;
       if (op.type === 'video') {
         const v = op.p;
         if (!v || !VIDEO_ID[v.provider] || typeof v.vid !== 'string' || !VIDEO_ID[v.provider].test(v.vid)) bad('קישור הסרטון לא תקין (YouTube או Vimeo בלבד)');
