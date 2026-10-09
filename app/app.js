@@ -834,7 +834,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 15;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 16;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -977,6 +977,13 @@ async function viewEditor(siteId) {
       h('span', { class: 'help' }, 'התמונה נחתכת לצורה שבחרתם, בלי למתוח אותה. צל ומסגרת לא מופיעים סביב צורות מחוספסות (משולש, כוכב…).'));
   }
 
+  function shortcutsHelp() {
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform || '');
+    const C = mac ? '⌘' : 'Ctrl';
+    return h('details', { class: 'keys' }, h('summary', {}, '⌨ קיצורי מקלדת'),
+      h('ul', {}, [['Delete', 'מחיקת אלמנט שהוספתם / הסתרת אלמנט מקורי'], [C + '+D', 'שכפול'], [C + '+C ואז ' + C + '+V', 'העתקה והדבקה (עותק)'], ['Alt+↑ / Alt+↓', 'הזזה למעלה / למטה'],
+        ['Enter', 'עריכת הטקסט שנבחר'], ['Esc', 'ביטול בחירה'], [C + '+Z / ' + C + '+Y', 'ביטול / שחזור'], [C + '+S', 'פרסום באתר']].map(([k, t]) => h('li', {}, h('kbd', {}, k), ' ' + t))));
+  }
   function elementSection(u) {
     const old = kitTooOld();
     const isText = u.kind === 'text';
@@ -989,7 +996,8 @@ async function viewEditor(siteId) {
         h('button', { class: 'btn small', disabled: old, onclick: () => { toggleHide(u.key); } }, u.hidden ? '👁 הצגה' : '🚫 הסתרה'),
         u.clone && h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, u.added ? '✕ מחיקת האלמנט' : '✕ מחיקת העותק')),
       h('button', { class: 'link', onclick: () => frameSend({ type: 'cms-select-parent' }) }, '⬆ בחירת האלמנט שמעל (למשל כל הקטע)'),
-      h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'));
+      h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'),
+      shortcutsHelp());
   }
 
   /* ---- ready-made optional sections (marked in the page code by the agency) ---- */
@@ -1362,6 +1370,8 @@ async function viewEditor(siteId) {
     } else if (d.type === 'cms-sections') {
       E.sections = d.sections || []; E.optional = d.optional || []; E.todo = d.todo || 0;
       if (E.tab === 'struct' || (E.tab === 'sel' && !E.unit)) renderInsp();   // the empty state has a "where to add" list
+    } else if (d.type === 'cms-key') {
+      shortcut({ key: d.key, ctrl: !!d.ctrl, shift: !!d.shift, alt: !!d.alt });
     } else if (d.type === 'cms-move-added') {
       const op = layoutOps().find((o) => o.op === 'add' && o.id === d.id);
       if (op && typeof d.key === 'string' && !d.key.startsWith('@' + d.id)) {
@@ -1528,11 +1538,38 @@ async function viewEditor(siteId) {
     sp.addEventListener('keydown', (e) => { const cur = parseFloat(main.style.getPropertyValue('--sh')) || 75; if (e.key === 'ArrowUp') { setH(cur - 5); e.preventDefault(); } if (e.key === 'ArrowDown') { setH(cur + 5); e.preventDefault(); } });
   })();
 
+  /* Keyboard shortcuts (the page frame forwards its keys here as 'cms-key'): Delete, Ctrl+D / Ctrl+C then Ctrl+V, Alt+↑/↓, Esc, Enter, Ctrl+Z / Ctrl+Y / Ctrl+S */
+  function shortcut(k) {
+    const u = E.unit, lock = locked();
+    const done = (msg) => { if (msg) toast(msg); return true; };
+    if (k.ctrl && k.key === 's') { publish(); return true; }
+    if (k.ctrl && k.key === 'z') { k.shift ? redo() : undo(); return true; }
+    if (k.ctrl && k.key === 'y') { redo(); return true; }
+    if (!u || lock) return false;
+    if (k.key === 'Escape') { E.unit = null; frameSend({ type: 'cms-deselect' }); renderInsp(); return true; }
+    if (k.key === 'Enter' && !k.ctrl && !k.alt) { if (u.kind === 'text') { frameSend({ type: 'cms-begin-edit' }); return true; } return false; }
+    if (k.key === 'Delete' || k.key === 'Backspace') {
+      const clone = u.clone;
+      if (clone) { deleteCopy(clone); E.unit = null; renderInsp(); return done('האלמנט נמחק (Ctrl+Z לביטול)'); }
+      toggleHide(u.key);
+      return done(u.hidden ? 'האלמנט מוצג שוב' : 'האלמנט הוסתר מהאתר (Delete שוב או Ctrl+Z להחזרה)');
+    }
+    if (k.ctrl && k.key === 'd') { duplicateEl(u.key); return done('האלמנט שוכפל'); }
+    if (k.ctrl && k.key === 'c') { E.clip = u.key; return done('האלמנט הועתק. Ctrl+V מדביק עותק'); }
+    if (k.ctrl && k.key === 'v') { if (!E.clip) return false; duplicateEl(E.clip); return done('הודבק עותק'); }
+    if (k.alt && k.key === 'ArrowUp') { if (u.canUp) moveEl(u.key, -1); return true; }
+    if (k.alt && k.key === 'ArrowDown') { if (u.canDown) moveEl(u.key, 1); return true; }
+    return false;
+  }
+  window.__cmsShortcut = shortcut;
   document.addEventListener('keydown', function ks(e) {
     if (!$('#frame')) { document.removeEventListener('keydown', ks); return; }
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); publish(); }
-    else if (mod && e.key.toLowerCase() === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    if (e.defaultPrevented || e.isComposing || document.querySelector('dialog[open]')) return;
+    const t = e.target, typing = t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key, mod = e.ctrlKey || e.metaKey;
+    if (typing) { if (mod && key === 's') { e.preventDefault(); publish(); } return; }
+    if (mod && key === 'c' && String(getSelection()).length) return;     // copying selected text from the panel
+    if (shortcut({ key, ctrl: mod, shift: e.shiftKey, alt: e.altKey })) e.preventDefault();
   });
 
   paintPages();

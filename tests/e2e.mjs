@@ -238,17 +238,56 @@ try {
   await pg.click('button:has-text("מחיקת האלמנט")');
   await pg.waitForSelector('.hint', { timeout: 8000 });
 
+  /* keyboard shortcuts on the selected element (focus inside the page frame) */
+  await fr.locator('.hero').evaluate((e) => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const h2n = () => fr.locator('.hero h2').count();
+  await fr.locator('.hero h2').first().click();
+  await pg.waitForSelector('.insp-body textarea');
+  const n0 = await h2n();
+  await pg.keyboard.press('Control+d');
+  const waitCount = async (n) => { for (let i = 0; i < 40; i++) { if (await h2n() === n) return; await pg.waitForTimeout(200); } throw new Error('h2 count never became ' + n); };
+  await waitCount(n0 + 1);
+  ok(true, 'shortcut: Ctrl+D duplicates the selected element');
+  await pg.waitForTimeout(500);
+  await pg.keyboard.press('Delete');
+  await waitCount(n0);
+  ok(true, 'shortcut: Delete removes the copy that was just created');
+  await pg.waitForTimeout(400);
+  await fr.locator('.hero h2').first().click();
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.keyboard.press('Delete');
+  await pg.waitForTimeout(500);
+  ok(await fr.locator('.hero h2').first().evaluate((e) => e.hasAttribute('data-cms-hidden')), 'shortcut: Delete on an original element hides it');
+  await pg.keyboard.press('Control+z');
+  await pg.waitForTimeout(500);
+  ok(await fr.locator('.hero h2').first().evaluate((e) => !e.hasAttribute('data-cms-hidden')), 'shortcut: Ctrl+Z brings it back');
+  await fr.locator('.hero h2').first().click();
+  await pg.waitForSelector('.insp-body textarea');
+  await pg.keyboard.press('Enter');
+  await pg.waitForTimeout(300);
+  ok(await fr.locator('.hero h2').first().evaluate((e) => e.hasAttribute('contenteditable')), 'shortcut: Enter starts editing the selected text');
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(600);
+  await fr.locator('.hero h2').first().click({ force: true });
+  await pg.waitForSelector('#deselect', { timeout: 8000 });
+  await pg.keyboard.press('Escape');
+  await pg.waitForSelector('.hint', { timeout: 8000 });
+  ok(true, 'shortcut: Escape clears the selection');
+
   /* picture slot (round avatar) beside a text */
-  await fr.locator('.hero h2').click();
+  await fr.locator('.hero h2').first().click({ force: true });
+  await pg.waitForSelector('.insp-body textarea', { timeout: 8000 });
   await pg.click('button:has-text("עיגול תמונה ליד הטקסט")');
   await fr.locator('.hero h2 > img[data-cms-add="avatar"]').waitFor({ timeout: 8000 });
   ok(await fr.locator('.hero h2 > img[data-cms-add="avatar"]').evaluate((e) => getComputedStyle(e).borderRadius.includes('50%') && e.offsetWidth === 56 && e.nextSibling && /\S/.test(e.nextSibling.nodeValue || '')), 'avatar: a round 56px picture slot sits inside the text, before it');
   await pg.waitForSelector('.insp-body button:has-text("החלפת תמונה")');
   ok(true, 'avatar: selecting it offers the picture upload');
   /* the added element can be dragged again to another place */
-  await pg.waitForTimeout(900);                       // the page finishes its smooth scroll to the new element
-  const avBox = await fr.locator('.hero h2 > img[data-cms-add="avatar"]').boundingBox();
-  const h1Box = await fr.locator('.hero h1').boundingBox();
+  await pg.waitForTimeout(2500);                      // the page finishes its smooth scroll to the new element
+  const fbx = await pg.locator('#frame').boundingBox();
+  const rectIn = (sel) => fr.locator(sel).evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; }).then((r) => ({ x: r.x + fbx.x, y: r.y + fbx.y, width: r.width, height: r.height }));
+  const avBox = await rectIn('.hero h2 > img[data-cms-add="avatar"]');
+  const h1Box = await rectIn('.hero h1');
   await pg.mouse.move(avBox.x + avBox.width / 2, avBox.y + avBox.height / 2);
   await pg.mouse.down();
   await pg.mouse.move(avBox.x + 30, avBox.y + 30, { steps: 3 });
@@ -265,7 +304,7 @@ try {
   /* a text block added from the tile can be moved again, several times */
   if (await pg.locator('#deselect').count()) await pg.click('#deselect');
   await pg.waitForSelector('button.addtile:has-text("טקסט")');
-  await fr.locator('.hero h2').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await fr.locator('.hero h2').evaluate((e) => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
   {
     const t0 = await pg.locator('button.addtile:has-text("טקסט")').boundingBox(), g0 = await fr.locator('.hero h2').boundingBox();
     await pg.mouse.move(t0.x + t0.width / 2, t0.y + t0.height / 2); await pg.mouse.down();
@@ -274,7 +313,7 @@ try {
   await fr.locator('[data-cms-add="text"]').waitFor({ timeout: 8000 });
   for (const target of ['.hero h1', '.hero h2']) {
     await pg.waitForTimeout(1200);
-    await fr.locator('.hero').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await fr.locator('.hero').evaluate((e) => e.scrollIntoView({ block: 'center', behavior: 'instant' }));
     await pg.waitForTimeout(2500);                       // let the page's smooth scroll to the selected element finish
     const fb = await pg.locator('#frame').boundingBox();
     const rectOf = (sel) => fr.locator(sel).evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; }).then((r) => ({ x: r.x + fb.x, y: r.y + fb.y, width: r.width, height: r.height }));
