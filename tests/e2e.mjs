@@ -246,6 +246,7 @@ try {
   await pg.waitForSelector('.insp-body button:has-text("החלפת תמונה")');
   ok(true, 'avatar: selecting it offers the picture upload');
   /* the added element can be dragged again to another place */
+  await pg.waitForTimeout(900);                       // the page finishes its smooth scroll to the new element
   const avBox = await fr.locator('.hero h2 > img[data-cms-add="avatar"]').boundingBox();
   const h1Box = await fr.locator('.hero h1').boundingBox();
   await pg.mouse.move(avBox.x + avBox.width / 2, avBox.y + avBox.height / 2);
@@ -260,6 +261,34 @@ try {
   await pg.waitForSelector('.hint', { timeout: 8000 });
   await pg.waitForTimeout(400);
   ok(await fr.locator('.hero h2 > img').count() === 0 && await fr.locator('.hero h2').innerText() !== '', 'avatar: deleting it leaves the text intact');
+
+  /* a text block added from the tile can be moved again, several times */
+  if (await pg.locator('#deselect').count()) await pg.click('#deselect');
+  await pg.waitForSelector('button.addtile:has-text("טקסט")');
+  await fr.locator('.hero h2').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  {
+    const t0 = await pg.locator('button.addtile:has-text("טקסט")').boundingBox(), g0 = await fr.locator('.hero h2').boundingBox();
+    await pg.mouse.move(t0.x + t0.width / 2, t0.y + t0.height / 2); await pg.mouse.down();
+    await pg.mouse.move(t0.x + 30, t0.y + 30, { steps: 3 }); await pg.mouse.move(g0.x + g0.width / 2, g0.y + g0.height - 3, { steps: 8 }); await pg.mouse.up();
+  }
+  await fr.locator('[data-cms-add="text"]').waitFor({ timeout: 8000 });
+  for (const target of ['.hero h1', '.hero h2']) {
+    await pg.waitForTimeout(1200);
+    await fr.locator('.hero').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await pg.waitForTimeout(2500);                       // let the page's smooth scroll to the selected element finish
+    const fb = await pg.locator('#frame').boundingBox();
+    const rectOf = (sel) => fr.locator(sel).evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; }).then((r) => ({ x: r.x + fb.x, y: r.y + fb.y, width: r.width, height: r.height }));
+    const tb = await rectOf('[data-cms-add="text"]'), gb = await rectOf(target);
+    await pg.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+    await pg.mouse.down();
+    await pg.mouse.move(tb.x + tb.width / 2 + 20, tb.y + tb.height / 2 + 20, { steps: 3 });
+    await pg.mouse.move(gb.x + gb.width / 2, gb.y + gb.height - 3, { steps: 8 });
+    await pg.mouse.up();
+    await pg.waitForTimeout(600);
+    ok(await fr.locator(target).evaluate((e) => !!e.nextElementSibling && e.nextElementSibling.getAttribute('data-cms-add') === 'text'), 'move: the added text block was dragged to just after ' + target);
+  }
+  await pg.click('button:has-text("מחיקת האלמנט")');
+  await pg.waitForSelector('.hint', { timeout: 8000 });
 
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
