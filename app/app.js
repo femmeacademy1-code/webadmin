@@ -822,7 +822,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 9;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 10;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -1089,7 +1089,7 @@ async function viewEditor(siteId) {
         try { const d = await applyAction(a); if (d) done.push(d); } catch (e) { failed.push(e.message || 'פעולה נכשלה'); }
       }
       c.remaining = res.remaining;
-      c.msgs.push({ role: 'assistant', content: res.text + (res.remaining != null && res.remaining <= 5 ? `\n(נותרו ${res.remaining} הודעות להיום)` : ''), done, failed, agency, before: done.length ? before : null });
+      c.msgs.push({ role: 'assistant', content: res.text + (res.remaining != null && res.remaining <= 5 ? `\n(נותרו ${res.remaining} הודעות החודש)` : ''), done, failed, agency, before: done.length ? before : null });
     } catch (e) {
       c.msgs.push({ role: 'assistant', content: e.message || 'משהו השתבש. נסו שוב.', error: true });
     }

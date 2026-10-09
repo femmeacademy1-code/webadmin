@@ -230,10 +230,12 @@ try {
 
   // inline typing directly on the page
   await fr.locator('.hero h2').dblclick();
-  await pg.keyboard.type('מתאים לכל עונה');
+  await pg.keyboard.type('מתאים');
   await pg.keyboard.press('Enter');
+  await pg.keyboard.type('לכל עונה');
+  await pg.keyboard.press('Escape');
   await pg.waitForTimeout(300);
-  ok(await fr.locator('.hero h2').innerText() === 'מתאים לכל עונה', 'double-click inline typing on the page');
+  ok(await fr.locator('.hero h2').innerText() === 'מתאים\nלכל עונה', 'double-click inline typing on the page; Enter adds a line break');
 
   // text colour of the heading
   await fr.locator('.hero h1').click();
@@ -487,7 +489,7 @@ try {
   await pub.waitForFunction(() => !document.getElementById('cms-hide') && document.querySelector('.hero h1'), null, { timeout: 8000 });
   await pub.waitForTimeout(400);
   ok(await pub.locator('.hero h1').innerText() === 'קטלוג הקיץ החדש', 'public site: new heading');
-  ok(await pub.locator('.hero h2').innerText() === 'מתאים לכל עונה', 'public site: inline-typed subtitle');
+  ok(await pub.locator('.hero h2').innerText() === 'מתאים\nלכל עונה', 'public site: inline-typed subtitle');
   ok(await pub.locator('.hero .btn-primary:not([data-cms-add])').getAttribute('href') === 'tel:0501234567', 'public site: link');
   ok((await pub.locator('.hero-fig img').getAttribute('src')).includes('cms/uploads/'), 'public site: uploaded image path');
   ok(await pub.locator('.hero h1').evaluate((e) => getComputedStyle(e).color) === 'rgb(184, 81, 80)', 'public site: heading colour');

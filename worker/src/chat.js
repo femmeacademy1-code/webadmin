@@ -2,7 +2,7 @@
  * Claude never writes code into the site. Every action is one of the editor's own operations and is rebuilt here
  * from the same allow-lists as a normal edit (validate.js), and HTML sections are sanitised (sanitize.js).
  * The editor shows the result live and the client still has to press "publish".
- * Secrets / settings: ANTHROPIC_API_KEY, CHAT_MODEL (default claude-sonnet-5-5), CHAT_DAILY_LIMIT (default 30 per user per day). */
+ * Secrets / settings: ANTHROPIC_API_KEY, CHAT_MODEL (default claude-sonnet-5-5), CHAT_MONTHLY_LIMIT (default 30 per user per calendar month). */
 import { HttpError, element, key as checkKey } from './validate.js';
 import { sanitizeHtml } from './sanitize.js';
 
@@ -108,13 +108,13 @@ export function toAction(tc, { locked }) {
 }
 
 async function limit(env, user, owner) {
-  const max = +env.CHAT_DAILY_LIMIT || 30;
+  const max = +env.CHAT_MONTHLY_LIMIT || 30;
   if (owner || !env.CMS) return { remaining: null };
-  const day = new Date().toISOString().slice(0, 10);
-  const k = `rl:chat:${user}:${day}`;
+  const month = new Date().toISOString().slice(0, 7);
+  const k = `rl:chat:${user}:${month}`;
   const n = +(await env.CMS.get(k)) || 0;
-  if (n >= max) throw new HttpError(429, `הגעת למגבלת ההודעות להיום (${max}). אפשר להמשיך מחר, או לפנות אלינו.`);
-  await env.CMS.put(k, String(n + 1), { expirationTtl: 172800 });
+  if (n >= max) throw new HttpError(429, `הגעת למגבלת ההודעות החודשית (${max}). היא מתחדשת בתחילת החודש הבא, ואפשר גם לפנות אלינו.`);
+  await env.CMS.put(k, String(n + 1), { expirationTtl: 3024000 });
   return { remaining: max - n - 1 };
 }
 

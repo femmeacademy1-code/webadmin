@@ -113,8 +113,8 @@ await (async()=>{
  await pg.waitForTimeout(150);
  const live=await pg.evaluate(()=>window.__msgs.filter(m=>m.type==='cms-text').pop());
  ok(live&&live.key==='#plain'&&live.value==='הקלדה ישירה','edit: inline typing streams {key,value}');
- await pg.keyboard.press('Enter');
- ok(await fr.locator('#plain').getAttribute('contenteditable')===null,'edit: Enter commits and leaves edit mode');
+ await pg.keyboard.press('Control+Enter');
+ ok(await fr.locator('#plain').getAttribute('contenteditable')===null,'edit: Ctrl+Enter commits and leaves edit mode');
  // untrusted origin ignored
  ok(true,'(origin check exercised by design: kit only listens to ADMIN origin)');
  }catch(e){console.log('FAIL exception',e.message.split('\n')[0]);process.exitCode=1}

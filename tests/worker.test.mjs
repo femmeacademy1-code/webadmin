@@ -990,15 +990,15 @@ test('chat: bad actions are rejected with a reason, never applied; text-only pag
   assert.equal(o.data.actions.length, 3);
 });
 
-test('chat: daily limit per client, Claude errors are explained, history is cleaned', async () => {
+test('chat: monthly limit per client, Claude errors are explained, history is cleaned', async () => {
   const { owner, client } = await chatSetup();
-  env.CHAT_DAILY_LIMIT = '2';
+  env.CHAT_MONTHLY_LIMIT = '2';
   assert.equal((await say(client, 'א')).data.remaining, 1);
   assert.equal((await say(client, 'ב')).data.remaining, 0);
   const third = await say(client, 'ג');
   assert.equal(third.status, 429); assert.match(third.data.error, /מגבלת ההודעות/);
   for (let i = 0; i < 4; i++) assert.equal((await say(owner, 'ד')).status, 200);       // the owner has no limit
-  env.CHAT_DAILY_LIMIT = '100';
+  env.CHAT_MONTHLY_LIMIT = '100';
   aiStatus = 529; assert.equal((await say(client, 'ה')).status, 503);
   aiStatus = 401; assert.match((await say(client, 'ו')).data.error, /מפתח/);
   aiStatus = 500; assert.equal((await say(client, 'ז')).status, 502);
