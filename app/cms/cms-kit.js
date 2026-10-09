@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 12;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page
+  var KIT_VERSION = 14;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -132,7 +132,9 @@
     return out.replace(/^\s+|\s+$/g, '').replace(/[ \t]*\n[ \t]*/g, '\n');
   }
   function setText(el, val) {
+    var kept = Array.prototype.filter.call(el.children, function (c) { return c.hasAttribute(CID); });   // picture slots added beside the text stay
     while (el.firstChild) el.removeChild(el.firstChild);
+    kept.forEach(function (c) { el.appendChild(c); });
     String(val).split('\n').forEach(function (line, i) {
       if (i) el.appendChild(document.createElement('br'));
       el.appendChild(document.createTextNode(line));
@@ -559,6 +561,7 @@
     var wrap = document.createElement('div'); wrap.appendChild(frag); return wrap;
   }
 
+  var AVATAR_SRC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e4e1e8"/><circle cx="50" cy="38" r="18" fill="#a9a4b3"/><path d="M14 100c0-24 16-38 36-38s36 14 36 38z" fill="#a9a4b3"/></svg>');
   function buildAdded(op, after) {
     var t = op.type, target = blockOf(after), el, m;
     if (t === 'button' || t === 'file') {
@@ -575,6 +578,14 @@
     } else if (t === 'heading') {
       m = findModel('h2, h3', after);
       el = make(m ? m.tagName.toLowerCase() : 'h2', m ? cleanClass(m.className) : '', 'כותרת חדשה');
+    } else if (t === 'avatar') {
+      var sz = (op.p && op.p.size) || 56, shp = (op.p && op.p.shape) || 'circle';
+      el = document.createElement('img');
+      el.setAttribute('alt', '');
+      el.setAttribute('src', AVATAR_SRC);
+      el.setAttribute('data-cms-todo', '');
+      el.setAttribute('style', 'display:inline-block;vertical-align:middle;width:' + sz + 'px;height:' + sz + 'px;object-fit:cover;margin-inline-end:12px;border-radius:' + (shp === 'circle' ? '50%' : shp === 'rounded' ? '16%' : '0'));
+      if (!/^(IMG|BR|HR|INPUT)$/.test(after.tagName)) { el.setAttribute(CID, op.id); el.setAttribute('data-cms-add', t); return { el: el, target: after, inside: true }; }
     } else if (t === 'image') {
       el = document.createElement('img');
       el.setAttribute('alt', '');
@@ -623,6 +634,7 @@
       if (q('[' + CID + '="' + op.id + '"]')) return true;
       var made = buildAdded(op, base);
       if (!made || !made.target.parentNode) return false;
+      if (made.inside) { remember(made.target); made.target.insertBefore(made.el, made.target.firstChild); return true; }
       remember(made.target.parentNode);
       made.target.parentNode.insertBefore(made.el, op.before ? made.target : made.target.nextSibling);
       return true;
@@ -734,6 +746,7 @@
     '[data-cms-sel]{outline:3px solid #B85150!important;outline-offset:2px;box-shadow:0 0 0 6px rgba(184,81,80,.18)!important}' +
     '[contenteditable]{outline:3px solid #47454D!important;outline-offset:2px;cursor:text!important}' +
     '[data-cms-hidden]{opacity:.28!important;outline:2px dashed #837D82!important;outline-offset:2px}' +
+    '[data-cms-sel][data-cms-add]{cursor:grab!important}' +
     'iframe{pointer-events:none!important}';
   document.head.appendChild(ui);
 
@@ -918,6 +931,31 @@
     var r = t.el.getBoundingClientRect();
     dropLineEl.style.cssText += ';display:block;left:' + Math.max(0, r.left) + 'px;width:' + Math.max(40, Math.min(r.width, innerWidth - Math.max(0, r.left))) + 'px;top:' + ((t.before ? r.top : r.bottom) - 2) + 'px';
   }
+  /* Moving an element that was added in the editor: press on it while it is selected and drag it to another place; it lands before/after the block under the pointer. */
+  var mv = null, swallowClick = false;
+  document.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || editingEl || !selEl || !selEl.hasAttribute(CID) || !selEl.contains(e.target)) return;
+    mv = { x: e.clientX, y: e.clientY, on: false };
+  }, true);
+  document.addEventListener('mousedown', function (e) {       // no text selection while dragging an added element
+    if (e.button === 0 && !editingEl && selEl && selEl.hasAttribute(CID) && selEl.contains(e.target)) e.preventDefault();
+  }, true);
+  document.addEventListener('pointermove', function (e) {
+    if (!mv) return;
+    if (!mv.on) { if (Math.hypot(e.clientX - mv.x, e.clientY - mv.y) < 6) return; mv.on = true; }
+    e.preventDefault();
+    var t = dropTarget(e.clientX, e.clientY);
+    mv.t = t && !selEl.contains(t.el) ? t : null;
+    showDropLine(mv.t);
+  }, true);
+  document.addEventListener('pointerup', function () {
+    if (!mv) return;
+    var m = mv; mv = null; showDropLine(null);
+    if (!m.on) return;
+    swallowClick = true; setTimeout(function () { swallowClick = false; }, 0);
+    if (m.t && selEl) send({ type: 'cms-move-added', id: selEl.getAttribute(CID), key: m.t.key, before: m.t.before });
+  }, true);
+  document.addEventListener('click', function (e) { if (swallowClick) { e.preventDefault(); e.stopPropagation(); } }, true);
   var lastUnit = null;
   function kindOf(el) { return el.tagName === 'IMG' ? 'image' : (isTextOnly(el) ? 'text' : 'box'); }
   function describeSelected() {
@@ -948,7 +986,7 @@
     return Array.prototype.filter.call(document.querySelectorAll('[data-cms-todo]'), function (el) {
       if (el.closest('[data-cms-optional]') && isOptionalOff(el.closest('[data-cms-optional]'))) return false;
       var e = els[pathOf(el)];
-      return !(e && (e.t != null || e.n));
+      return !(e && (e.t != null || e.n || e.src));
     }).length;
   }
   // A compact description of the page for the editor's chat: what can be edited and how the site's own sections look.
