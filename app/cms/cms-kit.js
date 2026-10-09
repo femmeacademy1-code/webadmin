@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 8;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight
+  var KIT_VERSION = 9;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -509,6 +509,56 @@
       '@media (max-width:720px){[data-cms-cols]{grid-template-columns:minmax(0,1fr) !important}}';
     document.head.appendChild(st);
   }
+  /* HTML sections written by the editor's chat: the Worker already sanitised them; this rebuilds them again from the
+   * same allow-lists (tags, attributes, style properties) so nothing else can reach the page. */
+  var H_TAGS = { SECTION: 1, DIV: 1, SPAN: 1, P: 1, H2: 1, H3: 1, H4: 1, H5: 1, UL: 1, OL: 1, LI: 1, STRONG: 1, B: 1, EM: 1, I: 1, U: 1, BR: 1, HR: 1, BLOCKQUOTE: 1, FIGURE: 1, FIGCAPTION: 1, SMALL: 1, A: 1, Q: 1, CITE: 1, TIME: 1 };
+  var H_DROP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, SVG: 1, MATH: 1, NOSCRIPT: 1, TEMPLATE: 1, TEXTAREA: 1, TITLE: 1, SELECT: 1, OPTION: 1, HEAD: 1, LINK: 1, META: 1, BASE: 1, AUDIO: 1, VIDEO: 1, CANVAS: 1, IMG: 1, PICTURE: 1, FORM: 1, INPUT: 1, BUTTON: 1 };
+  var H_PROPS = /^(color|background|background-color|font-size|font-weight|font-style|line-height|letter-spacing|text-align|text-decoration|text-transform|margin(-top|-bottom|-left|-right|-inline|-block)?|padding(-top|-bottom|-left|-right|-inline|-block)?|border(-top|-bottom|-left|-right)?(-color|-width|-style)?|border-radius|box-shadow|display|flex|flex-direction|flex-wrap|flex-grow|justify-content|align-items|align-self|gap|row-gap|column-gap|grid-template-columns|width|max-width|min-width|min-height|max-height|height|aspect-ratio|opacity|list-style|direction|white-space|position|overflow|quotes)$/;
+  function hStyle(css) {
+    return String(css || '').split(';').map(function (d) {
+      var i = d.indexOf(':'); if (i < 1) return '';
+      var prop = d.slice(0, i).trim().toLowerCase(), val = d.slice(i + 1).trim().replace(/\s*!important\s*$/i, '');
+      if (!H_PROPS.test(prop) || !val || val.length > 200 || /url\s*\(|expression|javascript|@import|\\|<|>|behavior|-moz-binding|image-set|attr\s*\(/i.test(val)) return '';
+      if (prop === 'display' && !/^(block|inline|inline-block|flex|inline-flex|grid)$/.test(val)) return '';
+      if (prop === 'position' && val !== 'relative') return '';
+      if (prop === 'overflow' && val !== 'hidden') return '';
+      return prop + ':' + val;
+    }).filter(Boolean).join(';');
+  }
+  function hHref(v) {
+    v = String(v || '').trim();
+    return (!/[\s\u0000-\u001f]/.test(v) && v.length < 500 && (/^(https?:\/\/|mailto:|tel:)/i.test(v) || /^#[\w-]*$/.test(v) || /^\/(?!\/)[\w.\/?=&%#-]*$/.test(v))) ? v : null;
+  }
+  function cleanHtml(html) {
+    var doc;
+    try { doc = new DOMParser().parseFromString('<body>' + String(html || '') + '</body>', 'text/html'); } catch (e) { return null; }
+    var count = 0;
+    function build(src, depth) {
+      var out = document.createDocumentFragment();
+      Array.prototype.forEach.call(src.childNodes, function (n) {
+        if (n.nodeType === 3) { out.appendChild(document.createTextNode(n.nodeValue)); return; }
+        if (n.nodeType !== 1) return;
+        var tag = n.tagName;
+        if (H_DROP[tag]) return;
+        if (!H_TAGS[tag] || depth > 12 || ++count > 400) { out.appendChild(build(n, depth)); return; }
+        var el = document.createElement(tag.toLowerCase());
+        var c = n.getAttribute('class'); if (c && /^[\w -]{1,200}$/.test(c)) el.setAttribute('class', c);
+        var st = hStyle(n.getAttribute('style')); if (st) el.setAttribute('style', st);
+        if (tag === 'A') { var h = hHref(n.getAttribute('href')); if (h) { el.setAttribute('href', h); el.setAttribute('rel', 'noopener'); } }
+        var dir = n.getAttribute('dir'); if (dir === 'rtl' || dir === 'ltr') el.setAttribute('dir', dir);
+        var tl = n.getAttribute('title'); if (tl && tl.length < 200) el.setAttribute('title', tl);
+        var al = n.getAttribute('aria-label'); if (al && al.length < 200) el.setAttribute('aria-label', al);
+        if (n.hasAttribute('data-cms-todo')) el.setAttribute('data-cms-todo', '');
+        el.appendChild(build(n, depth + 1));
+        out.appendChild(el);
+      });
+      return out;
+    }
+    var frag = build(doc.body, 0), kids = Array.prototype.filter.call(frag.childNodes, function (n) { return n.nodeType === 1 || (n.nodeType === 3 && n.nodeValue.trim()); });
+    if (kids.length === 1 && kids[0].nodeType === 1 && /^(SECTION|DIV)$/.test(kids[0].tagName)) return kids[0];
+    var wrap = document.createElement('div'); wrap.appendChild(frag); return wrap;
+  }
+
   function buildAdded(op, after) {
     var t = op.type, target = blockOf(after), el, m;
     if (t === 'button' || t === 'file') {
@@ -539,6 +589,9 @@
       ensureColsStyle();
       m = findCard(after);
       for (var ci = 0; ci < op.p.n; ci++) el.appendChild(makeBox(m, false));
+    } else if (t === 'html' && op.p && typeof op.p.html === 'string') {
+      el = cleanHtml(op.p.html);
+      if (!el) return null;
     } else if (t === 'divider') {
       m = findModel('hr', after);
       el = make('hr', m ? cleanClass(m.className) : '');
@@ -591,6 +644,7 @@
     }
     var el = resolve(op.key);
     if (!el || !el.parentNode) return false;
+    if (op.op === 'show') return true;                        // handled by applyOptional(): the section is simply not hidden
     if (op.op === 'move') {
       var sib = visibleSibling(el, op.dir);
       if (!sib) return true;
@@ -602,6 +656,18 @@
     }
     return true;
   }
+  /* Optional sections: ready-made blocks in the page marked data-cms-optional="label". They stay hidden until a "show" op turns them on. */
+  var shownOptional = [];
+  function applyOptional(ops) {
+    shownOptional = [];
+    ops.forEach(function (op) { if (op.op === 'show') { var e = resolve(op.key); if (e) shownOptional.push(e); } });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cms-optional]'), function (el) {
+      if (shownOptional.indexOf(el) >= 0) { if (el.hasAttribute('hidden')) { snapAttr(el, 'hidden'); el.removeAttribute('hidden'); } }
+      else setStyle(el, 'display', 'none');
+    });
+  }
+  function isOptionalOff(el) { return el.hasAttribute('data-cms-optional') && shownOptional.indexOf(el) < 0; }
+
   function applyLayout(ops) {
     ops.forEach(function (op, i) { if (!layoutDone[i] && doOp(op)) layoutDone[i] = true; });
   }
@@ -613,6 +679,7 @@
       if (revert) revertAll();
       var pg = (edits.pages || {})[pageKey] || {};
       applyLayout(pg.layout || []);
+      applyOptional(pg.layout || []);
       var els = pg.els || {};
       szRules = [];
       Object.keys(els).forEach(function (p) {
@@ -803,6 +870,8 @@
     } else if (d.type === 'cms-select-parent') {
       var par = selEl && selEl.parentElement;
       if (par && par !== document.body && par !== document.documentElement) select({ kind: kindOf(par), el: par }, true);
+    } else if (d.type === 'cms-outline') {
+      send({ type: 'cms-outline-result', reqId: d.reqId, outline: outline() });
     } else if (d.type === 'cms-subtree-map') {
       send({ type: 'cms-subtree-map-result', reqId: d.reqId, pairs: subtreeMap(String(d.src), String(d.id)) });
     }
@@ -817,7 +886,7 @@
   // Top-level sections of the page (what the editor shows in its "Structure" list).
   function listSections() {
     var all = Array.prototype.slice.call(document.querySelectorAll('section, header, footer, nav'))
-      .filter(function (el) { return !el.closest('[data-cms-ui]'); });
+      .filter(function (el) { return !el.closest('[data-cms-ui]') && !isOptionalOff(el); });
     return all.filter(function (el) { return !all.some(function (o) { return o !== el && o.contains(el); }); }).map(function (el) {
       var h = el.querySelector('h1,h2,h3');
       var NAMES = { nav: 'תפריט עליון', footer: 'תחתית האתר', header: 'ראש הדף', section: 'קטע' };
@@ -826,8 +895,45 @@
         hidden: isHidden(el), up: !!visibleSibling(el, -1), down: !!visibleSibling(el, 1) };
     });
   }
+  function listOptional() {
+    return Array.prototype.map.call(document.querySelectorAll('[data-cms-optional]'), function (el) {
+      return { key: pathOf(el), label: String(el.getAttribute('data-cms-optional') || 'קטע').slice(0, 48), shown: shownOptional.indexOf(el) >= 0 };
+    });
+  }
+  // texts that still carry the "replace me" marker and were never edited, inside visible sections
+  function todoCount() {
+    var els = ((edits.pages || {})[pageKey] || {}).els || {};
+    return Array.prototype.filter.call(document.querySelectorAll('[data-cms-todo]'), function (el) {
+      if (el.closest('[data-cms-optional]') && isOptionalOff(el.closest('[data-cms-optional]'))) return false;
+      var e = els[pathOf(el)];
+      return !(e && (e.t != null || e.n));
+    }).length;
+  }
+  // A compact description of the page for the editor's chat: what can be edited and how the site's own sections look.
+  function outline() {
+    var els = [], seen = 0;
+    var all = document.body.querySelectorAll('h1,h2,h3,h4,h5,p,li,a,button,span,blockquote,figcaption,small,td,th,label,summary');
+    Array.prototype.forEach.call(all, function (el) {
+      if (els.length >= 150 || el.closest('[data-cms-ui],nav script,script,style,svg') || !isTextOnly(el)) return;
+      var t = getText(el).replace(/\s+/g, ' ').trim();
+      if (!t || !el.offsetWidth && !el.offsetHeight) return;
+      var cs = getComputedStyle(el);
+      els.push({ key: pathOf(el), tag: el.tagName.toLowerCase(), text: t.slice(0, 90), fs: Math.round(parseFloat(cs.fontSize)) || 0, b: (parseInt(cs.fontWeight, 10) || 400) >= 600 });
+    });
+    function compact(el) {
+      var c = el.cloneNode(true);
+      Array.prototype.forEach.call(c.querySelectorAll('script,style,svg,img,picture,video,iframe,noscript'), function (n) { n.parentNode.removeChild(n); });
+      [c].concat(Array.prototype.slice.call(c.querySelectorAll('*'))).forEach(function (n) {
+        Array.prototype.slice.call(n.attributes).forEach(function (a) { if (!/^(class|style|dir|lang|href)$/.test(a.name)) n.removeAttribute(a.name); });
+      });
+      return c.outerHTML.replace(/\s+/g, ' ').replace(/> </g, '><');
+    }
+    var secs = listSections().filter(function (x) { return x.tag === 'section'; }).map(function (x) { return resolve(x.key); }).filter(Boolean);
+    var samples = secs.map(compact).filter(function (h) { return h.length > 80; }).sort(function (a, b) { return Math.abs(a.length - 1800) - Math.abs(b.length - 1800); }).slice(0, 2).map(function (h) { return h.slice(0, 3500); });
+    return { elements: els, samples: samples };
+  }
   var sectionsTimer;
-  function sendSections() { clearTimeout(sectionsTimer); sectionsTimer = setTimeout(function () { send({ type: 'cms-sections', sections: listSections() }); }, 30); }
+  function sendSections() { clearTimeout(sectionsTimer); sectionsTimer = setTimeout(function () { send({ type: 'cms-sections', sections: listSections(), optional: listOptional(), todo: todoCount() }); }, 30); }
 
   // Pairs [original key, clone key] for a duplicated block, so the editor can copy existing edits to the copy.
   function subtreeMap(srcKey, id) {
@@ -847,7 +953,7 @@
     palette = scanPalette();
     var h1 = document.querySelector('h1,h2');
     send({
-      type: 'cms-ready', page: pageKey, palette: palette, version: KIT_VERSION, sections: listSections(),
+      type: 'cms-ready', page: pageKey, palette: palette, version: KIT_VERSION, sections: listSections(), optional: listOptional(), todo: todoCount(),
       fonts: {
         heading: h1 ? getComputedStyle(h1).fontFamily.split(',')[0].replace(/["']/g, '').trim() : '',
         body: getComputedStyle(document.body).fontFamily.split(',')[0].replace(/["']/g, '').trim()
