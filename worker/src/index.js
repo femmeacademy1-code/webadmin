@@ -12,6 +12,7 @@
 import { hashPassword, verifyPassword, secretEquals, signToken, verifyToken } from './auth.js';
 import { GitHub } from './github.js';
 import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
+import { chat } from './chat.js';
 import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
@@ -62,7 +63,7 @@ function textOnlyPages(s) {
   for (const c of s.copies || []) if (set.has(c.from)) set.add(c.file);
   return [...set];
 }
-const publicSite = (s) => ({ id: s.id, name: s.name, url: s.url, pages: allPages(s), copies: (s.copies || []).map((c) => ({ file: c.file, title: c.title, from: c.from })), maxCopies: MAX_COPIES, textOnly: textOnlyPages(s) });
+const publicSite = (s) => ({ id: s.id, name: s.name, url: s.url, pages: allPages(s), copies: (s.copies || []).map((c) => ({ file: c.file, title: c.title, from: c.from })), maxCopies: MAX_COPIES, textOnly: textOnlyPages(s), chat: !!s.chat });
 const publicUser = (u) => ({ username: u.username, name: u.name, sites: u.sites || [] });
 
 function cookie(env, req, value, maxAge) {
@@ -125,6 +126,13 @@ async function route(req, env, url) {
     if (m[2] === 'edits' && method === 'GET') return getEdits(env, site);
     if (m[2] === 'edits' && method === 'PUT') return putEdits(req, env, s, site);
     if (m[2] === 'history' && method === 'GET') return history(env, site);
+  }
+  if ((m = pathname.match(/^\/api\/sites\/([a-z0-9-]+)\/chat$/)) && method === 'POST') {
+    const s = await requireSession(req, env);
+    const site = await siteFor(env, s, m[1]);
+    const input = await body(req);
+    const locked = s.role !== 'owner' && textOnlyPages(site).includes(String((input.context && input.context.page) || ''));
+    return json(await chat(env, s, site, input, { locked }));
   }
   if ((m = pathname.match(/^\/api\/sites\/([a-z0-9-]+)\/pages$/))) {
     const s = await requireSession(req, env);
@@ -190,7 +198,7 @@ async function me(req, env) {
   const s = await session(req, env);
   if (!s) return json({ user: null });
   const sites = (await listKV(env, 's:')).filter((x) => s.role === 'owner' || s.sites.includes(x.id));
-  return json({ user: { username: s.username, name: s.name, role: s.role }, sites: sites.map(publicSite) });
+  return json({ user: { username: s.username, name: s.name, role: s.role }, sites: sites.map(publicSite), config: { chat: !!env.ANTHROPIC_API_KEY, whatsapp: env.AGENCY_WHATSAPP || '972515490099' } });
 }
 
 /* ---------------- edits ---------------- */

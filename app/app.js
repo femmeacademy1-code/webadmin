@@ -179,12 +179,14 @@ async function viewAdmin() {
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'עמודים (מופרדים בפסיק)'), h('input', { id: 'sf-pages', type: 'text', value: f.pages.join(', '), dir: 'ltr' })),
       h('label', { class: 'field full' }, h('span', { class: 'lbl' }, 'עמודי תקנון – עריכת טקסט בלבד (מופרדים בפסיק)'), h('input', { id: 'sf-textonly', type: 'text', value: (f.textOnly || []).join(', '), dir: 'ltr', placeholder: 'terms.html, privacy.html' }),
         h('span', { class: 'help' }, 'בעמודים האלה הלקוח יכול לשנות רק טקסט – בלי צבעים, פונטים, מבנה, תמונות וקישורים. גם עותקים שלהם נעולים. את (בעלת הסוכנות) עדיין יכולה לערוך הכול.')),
+      h('label', { class: 'field full', style: 'flex-direction:row;align-items:center;gap:10px' }, h('input', { id: 'sf-chat', type: 'checkbox', checked: !!f.chat, style: 'width:auto' }), h('span', { class: 'lbl', style: 'margin:0' }, 'צ\'אט עריכה פעיל באתר הזה'),
+        h('span', { class: 'help' }, 'הלקוח יכול לבקש שינויים בכתיבה. דורש מפתח Claude בשרת.')),
       h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'תיקיית שורש בריפו (אם יש)'), h('input', { id: 'sf-root', type: 'text', value: f.root || '', dir: 'ltr', placeholder: 'ריק = שורש הריפו' })),
       h('div', { class: 'full', style: 'display:flex;gap:10px' },
         h('button', { class: 'btn primary', onclick: async () => {
           const body = { id: val('sf-id'), name: val('sf-name'), repo: val('sf-repo'), branch: val('sf-branch') || 'main', url: val('sf-url'),
             pages: val('sf-pages').split(',').map((x) => x.trim()).filter(Boolean), root: val('sf-root'),
-            textOnly: val('sf-textonly').split(',').map((x) => x.trim()).filter(Boolean) };
+            textOnly: val('sf-textonly').split(',').map((x) => x.trim()).filter(Boolean), chat: $('#sf-chat').checked };
           try { await api(isNew ? 'POST' : 'PUT', '/admin/sites' + (isNew ? '' : '/' + f.id), body); toast('נשמר'); showForm = null; await refresh(); }
           catch (e) { toast(e.message, true); }
         } }, isNew ? 'הוספת אתר' : 'שמירה'),
@@ -514,7 +516,8 @@ async function viewEditor(siteId) {
   const E = {
     site, edits: null, loaded: '', baseSha: null, pending: new Map(), undo: [], redo: [], lastPush: 0,
     page: site.pages[0], palette: [], origFonts: {}, unit: null, tab: 'sel', ready: false, device: 'desktop', liveToken: 0,
-    sections: [], kitVersion: 0,
+    sections: [], kitVersion: 0, optional: [], todo: 0,
+    chat: { msgs: [], busy: false, remaining: null },
   };
 
   let data;
@@ -720,6 +723,7 @@ async function viewEditor(siteId) {
 
   async function publish() {
     if (!isDirty()) return;
+    if (E.todo > 0 && !confirm(`נשארו ${E.todo} טקסטים לדוגמה בקטעים שהוספתם ("החליפו אותי"). לפרסם בכל זאת?`)) return;
     const btn = $('#publish'); btn.disabled = true; btn.textContent = 'מפרסם…';
     const snapshot = clone(E.edits), snapJson = JSON.stringify(snapshot);
     const used = JSON.stringify(snapshot);
@@ -818,7 +822,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 8;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 9;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -976,6 +980,123 @@ async function viewEditor(siteId) {
       h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'));
   }
 
+  /* ---- ready-made optional sections (marked in the page code by the agency) ---- */
+  function setOptional(key, on) {
+    mutate(() => {
+      const ops = layoutOps();
+      for (let i = ops.length - 1; i >= 0; i--) if (ops[i].op === 'show' && ops[i].key === key) ops.splice(i, 1);
+      if (on) ops.push({ op: 'show', key });
+    }, { force: true });
+  }
+  function optionalBlock() {
+    const list = E.optional || [];
+    if (!list.length) return null;
+    const old = E.ready && E.kitVersion < 9;
+    return h('section', { class: 'addblock' },
+      h('h3', {}, 'קטעים ', h('span', { class: 'hl' }, 'מוכנים')),
+      h('p', { class: 'muted' }, 'קטעים שהסוכנות הכינה לאתר בעיצוב שלו. מפעילים, ממלאים תוכן, ומפרסמים.'),
+      old && h('p', { class: 'help warnbox' }, 'דורש עדכון ערכת העריכה באתר.'),
+      h('div', { class: 'list' }, list.map((x) => h('div', { class: 'item sec' },
+        h('button', { class: 'grow secname', disabled: !x.shown, onclick: () => x.shown && frameSend({ type: 'cms-select-key', key: x.key }) }, x.label, x.shown && h('span', { class: 'badge' }, 'פעיל')),
+        x.shown ? h('button', { class: 'btn small', onclick: () => setOptional(x.key, false) }, 'הסרה')
+          : h('button', { class: 'btn small primary', disabled: old, onclick: () => { setOptional(x.key, true); setTimeout(() => frameSend({ type: 'cms-select-key', key: x.key }), 250); } }, 'הוספה')))));
+  }
+
+  /* ---- editing chat ---- */
+  const chatOn = () => !!(me.config && me.config.chat) && (me.user.role === 'owner' || !!site.chat);
+  const chatEl = h('div', { class: 'chat' });
+  let chatList, chatInput, chatSend, chatSel;
+  function chatBuild() {
+    chatList = h('div', { class: 'chat-list', 'aria-live': 'polite' });
+    chatInput = h('textarea', { rows: 2, placeholder: 'מה לשנות באתר? למשל: הגדילי את הכותרת הראשית', 'aria-label': 'הודעה לעוזר' });
+    chatSend = h('button', { class: 'btn primary', type: 'button', onclick: () => chatSubmit() }, 'שליחה');
+    chatSel = h('div', { class: 'chat-sel' });
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSubmit(); } });
+    chatEl.replaceChildren(
+      h('h3', {}, 'עוזר ', h('span', { class: 'hl' }, 'העריכה')),
+      h('p', { class: 'muted' }, 'כותבים מה לשנות, והעוזר משנה בתצוגה החיה. השינויים עולים לאתר רק אחרי "פרסום באתר", ואפשר לבטל.'),
+      chatList, chatSel, h('div', { class: 'chat-box' }, chatInput, chatSend));
+  }
+  const SUGGEST = ['הגדילי את הכותרת הראשית', 'שני את הצבע של הכפתורים', 'הוסיפי קטע המלצות', 'כתבי מחדש את הטקסט שבחרתי'];
+  function chatRefresh() {
+    if (!chatList) chatBuild();
+    const c = E.chat;
+    chatSel.textContent = E.unit && E.unit.text ? 'נבחר בדף: "' + String(E.unit.text).slice(0, 40) + '"' : 'אפשר לבחור אלמנט בדף ולכתוב עליו, או לכתוב בלי לבחור.';
+    chatList.replaceChildren(...(c.msgs.length ? c.msgs.map(chatBubble) : [h('div', { class: 'chat-sug' }, SUGGEST.map((t) => h('button', { type: 'button', class: 'chip-btn', onclick: () => { chatInput.value = t; chatInput.focus(); } }, t)))]),
+      ...(c.busy ? [h('div', { class: 'chat-msg bot' }, h('span', { class: 'dots' }, 'חושבת…'))] : []));
+    chatSend.disabled = c.busy;
+    chatList.scrollTop = chatList.scrollHeight;
+  }
+  function chatBubble(m) {
+    if (m.role === 'user') return h('div', { class: 'chat-msg me' }, m.content);
+    return h('div', { class: 'chat-msg bot' + (m.error ? ' err' : '') }, m.content,
+      m.done && m.done.length ? h('ul', { class: 'chat-done' }, m.done.map((t) => h('li', {}, '✓ ' + t))) : null,
+      m.failed && m.failed.length ? h('ul', { class: 'chat-done bad' }, m.failed.map((t) => h('li', {}, '✕ ' + t))) : null,
+      m.agency ? h('a', { class: 'btn small mint', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + ((me.config && me.config.whatsapp) || '972515490099') + '?text=' + encodeURIComponent(`שלום, אני ב"${site.name}" ורוצה: ${m.agency}`) }, 'שליחה לסוכנות בוואטסאפ') : null,
+      m.before ? h('button', { class: 'link', onclick: () => chatUndo(m) }, m.undone ? 'בוטל' : '↶ ביטול מה שבוצע') : null);
+  }
+  function chatUndo(m) {
+    if (m.undone || !m.before) return;
+    E.redo.push(JSON.stringify(E.edits)); E.edits = JSON.parse(m.before); m.undone = true;
+    afterTimeTravel(); chatRefresh();
+  }
+  async function chatContext() {
+    const reqId = Math.random();
+    const answer = new Promise((res) => { waiters.set(reqId, res); setTimeout(() => res(null), 3000); });
+    frameSend({ type: 'cms-outline', reqId });
+    const r = await answer;
+    const o = (r && r.outline) || { elements: [], samples: [] };
+    return { page: E.page, selected: E.unit ? E.unit.key : null, palette: (E.palette || []).map((c) => c.hex), fonts: [E.origFonts.heading, E.origFonts.body].filter(Boolean),
+      elements: o.elements, samples: o.samples, sections: (E.sections || []).map((x) => ({ key: x.key, label: x.label })), optional: E.optional || [] };
+  }
+  const topSection = (key) => {
+    const secs = E.sections || [];
+    const hit = secs.find((x) => key === x.key || String(key).startsWith(x.key + '>'));
+    return (hit || secs[secs.length - 1] || {}).key || key;
+  };
+  async function applyAction(a) {
+    switch (a.tool) {
+      case 'edit_element': setSpec(a.key, a.fields, { force: true }); return 'שינוי באלמנט';
+      case 'add_element': {
+        const spec = {};
+        if (a.text != null) spec.t = a.text;
+        if (a.href != null) spec.href = a.href;
+        await addElement(a.after, a.type, { p: a.type === 'cols' ? { n: a.columns } : undefined, spec: Object.keys(spec).length ? spec : undefined });
+        return 'נוסף אלמנט';
+      }
+      case 'duplicate_element': await duplicateEl(a.key); return 'שכפול';
+      case 'move_element': moveEl(a.key, a.direction === 'up' ? -1 : 1); return 'הזזה';
+      case 'hide_element': if (!layoutOps().some((o) => o.op === 'hide' && o.key === a.key)) toggleHide(a.key); return 'הסתרה';
+      case 'show_optional_section': { setOptional(a.key, true); const lab = (E.optional || []).find((x) => x.key === a.key); setTimeout(() => frameSend({ type: 'cms-select-key', key: a.key }), 300); return 'נוסף קטע' + (lab ? ': ' + lab.label : ''); }
+      case 'add_section_html': await addElement(topSection(a.after), 'html', { p: { html: a.html, label: a.label } }); return 'נוסף קטע: ' + (a.label || 'חדש');
+      default: return null;
+    }
+  }
+  async function chatSubmit() {
+    const c = E.chat, text = chatInput.value.trim();
+    if (!text || c.busy) return;
+    chatInput.value = '';
+    c.msgs.push({ role: 'user', content: text }); c.busy = true; chatRefresh();
+    const before = JSON.stringify(E.edits);
+    try {
+      const context = await chatContext();
+      const history = c.msgs.filter((m) => !m.error).slice(-10).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.role === 'user' ? m.content : m.content + (m.done && m.done.length ? ` [בוצע: ${m.done.join(', ')}]` : '') }));
+      const res = await api('POST', `/sites/${siteId}/chat`, { messages: history, context });
+      const done = [], failed = (res.rejected || []).map((r) => r.error);
+      let agency = null;
+      for (const a of res.actions || []) {
+        if (a.tool === 'ask_agency') { agency = a.summary; continue; }
+        try { const d = await applyAction(a); if (d) done.push(d); } catch (e) { failed.push(e.message || 'פעולה נכשלה'); }
+      }
+      c.remaining = res.remaining;
+      c.msgs.push({ role: 'assistant', content: res.text + (res.remaining != null && res.remaining <= 5 ? `\n(נותרו ${res.remaining} הודעות להיום)` : ''), done, failed, agency, before: done.length ? before : null });
+    } catch (e) {
+      c.msgs.push({ role: 'assistant', content: e.message || 'משהו השתבש. נסו שוב.', error: true });
+    }
+    c.busy = false;
+    if (E.tab === 'chat') chatRefresh();
+  }
+
   /* Always-visible "add element" block: big tiles, directly under the "select anything" header / hint.
    * With an element selected the new element goes right after it; otherwise the owner picks a section (default: end of the page). */
   function addSection(u) {
@@ -1041,7 +1162,7 @@ async function viewEditor(siteId) {
     const old = kitTooOld();
     return [h('h3', {}, 'מבנה ', h('span', { class: 'hl' }, 'הדף')),
       h('p', { class: 'muted' }, 'סידור מחדש, שכפול והסתרה של קטעים שלמים. לחיצה על שם קטע מסמנת אותו בדף.'),
-      old && oldKitNote(),
+      old && oldKitNote(), optionalBlock(),
       !list.length ? h('p', { class: 'muted' }, E.ready ? 'לא נמצאו קטעים בדף.' : 'הקטעים נטענים…') :
         h('div', { class: 'list' }, list.map((x, i) => h('div', { class: 'item sec' + (x.hidden ? ' off' : '') },
           h('button', { class: 'grow secname', onclick: () => frameSend({ type: 'cms-select-key', key: x.key }) },
@@ -1068,7 +1189,7 @@ async function viewEditor(siteId) {
   function inspSelection() {
     const u = E.unit;
     if (locked()) return lockedSelection(u);
-    if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.'))), addSection(null)];
+    if (!u) return [h('div', { class: 'hint' }, doodle('butterfly'), h('div', {}, h('b', {}, 'לחצו על כל דבר באתר'), h('div', {}, 'טקסט, תמונה או כפתור – ותוכלו לערוך אותו כאן. לחיצה כפולה על טקסט מאפשרת להקליד ישירות על הדף.'))), addSection(null), optionalBlock()];
     const out = [];
     const spec = specOf(u.key);
     const kindName = { text: 'טקסט', node: 'טקסט', image: 'תמונה', bg: 'תמונת רקע', box: 'אלמנט' }[u.kind];
@@ -1167,9 +1288,12 @@ async function viewEditor(siteId) {
   }
 
   function renderInsp() {
-    if (locked()) E.tab = 'sel';
-    tabsEl.replaceChildren(...(locked() ? [['sel', 'עריכה']] : [['sel', 'עריכה'], ['struct', 'מבנה'], ['colors', 'צבעים'], ['fonts', 'פונטים']]).map(([k, l]) =>
+    if (locked() && E.tab !== 'chat') E.tab = 'sel';
+    if (E.tab === 'chat' && !chatOn()) E.tab = 'sel';
+    const tabList = (locked() ? [['sel', 'עריכה']] : [['sel', 'עריכה'], ['struct', 'מבנה'], ['colors', 'צבעים'], ['fonts', 'פונטים']]).concat(chatOn() ? [['chat', 'צ\'אט']] : []);
+    tabsEl.replaceChildren(...tabList.map(([k, l]) =>
       h('button', { 'aria-selected': E.tab === k, onclick: () => setTab(k) }, l)));
+    if (E.tab === 'chat') { chatRefresh(); insp.replaceChildren(chatEl); return; }
     insp.replaceChildren(...(E.tab === 'sel' ? inspSelection() : E.tab === 'struct' ? inspStructure() : E.tab === 'colors' ? inspColors() : inspFonts()).filter(Boolean));
   }
 
@@ -1180,20 +1304,20 @@ async function viewEditor(siteId) {
     const d = e.data;
     if (d.type === 'cms-ready') {
       E.ready = true; E.palette = d.palette || []; E.origFonts = d.fonts || {};
-      E.sections = d.sections || []; E.kitVersion = d.version || 1;
+      E.sections = d.sections || []; E.kitVersion = d.version || 1; E.optional = d.optional || []; E.todo = d.todo || 0;
       $('#notice') && $('#notice').remove();
       sendToFrame();
       if (E.tab !== 'sel' || !E.unit || kitTooOld()) renderInsp();
       if (kitTooOld() || (me.user.role === 'owner' && E.kitVersion < LATEST_KIT)) kitUpdateNotice();
     } else if (d.type === 'cms-sections') {
-      E.sections = d.sections || [];
+      E.sections = d.sections || []; E.optional = d.optional || []; E.todo = d.todo || 0;
       if (E.tab === 'struct' || (E.tab === 'sel' && !E.unit)) renderInsp();   // the empty state has a "where to add" list
-    } else if (d.type === 'cms-subtree-map-result') {
+    } else if (d.type === 'cms-subtree-map-result' || d.type === 'cms-outline-result') {
       const w = waiters.get(d.reqId); if (w) { waiters.delete(d.reqId); w(d); }
     } else if (d.type === 'cms-select') {
       E.unit = d.unit;
       if (!d.refresh) {
-        if (!(d.programmatic && E.tab === 'struct')) E.tab = 'sel';   // picking from the structure list keeps that list open
+        if (!(d.programmatic && E.tab === 'struct') && E.tab !== 'chat') E.tab = 'sel';   // picking from the structure list (or while chatting) keeps that tab open
         renderInsp();
       }
     } else if (d.type === 'cms-text') {

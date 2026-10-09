@@ -76,6 +76,25 @@ fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify({ ...JSON.parse(fs.r
     '@bx1': { rad: 20, sh: 2, bw: 4, bc: '#b85150', bgc: '#ddf5ee', w: 50, mb: 30, pad: 10, mh: 200 }, '@cl1': { gap: 40 }, '#list': { cols: 2, gap: 12 }, '@bx1>h3:nth-of-type(1)': { t: 'חבילת זהב' } },
 } } }));
 { const j = JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')); j.pages['box2.html'] = { layout: [{ op: 'add', after: '#s>p:nth-of-type(1)', id: 'bx2', type: 'box' }], els: {} }; fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(j)); }
+
+// Optional (ready-made) sections and html sections written by the chat
+const sect = (n) => `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${n}</title><script src="cms/cms-kit.js" data-admin-origin="http://localhost:9002"></script></head>
+<body><main><section id="s1" style="padding:20px;background:#f3ece2"><h2 style="color:#52725a">קטע ראשון</h2><p>טקסט ראשון עם מספיק מילים כדי להיות אמיתי</p></section>
+<section id="rec" data-cms-optional="המלצות" hidden><h2>מה אומרים עלינו</h2><p data-cms-todo>המלצה לדוגמה, החליפו אותי</p><p data-cms-todo>עוד המלצה לדוגמה</p></section>
+<section id="s3" style="padding:20px"><h2>קטע אחרון</h2><p>סוף הדף</p></section></main></body></html>`;
+fs.writeFileSync(S + '/site/sect.html', sect('s'));
+fs.writeFileSync(S + '/site/sect2.html', sect('s2'));
+{ const j = JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8'));
+  const S1 = '#s1', REC = '#rec';
+  j.pages['sect.html'] = { els: {} };
+  j.pages['sect2.html'] = { layout: [
+    { op: 'show', key: REC },
+    { op: 'add', after: S1, id: 'hs1', type: 'html', p: { label: 'יתרונות', html: '<section class="x" style="display:flex;gap:12px;color:#52725a;background:url(http://evil/x.png)" onclick="alert(1)"><h3>יתרון</h3><p data-cms-todo>הסבר</p><script>window.__pwned=1</script><img src=x onerror="window.__pwned=2"><a href="javascript:window.__pwned=3">רע</a><a href="https://ok.example">טוב</a></section>' } },
+  ], els: { [REC + '>p:nth-of-type(1)']: { t: 'המלצה אמיתית של לקוחה' } } };
+  fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(j)); }
+fs.writeFileSync(S + '/admin/opt.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/sect2.html?cms-edit=1"></iframe>
+<script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
+window.post=(m)=>document.getElementById('f').contentWindow.postMessage(m,'http://localhost:9001');</script></body></html>`);
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/page2.html?cms-edit=1"></iframe>
 <script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
 window.post=(m)=>document.getElementById('f').contentWindow.postMessage(m,'http://localhost:9001');</script></body></html>`);
@@ -174,11 +193,24 @@ try {
   const farOpacity = await pg.locator('[data-cms-id="cp9"] p').evaluate((e) => getComputedStyle(e).opacity);
   ok(farOpacity === '1', 'reveal pages: a copy far below the fold is not left invisible (fallback), opacity ' + farOpacity);
 
+
+  /* ---------- optional sections, html sections ---------- */
+  await pg.goto('http://localhost:9001/sect.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+  ok(!(await pg.locator('#rec').isVisible()), 'optional section: stays hidden until it is switched on');
+  await pg.goto('http://localhost:9001/sect2.html');
+  await pg.waitForFunction(() => !document.getElementById('cms-hide'), null, { timeout: 5000 });
+  ok(await pg.locator('#rec').isVisible() && (await pg.locator('#rec p').first().innerText()) === 'המלצה אמיתית של לקוחה', 'optional section: a "show" op turns it on (and its text can be edited)');
+  const hs = pg.locator('[data-cms-add="html"]');
+  ok(await hs.count() === 1 && (await pg.locator('main > *').evaluateAll((l) => l.map((e) => e.id || e.getAttribute('data-cms-add')))).join() === 's1,html,rec,s3', 'html section: added right after the chosen section');
+  const hsAttrs = await hs.evaluate((e) => ({ onclick: e.hasAttribute('onclick'), style: e.getAttribute('style'), html: e.innerHTML, pwned: window.__pwned || 0 }));
+  ok(!hsAttrs.onclick && !/url|evil/.test(hsAttrs.style) && !/<script|<img|onerror|javascript:/i.test(hsAttrs.html) && hsAttrs.pwned === 0 && /href="https:\/\/ok.example"/.test(hsAttrs.html), 'html section: scripts, handlers, images, url() and javascript: links are removed: ' + JSON.stringify(hsAttrs).slice(0, 220));
+
   /* ---------- edit mode ---------- */
   await pg.goto('http://localhost:9002/');
   await pg.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
   const ready = await pg.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
-  ok(ready.version === 8, 'edit: kit reports its version');
+  ok(ready.version === 9, 'edit: kit reports its version');
   ok(JSON.stringify(ready.sections.map((x) => x.label)) === JSON.stringify(['סקשן א', 'סקשן ב', 'סקשן ג']), 'edit: sections list: ' + ready.sections.map((x) => x.label));
   const fr = pg.frameLocator('#f');
   await pg.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), edits);
@@ -189,6 +221,24 @@ try {
   const sec = await pg.evaluate(() => window.__msgs.filter((m) => m.type === 'cms-sections').pop().sections);
   ok(sec.map((x) => x.label).join('|') === 'ב ערוך|סקשן א|סקשן ב (עותק)|סקשן ג|דינמי ערוך' && sec[2].clone === 'cp1' && sec[3].hidden, 'edit: section list reflects order, clone and hidden flag');
   ok(await fr.locator('[data-cms-hidden]').count() === 1 && await fr.locator('[data-cms-hidden]').isVisible(), 'edit: hidden section stays visible (dimmed) so it can be shown again');
+
+
+  // edit mode: optional list, placeholder counter, outline for the chat
+  { const pg2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await pg2.goto('http://localhost:9002/opt.html');
+    await pg2.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-ready'));
+    const r2 = await pg2.evaluate(() => window.__msgs.find((m) => m.type === 'cms-ready'));
+    ok(JSON.stringify(r2.optional.map((x) => [x.label, x.shown])) === JSON.stringify([['המלצות', false]]), 'edit: ready-made sections are listed (not yet switched on): ' + JSON.stringify(r2.optional));
+    await pg2.evaluate((e) => window.post({ type: 'cms-edits', edits: e, assets: {} }), JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8')));
+    await pg2.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-sections' && m.optional && m.optional[0] && m.optional[0].shown));
+    const sec2 = await pg2.evaluate(() => window.__msgs.filter((m) => m.type === 'cms-sections').pop());
+    ok(sec2.todo === 2, 'edit: the editor is told how many placeholder texts were not replaced yet (1 replaced + 1 in the html section + 1 left = 2): ' + sec2.todo);
+    ok(!sec2.sections.some((x) => x.label === 'מה אומרים עלינו') === false, 'edit: a switched-on optional section joins the structure list');
+    await pg2.evaluate(() => { window.__msgs = []; window.post({ type: 'cms-outline', reqId: 5 }); });
+    await pg2.waitForFunction(() => window.__msgs.some((m) => m.type === 'cms-outline-result'));
+    const o = (await pg2.evaluate(() => window.__msgs.find((m) => m.type === 'cms-outline-result'))).outline;
+    ok(o.elements.length >= 5 && o.elements.every((e) => e.key && e.text) && o.elements.some((e) => e.text === 'קטע ראשון' && e.tag === 'h2') && o.samples.length >= 1 && o.samples.every((h) => !/data-cms|<script/.test(h)), 'edit: outline for the chat lists texts with keys and compact sample sections: ' + o.elements.length + ' elements, ' + o.samples.length + ' samples');
+    await pg2.close(); }
 
   // a click on the moved section returns its ORIGINAL key, not a position-based one
   await pg.evaluate(() => { window.__msgs = []; });

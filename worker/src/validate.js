@@ -2,6 +2,8 @@
  * The point of the whole system: clients can change CONTENT (text, images, links, colours, fonts)
  * but never structure or code — so edits are rebuilt field by field from an allow-list. */
 
+import { sanitizeHtml } from './sanitize.js';
+
 export class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -16,7 +18,7 @@ const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
 const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;                  // images
 const FILE_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(pdf|docx?|xlsx?|pptx?|zip)$/;     // downloadable files
-const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols']);
+const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols', 'html']);
 const SHAPES = new Set(['none', 'circle', 'rounded', 'arch', 'blob', 'triangle', 'diamond', 'pentagon', 'hexagon', 'star']);
 const RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 const VIDEO_ID = { youtube: /^[A-Za-z0-9_-]{6,20}$/, vimeo: /^\d{5,12}$/ };
@@ -47,7 +49,7 @@ function font(f, what) {
   return { family: f.family, url: f.url };
 }
 
-function element(spec, key) {
+export function element(spec, key) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) bad('פריט עריכה לא תקין');
   const out = {};
   if (spec.t != null) out.t = str(spec.t, LIMITS.text, 'טקסט');
@@ -96,12 +98,12 @@ function element(spec, key) {
   return out;
 }
 
-function key(k) {
+export function key(k) {
   if (typeof k !== 'string' || !PATH_KEY.test(k)) bad('מפתח אלמנט לא תקין');
   return k;
 }
 
-/** Structure operations: only duplicate / move up-down / hide — never anything that edits code. */
+/** Structure operations: only duplicate / move up-down / hide / show an optional section / add from the fixed list (incl. a sanitised html section) — never anything that edits code. */
 function layout(ops) {
   if (ops == null) return [];
   if (!Array.isArray(ops) || ops.length > LIMITS.ops) bad('יותר מדי פעולות מבנה');
@@ -125,6 +127,9 @@ function layout(ops) {
       } else if (op.type === 'cols') {
         if (!op.p || ![2, 3, 4].includes(op.p.n)) bad('מספר העמודות לא תקין');
         added.p = { n: op.p.n };
+      } else if (op.type === 'html') {
+        if (!op.p || typeof op.p.html !== 'string') bad('תוכן הקטע חסר');
+        added.p = { html: sanitizeHtml(op.p.html), label: str(op.p.label == null ? '' : op.p.label, 60, 'שם הקטע') };
       } else if (op.p != null) bad('פרמטרים לא מותרים');
       return added;
     }
@@ -133,6 +138,7 @@ function layout(ops) {
       return { op: 'move', key: key(op.key), dir: op.dir };
     }
     if (op.op === 'hide') return { op: 'hide', key: key(op.key) };
+    if (op.op === 'show') return { op: 'show', key: key(op.key) };
     return bad('פעולת מבנה לא מוכרת');
   });
 }
@@ -223,6 +229,7 @@ export function validateSite(s, partial = false) {
     s.textOnly.forEach((p) => { if (!PAGE_KEY.test(p) || p.includes('..') || p.startsWith('/')) bad('שם עמוד לא תקין: ' + p); });
     out.textOnly = s.textOnly;
   }
+  if (s.chat != null) { if (typeof s.chat !== 'boolean') bad('ערך צ\'אט לא תקין'); out.chat = s.chat; }
   if (s.root != null || !partial) {
     out.root = (s.root || '').replace(/^\/+|\/+$/g, '');
     if (out.root && !/^[\w./-]+$/.test(out.root) || out.root.includes('..')) bad('תיקיית שורש לא תקינה');

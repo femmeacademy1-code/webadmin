@@ -24,6 +24,7 @@ jobs:
       CMS_ADMIN_PASSWORD: ${{ secrets.CMS_ADMIN_PASSWORD }}
       CMS_SESSION_SECRET: ${{ secrets.CMS_SESSION_SECRET }}
       CMS_GITHUB_TOKEN: ${{ secrets.CMS_GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # optional: turns on the editing chat
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +49,7 @@ jobs:
           if [ -z "$CMS_ADMIN_PASSWORD" ]; then echo "::error::Secret CMS_ADMIN_PASSWORD is missing."; ok=0; fi
           if ! printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | grep -Eq '^[0-9a-f]{32}$'; then echo "::error::CLOUDFLARE_ACCOUNT_ID must be exactly 32 hex characters."; ok=0; fi
           if [ "${#CMS_SESSION_SECRET}" -lt 24 ]; then echo "::error::CMS_SESSION_SECRET should be at least 24 characters."; ok=0; fi
+          if [ -n "$ANTHROPIC_API_KEY" ]; then case "$ANTHROPIC_API_KEY" in *[[:space:]]*) echo "::error::Secret ANTHROPIC_API_KEY contains a space or line break."; ok=0 ;; esac; fi
           [ "$ok" = 1 ]
 
       - name: Deploy Worker
@@ -64,5 +66,5 @@ jobs:
         working-directory: worker
         run: |
           jq -n --arg a "$CMS_ADMIN_PASSWORD" --arg s "$CMS_SESSION_SECRET" --arg g "$CMS_GITHUB_TOKEN" \
-            --arg ct "$CLOUDFLARE_API_TOKEN" --arg ca "$CLOUDFLARE_ACCOUNT_ID" \
-            '{ADMIN_PASSWORD:$a, SESSION_SECRET:$s, GITHUB_TOKEN:$g, CF_API_TOKEN:$ct, CF_ACCOUNT_ID:$ca}' | npx --yes wrangler@4 secret bulk
+            --arg ct "$CLOUDFLARE_API_TOKEN" --arg ca "$CLOUDFLARE_ACCOUNT_ID" --arg ak "$ANTHROPIC_API_KEY" \
+            '{ADMIN_PASSWORD:$a, SESSION_SECRET:$s, GITHUB_TOKEN:$g, CF_API_TOKEN:$ct, CF_ACCOUNT_ID:$ca} + (if $ak != "" then {ANTHROPIC_API_KEY:$ak} else {} end)' | npx --yes wrangler@4 secret bulk

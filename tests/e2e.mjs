@@ -40,7 +40,17 @@ function serveStatic(dir, extra = {}) {
 const sha1 = (b) => crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${b.length}\0`), b])).digest('hex');
 const blobs = {}; let pending = null; let n = 0; const commitLog = [];
 const realFetch = globalThis.fetch;
+let aiMode = 'edit'; const aiSeen = [];
 globalThis.fetch = async (url, init = {}) => {
+  if (String(url).startsWith('https://anthropic.test')) {
+    const b = JSON.parse(init.body); aiSeen.push(b);
+    const page = JSON.parse(String(b.messages[b.messages.length - 1].content).match(/<page_data>\n([\s\S]*?)\n<\/page_data>/)[1]);
+    const h1 = page.elements.find((e) => e.tag === 'h1');
+    const content = aiMode === 'edit'
+      ? [{ type: 'text', text: 'הגדלתי את הכותרת' }, { type: 'tool_use', id: 'e1', name: 'edit_element', input: { key: h1.key, fields: { fs: 61, fw: 800 } } }]
+      : [{ type: 'text', text: 'הוספתי קטע המלצות' }, { type: 'tool_use', id: 'e2', name: 'add_section_html', input: { label: 'המלצות', html: '<section style="padding:30px;background:#fff7ee"><h2>מה אומרים עלינו</h2><p data-cms-todo>כאן יופיע ציטוט של לקוח</p><script>alert(1)</script></section>' } }];
+    return new Response(JSON.stringify({ id: 'm', type: 'message', role: 'assistant', content, stop_reason: 'tool_use' }));
+  }
   if (!String(url).startsWith('https://gh.test')) return realFetch(url, init);
   const u = new URL(url); const p = u.pathname.replace('/repos/o/site', '');
   const body = init.body ? JSON.parse(init.body) : null;
@@ -70,7 +80,7 @@ class KV {
 }
 const appStatic = serveStatic(APP);
 const env = {
-  CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'e2e-secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test',
+  CMS: new KV(), ANTHROPIC_API_KEY: 'ak-e2e', ANTHROPIC_API: 'https://anthropic.test', ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'e2e-secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test',
   ASSETS: { fetch: async (req) => { const u = new URL(req.url); const f = path.join(APP, u.pathname); return fs.existsSync(f) ? new Response(fs.readFileSync(f)) : new Response('nf', { status: 404 }); } },
 };
 const adminSrv = http.createServer(async (req, res) => {
@@ -114,6 +124,7 @@ try {
   await pg.click('text=＋ הוספת אתר');
   await pg.fill('#sf-name', 'Alternative Dream'); await pg.fill('#sf-id', 'alternative'); await pg.fill('#sf-repo', 'o/site');
   await pg.fill('#sf-url', 'http://localhost:9001/');
+  await pg.check('#sf-chat');
   await pg.click('.formcard button.primary');
   await pg.waitForSelector('.item:has-text("Alternative Dream")');
   ok(true, 'site added');
@@ -183,6 +194,31 @@ try {
   ok(await fr.locator('[data-cms-id]').count() >= 1, 'add (empty state): the new element is added to the page and selected');
   await pg.click('button:has-text("מחיקת האלמנט")');
   await pg.waitForSelector('.hint', { timeout: 8000 });
+
+  /* chat: the assistant's actions run through the editor (live, undoable, still need publishing) */
+  await pg.click('.insp-tabs button:has-text("צ\'אט")');
+  await pg.waitForSelector('.chat-box textarea');
+  await pg.fill('.chat-box textarea', 'תגדילי את הכותרת הראשית');
+  await pg.click('.chat-box button.primary');
+  await pg.waitForFunction(() => document.querySelector('.chat-done li'), null, { timeout: 10000 });
+  await pg.waitForTimeout(500);
+  const fs61 = await fr.locator('.hero h1').evaluate((e) => [Math.round(parseFloat(getComputedStyle(e).fontSize)), e.getAttribute('data-cms-p'), e.id]);
+  ok(fs61[0] === 61, 'chat: edit_element action applied live (font size 61) got ' + fs61.join(','));
+  ok(await pg.locator('#chip').getAttribute('data-s') === 'dirty', 'chat: change is unsaved until published');
+  ok(aiSeen.length === 1 && aiSeen[0].model && aiSeen[0].tools.length === 8, 'chat: model call carries the tools');
+  aiMode = 'section';
+  await pg.fill('.chat-box textarea', 'תוסיפי קטע המלצות');
+  await pg.click('.chat-box button.primary');
+  await fr.locator('[data-cms-add="html"]').waitFor({ timeout: 10000 });
+  ok(await fr.locator('[data-cms-add="html"] script').count() === 0 && /מה אומרים עלינו/.test(await fr.locator('[data-cms-add="html"]').innerText()), 'chat: generated section is added and sanitised');
+  await shot('05b-chat');
+  await pg.locator('.chat-msg.bot button.link').last().click();
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('[data-cms-add="html"]').count() === 0, 'chat: undo removes the generated section');
+  await pg.locator('.chat-msg.bot button.link').first().click();
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('.hero h1').evaluate((e) => Math.round(parseFloat(getComputedStyle(e).fontSize))) !== 61, 'chat: undo restores the heading size');
+  await pg.click('.insp-tabs button:has-text("עריכה")');
 
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
@@ -512,7 +548,7 @@ try {
   await fr.locator('.hero h1').waitFor({ timeout: 20000 });
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
-  ok((await pg.locator('.insp-tabs button').count()) === 1 && (await pg.locator('.addblock').count()) === 0 && (await pg.locator('.insp-body input[type=color], .insp-body .colorrow').count()) === 0, 'text-only: only the text field is offered (no tabs for design, no add block, no colours)');
+  ok((await pg.locator('.insp-tabs button').count()) === 2 && (await pg.locator('.addblock').count()) === 0 && (await pg.locator('.insp-body input[type=color], .insp-body .colorrow').count()) === 0, 'text-only: only the text field is offered (no tabs for design, no add block, no colours)');
   await shot('11-text-only-page');
   await pg.fill('.insp-body textarea', 'נוסח מעודכן של התקנון');
   await pg.waitForTimeout(300);
@@ -522,7 +558,7 @@ try {
   await fr.locator('.hero h1').waitFor({ timeout: 20000 });
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
-  ok((await pg.locator('.insp-tabs button').count()) === 4, 'text-only: other pages keep all the editing tools');
+  ok((await pg.locator('.insp-tabs button').count()) === 5, 'text-only: other pages keep all the editing tools');
 
   // delete the copy
   await pg.selectOption('.pagebar select', 'terms-two.html');

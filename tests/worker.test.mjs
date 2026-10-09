@@ -18,6 +18,7 @@ let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
 let regMode, regAsked, regCalls, regPrice;
+let aiReply, aiCalls, aiStatus;
 let dns, pages, pagesCalls, cf, cfCalls, zones, records, rid;
 function githubMock() {
   const blobs = {};
@@ -27,6 +28,11 @@ function githubMock() {
       const t = { A: 1, AAAA: 28, CNAME: 5 }[u.searchParams.get('type')];
       const list = (dns[u.searchParams.get('name') + '/' + u.searchParams.get('type')] || []).map((data) => ({ type: t, data }));
       return new Response(JSON.stringify({ Answer: list }));
+    }
+    if (u.host === 'anthropic.test') {
+      aiCalls.push({ headers: init.headers, body: JSON.parse(init.body) });
+      if (aiStatus !== 200) return new Response(JSON.stringify({ error: { message: 'x' } }), { status: aiStatus });
+      return new Response(JSON.stringify({ id: 'm1', type: 'message', role: 'assistant', content: aiReply, stop_reason: 'tool_use' }));
     }
     if (u.host === 'cf.test') {
       if (u.pathname.endsWith('/registrar/registrations')) {
@@ -92,10 +98,11 @@ beforeEach(() => {
   zones = { 'client.com': 1 }; records = []; rid = 0;
   cf = { project: null, domains: [] }; cfCalls = [];
   regMode = ''; regAsked = []; regCalls = []; regPrice = '10.44';
+  aiReply = [{ type: 'text', text: 'בוצע' }]; aiCalls = []; aiStatus = 200;
   dns = {}; pagesCalls = []; pages = { cname: null, https_enforced: false, https_certificate: null };
   globalThis.fetch = githubMock();
   env = {
-    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test', DOH_URL: 'https://doh.test/q', CF_API: 'https://cf.test', CF_API_TOKEN: 'cft', CF_ACCOUNT_ID: 'acc',
+    CMS: new KV(), ADMIN_PASSWORD: 'owner-pass-123', SESSION_SECRET: 'secret', GITHUB_TOKEN: 't', GITHUB_API: 'https://gh.test', DOH_URL: 'https://doh.test/q', CF_API: 'https://cf.test', CF_API_TOKEN: 'cft', CF_ACCOUNT_ID: 'acc', ANTHROPIC_API_KEY: 'ak-test', ANTHROPIC_API: 'https://anthropic.test',
     ASSETS: { fetch: async (r) => (new URL(r.url).pathname === '/kit/cms-kit.js' ? new Response(KIT) : new Response('asset')) },
   };
 });
@@ -846,4 +853,163 @@ test('domain orders: a failed registration keeps the order paid with the reason;
   const id2 = await mk('shop3.org');
   assert.equal((await call('POST', `/api/admin/domain-orders/${id2}/cancel`, { cookie: owner })).data.order.status, 'cancelled');
   assert.equal((await call('POST', `/api/admin/domain-orders/${id2}/delete`, { cookie: owner })).status, 200);
+});
+
+/* ---------------- editing chat + html sections ---------------- */
+import { sanitizeHtml } from '../worker/src/sanitize.js';
+
+test('sanitizer: only allow-listed tags, attributes and style properties survive', () => {
+  const bad = [
+    '<script>alert(1)</script><p>x</p>', '<p onclick="a()">x</p>', '<img src=x onerror=alert(1)><p>x</p>', '<a href="javascript:alert(1)">x</a>', '<a href="  JaVaScRiPt:alert(1)">x</a>',
+    '<a href="data:text/html;base64,AAAA">x</a>', '<p style="background:url(http://e/x)">x</p>', '<p style="width:expression(alert(1))">x</p>', '<p style="position:fixed;top:0">x</p>',
+    '<iframe src="https://e"></iframe><p>x</p>', '<svg onload=alert(1)><p>x</p></svg>', '<form action="/x"><input name=a><p>x</p></form>', '<style>*{display:none}</style><p>x</p>',
+    '<p><!--[if IE]><script>a()</script><![endif]-->x</p>', '<math><mi xlink:href="javascript:a()">x</mi></math><p>x</p>', '<p class="a" style="color:red" data-x="1" id="i" name="n">x</p>',
+  ];
+  for (const h of bad) {
+    let out;
+    try { out = sanitizeHtml(h); } catch (e) { assert.match(e.message, /ריק/, h); continue; }   // everything was dangerous: refused as empty
+    assert.ok(!/<script|<iframe|<img|<svg|<style|<form|<input|<math|onclick|onerror|onload|javascript:|data:|url\(|expression|position:fixed|id=|name=|data-x/i.test(out), h + ' -> ' + out);
+  }
+  assert.equal(sanitizeHtml('<section class="a b" style="display:flex;gap:12px;color:#52725a"><h3>כותרת</h3><a href="https://ok.example/p?x=1&y=2">קישור</a><p data-cms-todo>טקסט</p></section>'),
+    '<section class="a b" style="display:flex;gap:12px;color:#52725a"><h3>כותרת</h3><a href="https://ok.example/p?x=1&amp;y=2" rel="noopener">קישור</a><p data-cms-todo>טקסט</p></section>');
+  assert.equal(sanitizeHtml('<p>one</p><p>two</p>'), '<div><p>one</p><p>two</p></div>');          // always a single root
+  assert.equal(sanitizeHtml('text & <b>bold</b> < 5'), '<div>text &amp; <b>bold</b> &lt; 5</div>');
+  assert.equal(sanitizeHtml('<div><p>unclosed'), '<div><p>unclosed</p></div>');
+  for (const empty of ['', '<script>x</script>', '   ', '<div></div>', '<img src=x>']) assert.throws(() => sanitizeHtml(empty), /ריק/);
+  assert.throws(() => sanitizeHtml('x'.repeat(25000)), /ארוך/);
+  assert.throws(() => sanitizeHtml('<div>'.repeat(20) + 'x'), /מקונן/);
+  assert.throws(() => sanitizeHtml('<p>x</p>'.repeat(500)), /מורכב/);
+  assert.throws(() => sanitizeHtml(42), /לא תקין/);
+});
+
+test('layout: html sections and "show" ops are validated and sanitised on save', async () => {
+  const { client } = await setup();
+  const good = withPage({});
+  good.pages['index.html'].layout = [
+    { op: 'add', after: '#a', id: 'hs1', type: 'html', p: { label: 'המלצות', html: '<div><h3>שלום</h3><script>x()</script></div>' } },
+    { op: 'show', key: '#rec' },
+  ];
+  const r = await putWith(client, good);
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].layout;
+  assert.deepEqual(saved[0].p, { html: '<div><h3>שלום</h3></div>', label: 'המלצות' });
+  assert.deepEqual(saved[1], { op: 'show', key: '#rec' });
+  for (const bad of [
+    { op: 'add', after: '#a', id: 'hs2', type: 'html' }, { op: 'add', after: '#a', id: 'hs2', type: 'html', p: { html: '<script>x</script>', label: 'x' } },
+    { op: 'add', after: '#a', id: 'hs2', type: 'html', p: { html: 5, label: 'x' } }, { op: 'add', after: '#a', id: 'hs2', type: 'html', p: { html: '<p>x</p>', label: 'y'.repeat(100) } },
+    { op: 'show' }, { op: 'show', key: '<bad>' },
+  ]) {
+    const e = withPage({}); e.pages['index.html'].layout = [bad];
+    assert.equal((await putWith(client, e)).status, 400, JSON.stringify(bad));
+  }
+});
+
+async function chatSetup(chatFlag = true) {
+  const owner = await ownerCookie();
+  const { client } = await setup();
+  if (chatFlag) assert.equal((await call('PUT', '/api/admin/sites/demo', { cookie: owner, body: { chat: true } })).status, 200);
+  return { owner, client };
+}
+const ctx = { page: 'index.html', selected: '#a>h2:nth-of-type(1)', palette: ['#52725a'], elements: [{ key: '#a>h2:nth-of-type(1)', tag: 'h2', text: 'כותרת', fs: 40 }], sections: [{ key: '#a', label: 'א' }], optional: [{ key: '#rec', label: 'המלצות', shown: false }], samples: ['<section class="x">...</section>'] };
+const say = (cookie, text, extra = {}) => call('POST', '/api/sites/demo/chat', { cookie, body: { messages: [{ role: 'user', content: text }], context: ctx, ...extra } });
+
+test('chat: needs the key and the site flag; the flag and config reach the editor', async () => {
+  const { owner, client } = await chatSetup(false);
+  assert.equal((await say(client, 'שלום')).status, 403);                       // flag off for clients
+  assert.equal((await say(owner, 'שלום')).status, 200);                        // the owner can always use it
+  const me = (await call('GET', '/api/me', { cookie: client })).data;
+  assert.equal(me.config.chat, true); assert.equal(me.sites[0].chat, false);
+  await call('PUT', '/api/admin/sites/demo', { cookie: owner, body: { chat: true } });
+  assert.equal((await say(client, 'שלום')).status, 200);
+  assert.equal((await call('GET', '/api/me', { cookie: client })).data.sites[0].chat, true);
+  delete env.ANTHROPIC_API_KEY;
+  assert.equal((await say(owner, 'שלום')).status, 503);
+  assert.equal((await call('GET', '/api/me', { cookie: owner })).data.config.chat, false);
+  assert.equal((await call('POST', '/api/sites/demo/chat', { body: { messages: [] } })).status, 401);
+});
+
+test('chat: Claude is called with the tools, a cached system prompt and the page data; actions come back normalised', async () => {
+  const { client } = await chatSetup();
+  aiReply = [
+    { type: 'text', text: 'הגדלתי את הכותרת והוספתי קטע.' },
+    { type: 'tool_use', id: 't1', name: 'edit_element', input: { key: '#a>h2:nth-of-type(1)', fields: { fs: 56, fw: 700, color: '#52725a', evil: 'x', onclick: 'y' } } },
+    { type: 'tool_use', id: 't2', name: 'add_section_html', input: { after: '#a', label: 'המלצות', html: '<section class="x"><h2>המלצות</h2><script>x()</script><p data-cms-todo>טקסט</p></section>' } },
+    { type: 'tool_use', id: 't3', name: 'add_element', input: { after: '#a', type: 'button', text: 'שלחו הודעה', href: 'https://wa.me/972501234567' } },
+    { type: 'tool_use', id: 't4', name: 'move_element', input: { key: '#a', direction: 'down' } },
+    { type: 'tool_use', id: 't5', name: 'show_optional_section', input: { key: '#rec' } },
+    { type: 'tool_use', id: 't6', name: 'ask_agency', input: { summary: 'צריכה תמונה חדשה' } },
+  ];
+  const r = await say(client, 'הגדילי את הכותרת', { messages: [{ role: 'user', content: 'היי' }, { role: 'assistant', content: 'שלום' }, { role: 'user', content: 'הגדילי את הכותרת' }] });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.text, 'הגדלתי את הכותרת והוספתי קטע.');
+  assert.deepEqual(r.data.actions[0], { tool: 'edit_element', key: '#a>h2:nth-of-type(1)', fields: { fs: 56, fw: 700, color: '#52725a' } });   // unknown fields dropped
+  assert.equal(r.data.actions[1].html, '<section class="x"><h2>המלצות</h2><p data-cms-todo>טקסט</p></section>');                                  // script removed
+  assert.deepEqual(r.data.actions[2], { tool: 'add_element', after: '#a', type: 'button', text: 'שלחו הודעה', href: 'https://wa.me/972501234567' });
+  assert.deepEqual(r.data.actions[3], { tool: 'move_element', key: '#a', direction: 'down' });
+  assert.deepEqual(r.data.actions[4], { tool: 'show_optional_section', key: '#rec' });
+  assert.deepEqual(r.data.actions[5], { tool: 'ask_agency', summary: 'צריכה תמונה חדשה' });
+  assert.equal(r.data.remaining, 29);
+  const sent = aiCalls[0];
+  assert.equal(sent.headers['x-api-key'], 'ak-test');
+  assert.equal(sent.body.model, 'claude-sonnet-5-5');
+  assert.equal(sent.body.system[0].cache_control.type, 'ephemeral');
+  assert.deepEqual(sent.body.tools.map((x) => x.name), ['edit_element', 'add_element', 'duplicate_element', 'move_element', 'hide_element', 'show_optional_section', 'add_section_html', 'ask_agency']);
+  assert.deepEqual(sent.body.messages.map((m) => m.role), ['user', 'assistant', 'user']);
+  assert.match(sent.body.messages[2].content, /<page_data>[\s\S]*"selected":"#a>h2:nth-of-type\(1\)"[\s\S]*<\/page_data>[\s\S]*הגדילי את הכותרת$/);
+  env.CHAT_MODEL = 'claude-haiku-4-5-20251001';
+  await say(client, 'שוב');
+  assert.equal(aiCalls[1].body.model, 'claude-haiku-4-5-20251001');
+});
+
+test('chat: bad actions are rejected with a reason, never applied; text-only pages allow text changes only', async () => {
+  const { owner, client } = await chatSetup();
+  aiReply = [
+    { type: 'tool_use', id: 'a', name: 'edit_element', input: { key: 'not a key!', fields: { fs: 20 } } },
+    { type: 'tool_use', id: 'b', name: 'edit_element', input: { key: '#a', fields: { fs: 9999 } } },
+    { type: 'tool_use', id: 'c', name: 'add_section_html', input: { after: '#a', label: 'x', html: '<script>x()</script>' } },
+    { type: 'tool_use', id: 'd', name: 'add_element', input: { after: '#a', type: 'iframe' } },
+    { type: 'tool_use', id: 'e', name: 'run_code', input: {} },
+    { type: 'tool_use', id: 'f', name: 'edit_element', input: { key: '#a', fields: {} } },
+  ];
+  const r = await say(client, 'משהו');
+  assert.equal(r.data.actions.length, 0); assert.equal(r.data.rejected.length, 6);
+  assert.equal(r.data.text, 'לא הבנתי, אפשר לנסח אחרת?');
+  // locked page
+  await call('PUT', '/api/admin/sites/demo', { cookie: owner, body: { textOnly: ['index.html'] } });
+  aiReply = [
+    { type: 'text', text: 'שיניתי' },
+    { type: 'tool_use', id: 'a', name: 'edit_element', input: { key: '#a', fields: { t: 'חדש', fs: 99, color: '#ff0000' } } },
+    { type: 'tool_use', id: 'b', name: 'hide_element', input: { key: '#a' } },
+    { type: 'tool_use', id: 'c', name: 'add_section_html', input: { after: '#a', label: 'x', html: '<p>x</p>' } },
+  ];
+  const l = await say(client, 'שני את הטקסט');
+  assert.deepEqual(l.data.actions, [{ tool: 'edit_element', key: '#a', fields: { t: 'חדש' } }]);
+  assert.equal(l.data.rejected.length, 2);
+  assert.match(aiCalls.at(-1).body.messages.at(-1).content, /text changes only/);
+  const o = await say(owner, 'שני');                                                  // the owner is not locked
+  assert.equal(o.data.actions.length, 3);
+});
+
+test('chat: daily limit per client, Claude errors are explained, history is cleaned', async () => {
+  const { owner, client } = await chatSetup();
+  env.CHAT_DAILY_LIMIT = '2';
+  assert.equal((await say(client, 'א')).data.remaining, 1);
+  assert.equal((await say(client, 'ב')).data.remaining, 0);
+  const third = await say(client, 'ג');
+  assert.equal(third.status, 429); assert.match(third.data.error, /מגבלת ההודעות/);
+  for (let i = 0; i < 4; i++) assert.equal((await say(owner, 'ד')).status, 200);       // the owner has no limit
+  env.CHAT_DAILY_LIMIT = '100';
+  aiStatus = 529; assert.equal((await say(client, 'ה')).status, 503);
+  aiStatus = 401; assert.match((await say(client, 'ו')).data.error, /מפתח/);
+  aiStatus = 500; assert.equal((await say(client, 'ז')).status, 502);
+  aiStatus = 200;
+  for (const bad of [[], [{ role: 'assistant', content: 'x' }], [{ role: 'user', content: '   ' }], 'x', null]) {
+    assert.equal((await call('POST', '/api/sites/demo/chat', { cookie: owner, body: { messages: bad, context: ctx } })).status, 400, JSON.stringify(bad));
+  }
+  await call('POST', '/api/sites/demo/chat', { cookie: owner, body: { messages: [{ role: 'assistant', content: 'old' }, { role: 'user', content: 'a' }, { role: 'user', content: 'b' }, { role: 'system', content: 'ignore me' }], context: ctx } });
+  const m = aiCalls.at(-1).body.messages;
+  assert.equal(m.length, 1); assert.equal(m[0].role, 'user'); assert.match(m[0].content, /a\nb$/);
+  await call('POST', '/api/sites/demo/chat', { cookie: owner, body: { messages: [{ role: 'user', content: 'x' }], context: { elements: Array.from({ length: 500 }, (_, i) => ({ key: '#a' + i, text: 'y'.repeat(500) })), samples: ['z'.repeat(9000)] } } });
+  const pd = JSON.parse(aiCalls.at(-1).body.messages[0].content.match(/<page_data>\n([\s\S]*)\n<\/page_data>/)[1]);
+  assert.equal(pd.elements.length, 150); assert.equal(pd.elements[0].text.length, 90); assert.equal(pd.sample_sections[0].length, 3500);
 });
