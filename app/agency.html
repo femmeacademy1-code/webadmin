@@ -206,6 +206,84 @@ html.ed header{position:static}
 :root{--a11y-b:56px}
 .hud{pointer-events:none}
 </style>
+
+<style>
+/* ===== proportions: calmer headings, readable body text, tighter rooms ===== */
+body{font-size:19px;line-height:1.7}
+h1{font-size:clamp(38px,6.4vw,86px);line-height:1.04}
+h2{font-size:clamp(28px,4.2vw,54px);line-height:1.1;margin-bottom:14px}
+p{max-width:58ch}
+.scene{min-height:min(100svh,880px);padding:92px max(16px,6vw) 78px}
+.scene.hero{min-height:100svh}
+.panel{max-width:680px;padding:clamp(22px,3vw,40px)}
+.panel p,.stack>p,.stack>div>p{font-size:clamp(17px,1.45vw,20px)}
+.tag{font-size:13px;margin-bottom:8px}
+.duo h3{font-size:30px}
+.hero p{font-size:clamp(18px,1.7vw,22px)}
+.hero h1{margin-bottom:12px}
+.stack{gap:18px}
+.chips{margin-bottom:18px}
+.chips li{font-size:13px}
+.quote p{font-size:16.5px}
+.cue{bottom:40px}
+
+/* small text stays in Assistant: the display face is for big headings only */
+.hero .sticker,.sign,.duo .role,.mail{font-family:var(--f-body)!important;font-weight:700}
+
+/* ===== a living page ===== */
+html{scroll-snap-type:y proximity}
+.scene{scroll-snap-align:start}
+.rotline{font-size:clamp(20px,2.2vw,28px)!important;font-family:var(--f-body);font-weight:800;color:var(--paper);margin:6px auto 16px!important;max-width:none!important}
+.rotbox{display:inline-block;height:1.5em;overflow:hidden;vertical-align:bottom;margin-inline-start:.35em}
+.rotin{display:block;animation:rotStep 12s cubic-bezier(.7,0,.2,1) infinite}
+.rotin b{display:block;height:1.5em;line-height:1.5em;font-weight:800;color:var(--rose);white-space:nowrap}
+@keyframes rotStep{0%,20%{transform:translateY(0)}25%,45%{transform:translateY(-1.5em)}50%,70%{transform:translateY(-3em)}75%,95%{transform:translateY(-4.5em)}100%{transform:translateY(-6em)}}
+
+.ribbon{position:relative;z-index:1;overflow:hidden;padding:18px 0;border-block:2px solid rgba(var(--pc),.35);background:rgba(255,250,246,.55);backdrop-filter:blur(6px);direction:ltr;transition:transform .2s linear}
+.ribbon .rt{display:flex;gap:34px;width:max-content;font:400 clamp(34px,6vw,72px)/1 var(--f-display);white-space:nowrap;color:transparent;-webkit-text-stroke:1.6px var(--paper);animation:ribbonMove 34s linear infinite}
+.ribbon i{font-style:normal;color:rgb(var(--pc));-webkit-text-stroke:0;font-size:.55em;align-self:center}
+.ribbon span:nth-of-type(3n){color:rgb(var(--pc));-webkit-text-stroke:0}
+@keyframes ribbonMove{to{transform:translateX(-50%)}}
+
+/* floating doodles + morphing blobs injected per scene (decoration only) */
+.fl{position:absolute;pointer-events:none;z-index:0;will-change:transform;transform:translate3d(calc(var(--mx,0)*var(--d,10)*1px),calc(var(--my,0)*var(--d,10)*1px + var(--py,0)*1px),0)}
+.fl img{display:block;width:var(--w,64px);animation:flFloat var(--t,7s) ease-in-out var(--dl,0s) infinite;opacity:.92}
+.fl.spin img{animation-name:flSpin}
+.fl.beat img{animation-name:flBeat}
+@keyframes flFloat{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-18px) rotate(6deg)}}
+@keyframes flSpin{to{transform:rotate(360deg)}}
+@keyframes flBeat{0%,42%,100%{transform:scale(1)}8%{transform:scale(1.12)}17%{transform:scale(1)}26%{transform:scale(1.22)}35%{transform:scale(1.05)}}
+.blob{position:absolute;z-index:-1;width:min(52vmin,520px);aspect-ratio:1;background:radial-gradient(circle at 30% 30%,rgba(var(--pc),.28),rgba(var(--pc),.06) 70%);border-radius:58% 42% 55% 45%/48% 56% 44% 52%;filter:blur(2px);animation:blobMorph 16s ease-in-out infinite alternate;pointer-events:none}
+@keyframes blobMorph{to{border-radius:42% 58% 45% 55%/56% 44% 56% 44%;transform:rotate(14deg) scale(1.08)}}
+.scene{isolation:isolate;overflow-x:clip}
+html,body{overflow-x:clip}
+.wash{position:absolute;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(var(--pc),.14),transparent 62%);clip-path:circle(0% at 50% 50%);transition:clip-path 1.4s cubic-bezier(.2,.7,.2,1)}
+.scene.seen .wash{clip-path:circle(78% at 50% 50%)}
+
+/* headline words rise from a mask; chips pop in */
+.sp .wd{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.14em;margin-bottom:-.14em}
+.sp .wi{display:inline-block;transform:translateY(112%) rotate(5deg);transition:transform .9s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i)*.07s + .1s)}
+.sp .in .wi,.sp.in .wi,.sp .rv.in h2 .wi{transform:none}
+.sp .chips li{opacity:0;transform:translateY(12px) scale(.9);transition:opacity .5s,transform .5s cubic-bezier(.2,.9,.3,1.4);transition-delay:calc(var(--c,0)*.08s + .5s)}
+.sp .in .chips li{opacity:1;transform:none}
+.sp .rv{transform:translateY(40px) rotateX(14deg) scale(.97);transform-origin:50% 100%}
+.sp .rv.in{transform:none}
+.sp .scene .panel,.sp .scene .duo,.sp .scene .stack{perspective:1200px}
+
+/* buttons breathe, highlighted word shimmers */
+.sp .btn{animation:btnBreath 3.6s ease-in-out infinite}
+@keyframes btnBreath{0%,100%{box-shadow:0 6px 0 #8f3633,0 0 0 0 rgba(192,80,77,.0)}50%{box-shadow:0 6px 0 #8f3633,0 0 0 9px rgba(192,80,77,.14)}}
+.sp .btn.alt{animation-name:btnBreathAlt}
+@keyframes btnBreathAlt{0%,100%{box-shadow:inset 0 0 0 2px var(--teal),0 6px 0 var(--teal),0 0 0 0 rgba(47,93,88,0)}50%{box-shadow:inset 0 0 0 2px var(--teal),0 6px 0 var(--teal),0 0 0 9px rgba(47,93,88,.12)}}
+
+/* cursor ring */
+.cur{position:fixed;left:0;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border:2px solid rgba(var(--pc),.75);border-radius:50%;pointer-events:none;z-index:400;transition:width .25s,height .25s,margin .25s,background .25s,border-color .25s;opacity:0}
+.cur.on{opacity:1}.cur.big{width:58px;height:58px;margin:-29px 0 0 -29px;background:rgba(var(--pc),.14)}
+@media(hover:none),(max-width:900px){.cur{display:none}.fl{display:none}.ribbon .rt{font-size:34px}}
+html.ed .fl,html.ed .blob,html.ed .wash,html.ed .cur,html.ed .ribbon,html.ed .rotline{display:none!important}
+html.ed{scroll-snap-type:none}
+@media(prefers-reduced-motion:reduce){.rotin,.ribbon .rt,.fl img,.blob,.sp .btn{animation:none!important}html{scroll-snap-type:none}}
+</style>
 </head>
 <body>
 <style>
@@ -252,12 +330,15 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     <div>
       <p class="tag" style="text-align:center">סוכנות דיגיטל ליצירה עסקית</p>
       <h1 aria-label="נעים מאוד, אנחנו פאם דיגיטל"><span style="--i:0">נעים</span> <span style="--i:1">מאוד</span><br><span style="--i:2">אנחנו</span> <em><span style="--i:3">פאם דיגיטל</span></em></h1>
+      <p class="rotline reveal" aria-label="מלוות אותך באתרים, מיתוג, שיווק ותוכן">מלוות אותך ב<span class="rotbox" aria-hidden="true"><span class="rotin"><b>אתרים ודפי נחיתה</b><b>מיתוג ממגנט</b><b>שיווק ממומן</b><b>תוכן וצילום</b><b>אתרים ודפי נחיתה</b></span></span></p>
       <p class="reveal">סוכנות של נשים שמלווה יוצרות ויוצרים עצמאיים בדרך להצלחה. אנחנו כאן כדי לעזור לעסק שלך להוציא את השירותים והמוצרים לאור, דרך אתרים, מיתוג ושיווק, ביד מקצועית ותומכת.</p>
       <a class="btn reveal" href="#s9">בול בשבילי <span>←</span></a> <a class="btn alt reveal" href="#s1">מה אנחנו עושות <span>←</span></a>
       <p class="sticker reveal">ליווינו מאות יוצרות ויוצרים להגדיל מכירות ולהגיע לתוצאות אמיתיות</p>
     </div>
     <div class="cue">↓ SCROLL TO ENTER</div>
   </section>
+
+  <div class="ribbon" aria-hidden="true"><div class="rt"><span>אתרים</span><i>✦</i><span>מיתוג</span><i>✿</i><span>שיווק</span><i>♡</i><span>תוכן</span><i>✦</i><span>ליווי אישי</span><i>✿</i><span>אתרים</span><i>✦</i><span>מיתוג</span><i>✿</i><span>שיווק</span><i>♡</i><span>תוכן</span><i>✦</i><span>ליווי אישי</span><i>✿</i></div></div>
 
   <section class="scene" id="s1" data-pc="79,170,150" data-label="אתרים ודפי נחיתה" data-next="עיצוב ומיתוג">
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
@@ -447,6 +528,84 @@ document.documentElement.classList.add('no-js');
   }
   requestAnimationFrame(frame);
   if(reduce)setTimeout(function(){frame(0)},50);
+})();
+</script>
+
+<script>
+/* extra "alive" layer: decorations, word reveals, cursor, parallax, tilt. Skipped in the editor and with reduced motion. */
+(function(){
+  var H=document.documentElement;
+  if(H.classList.contains('ed')) return;
+  var calm=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
+  var scenes=$$('.scene');
+  if(!calm) H.classList.add('sp');
+
+  // scenes light up the first time they are reached
+  if('IntersectionObserver' in window){
+    var seen=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('seen');seen.unobserve(e.target)}})},{threshold:.2});
+    scenes.forEach(function(s){var w=document.createElement('div');w.className='wash';w.setAttribute('aria-hidden','true');s.insertBefore(w,s.firstChild);seen.observe(s)});
+  }
+  if(calm) return;
+
+  // headline words rise out of a mask
+  $$('.scene h2').forEach(function(h){
+    var i=0;
+    (function walk(n){[].slice.call(n.childNodes).forEach(function(c){
+      if(c.nodeType===3){var f=document.createDocumentFragment();c.nodeValue.split(/(\s+)/).forEach(function(t){if(!t)return;if(/^\s+$/.test(t)){f.appendChild(document.createTextNode(' '));return}
+        var w=document.createElement('span');w.className='wd';var x=document.createElement('span');x.className='wi';x.style.setProperty('--i',i++);x.textContent=t;w.appendChild(x);f.appendChild(w)});n.replaceChild(f,c)}
+      else if(c.nodeType===1&&c.tagName!=='BR'&&!c.classList.contains('wd'))walk(c)})})(h);
+  });
+  $$('.chips').forEach(function(ul){$$('li',ul).forEach(function(li,k){li.style.setProperty('--c',k)})});
+
+  // floating doodles and blobs, a few per scene, alternating sides
+  var pics=['brand/doodle-butterfly.png','brand/flower.png','brand/sparkles.png','brand/heart.png','brand/doodle-flowers-trio.png','brand/butterfly.png','brand/doodle-daisy-stem.png','brand/doodle-flower-stem.png'];
+  var spots=[[ '6%','14%'],['88%','70%'],['10%','72%'],['90%','16%'],['48%','90%']];
+  scenes.forEach(function(s,k){
+    if(s.classList.contains('hero')) return;
+    var b=document.createElement('div');b.className='blob';b.setAttribute('aria-hidden','true');
+    b.style.insetBlockStart=(k%2?'8%':'30%');b.style[k%2?'insetInlineStart':'insetInlineEnd']='-6%';s.appendChild(b);
+    for(var n=0;n<3;n++){
+      var f=document.createElement('div');f.className='fl'+(n===1&&k%3===0?' spin':'')+(n===2&&k%2?' beat':'');f.setAttribute('aria-hidden','true');
+      var sp=spots[(k+n*2)%spots.length];f.style.left=sp[0];f.style.top=sp[1];
+      f.style.setProperty('--d',(n+1)*7*(k%2?1:-1));f.style.setProperty('--w',(44+((k*13+n*29)%46))+'px');f.style.setProperty('--t',(6+((k+n*3)%5))+'s');f.style.setProperty('--dl',(-n*1.7)+'s');f.dataset.depth=(.05+n*.07)*(n%2?-1:1);
+      var im=document.createElement('img');im.src=pics[(k*3+n)%pics.length];im.alt='';im.loading='lazy';f.appendChild(im);s.appendChild(f)
+    }
+  });
+  var fl=$$('.fl'),ribbon=$$('.ribbon');
+
+  // pointer: parallax, cursor ring, magnetic buttons, tilting panels
+  var fine=matchMedia('(hover:hover) and (pointer:fine)').matches;
+  var cur=null,cx=0,cy=0,tx=0,ty=0,raf=0;
+  if(fine){
+    cur=document.createElement('div');cur.className='cur';cur.setAttribute('aria-hidden','true');document.body.appendChild(cur);
+    addEventListener('pointermove',function(e){
+      tx=e.clientX;ty=e.clientY;cur.classList.add('on');
+      H.style.setProperty('--mx',((e.clientX/innerWidth-.5)*2).toFixed(3));H.style.setProperty('--my',((e.clientY/innerHeight-.5)*2).toFixed(3));
+      cur.classList.toggle('big',!!(e.target.closest&&e.target.closest('a,button,.panel,.quote,input,label,.rail button')));
+      if(!raf)raf=requestAnimationFrame(tick)},{passive:true});
+    document.addEventListener('mouseleave',function(){cur.classList.remove('on')});
+    function tick(){cx+=(tx-cx)*.2;cy+=(ty-cy)*.2;cur.style.transform='translate('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px)';raf=(Math.abs(tx-cx)+Math.abs(ty-cy)>.4)?requestAnimationFrame(tick):0}
+    $$('.btn').forEach(function(b){
+      b.addEventListener('mousemove',function(e){var r=b.getBoundingClientRect();b.style.transform='translate('+((e.clientX-r.left-r.width/2)*.18).toFixed(1)+'px,'+((e.clientY-r.top-r.height/2)*.28).toFixed(1)+'px)'});
+      b.addEventListener('mouseleave',function(){b.style.transform=''})});
+    $$('.panel').forEach(function(p){
+      p.style.transition='box-shadow .4s,border-color .4s,transform .35s ease-out';
+      p.addEventListener('mousemove',function(e){if(!p.classList.contains('in')&&p.classList.contains('rv'))return;var r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;p.style.transform='perspective(900px) rotateY('+(x*7).toFixed(2)+'deg) rotateX('+(-y*7).toFixed(2)+'deg) translateZ(6px)'});
+      p.addEventListener('mouseleave',function(){p.style.transform=''})});
+  }
+
+  // scroll: depth parallax for the doodles, a ribbon that leans with scroll speed
+  var last=scrollY,skew=0,tk=false;
+  function onScroll(){
+    var y=scrollY,v=y-last;last=y;skew+=(Math.max(-14,Math.min(14,v))*.5-skew)*.25;
+    fl.forEach(function(f){var r=f.getBoundingClientRect();if(r.bottom<-200||r.top>innerHeight+200)return;f.style.setProperty('--py',((r.top+r.height/2-innerHeight/2)*parseFloat(f.dataset.depth)).toFixed(1))});
+    ribbon.forEach(function(r){r.style.transform='skewX('+(-skew).toFixed(2)+'deg)'});
+    tk=false
+  }
+  addEventListener('scroll',function(){if(!tk){tk=true;requestAnimationFrame(onScroll)}},{passive:true});
+  setInterval(function(){if(Math.abs(skew)>.05){skew*=.8;ribbon.forEach(function(r){r.style.transform='skewX('+(-skew).toFixed(2)+'deg)'})}},60);
+  onScroll();
 })();
 </script>
 <script src="ui.js"></script>
