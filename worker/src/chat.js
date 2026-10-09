@@ -21,6 +21,7 @@ Guidelines:
 - Font sizes (fs) are in pixels on desktop; fsm is the phone size. Typical body text is 16-20, headings 28-60. Line height lh is in tenths (16 = 1.6). Colours must be #rrggbb and should come from the site's palette (given) unless she names a colour.
 - To change the wording of a text element use edit_element with fields.t. Keep her tone; write natural Hebrew.
 - To add a new section (testimonials, FAQ, pricing, a feature list...): first check "optional_sections" in the data; if one matches, call show_optional_section. Otherwise call add_section_html and write ONE root <section> or <div> using ONLY these tags: section div span p h2 h3 h4 h5 ul ol li strong b em i u br hr blockquote figure figcaption small a q cite time; attributes class, style, href (on a), dir, lang, title, aria-label, role. No images, no scripts, no iframes. Reuse the classes and inline styles from "sample_sections" so the new section looks like the rest of the site (same colours, fonts, spacing, border-radius). Keep it responsive: use flex-wrap or grid with auto-fit minmax, not fixed widths. Write real, plausible Hebrew placeholder content ONLY if she did not give content, and mark each placeholder text element with the attribute data-cms-todo so the editor reminds her to replace it. Place it with "after" = the key of the section it should follow (default: the last section).
+- For profile photos / small pictures next to text (team members, names, sentences) call add_image_beside_text with the keys of those text elements; it creates empty picture slots that she fills by clicking each one. Never say you cannot do this.
 - Prefer the smallest change that does what she asked. Do several tool calls in one turn when she asked for several things.
 - Never claim you did something you did not call a tool for.`;
 
@@ -30,6 +31,8 @@ const TOOLS = [
     input_schema: { type: 'object', properties: { key: { type: 'string', description: 'element key exactly as in page_data' }, fields: { type: 'object', description: 'only the fields to change' } }, required: ['key', 'fields'] } },
   { name: 'add_element', description: 'Add a new simple element after an existing one. For text/heading/button you can pass text; for button also href.',
     input_schema: { type: 'object', properties: { after: { type: 'string' }, type: { type: 'string', enum: ADD_TYPES }, text: { type: 'string' }, href: { type: 'string' }, columns: num('number of columns for type cols', 2, 4) }, required: ['after', 'type'] } },
+  { name: 'add_image_beside_text', description: 'Put an empty picture slot (a round avatar by default) right beside existing text, e.g. profile photos next to team member names, or a small picture before a sentence. The client uploads the real pictures afterwards by clicking each one. Pass the keys of the text elements (up to 12).',
+    input_schema: { type: 'object', properties: { keys: { type: 'array', items: { type: 'string' }, description: 'keys of the text elements to put a picture beside' }, size: num('picture size in px', 24, 200), shape: { type: 'string', enum: ['circle', 'rounded', 'square'] } }, required: ['keys'] } },
   { name: 'duplicate_element', description: 'Duplicate an element (or a whole section) right after itself, e.g. to add one more card.', input_schema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } },
   { name: 'move_element', description: 'Move an element one step up or down among its siblings.', input_schema: { type: 'object', properties: { key: { type: 'string' }, direction: { type: 'string', enum: ['up', 'down'] } }, required: ['key', 'direction'] } },
   { name: 'hide_element', description: 'Hide an element or section from the site (it can be shown again later).', input_schema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } },
@@ -93,6 +96,14 @@ export function toAction(tc, { locked }) {
         const a = { tool: tc.name, key: checkKey(inp.key) };
         if (tc.name === 'move_element') { if (inp.direction !== 'up' && inp.direction !== 'down') throw new HttpError(400, 'כיוון לא תקין'); a.direction = inp.direction; }
         return a;
+      }
+      case 'add_image_beside_text': {
+        if (locked) throw new HttpError(400, 'בעמוד הזה אפשר לשנות טקסט בלבד');
+        const keys = (Array.isArray(inp.keys) ? inp.keys : []).slice(0, 12).map((k) => checkKey(k));
+        if (!keys.length) throw new HttpError(400, 'לא צוינו טקסטים');
+        const size = inp.size == null ? 56 : inp.size, shape = inp.shape == null ? 'circle' : inp.shape;
+        if (!Number.isInteger(size) || size < 24 || size > 200 || !['circle', 'rounded', 'square'].includes(shape)) throw new HttpError(400, 'הגדרות תמונה לא תקינות');
+        return { tool: 'add_image_beside_text', keys, size, shape };
       }
       case 'add_section_html': {
         if (locked) throw new HttpError(400, 'בעמוד הזה אפשר לשנות טקסט בלבד');

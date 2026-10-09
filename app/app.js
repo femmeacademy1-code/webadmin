@@ -834,7 +834,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 12;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 14;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -1080,6 +1080,10 @@ async function viewEditor(siteId) {
       case 'move_element': moveEl(a.key, a.direction === 'up' ? -1 : 1); return 'הזזה';
       case 'hide_element': if (!layoutOps().some((o) => o.op === 'hide' && o.key === a.key)) toggleHide(a.key); return 'הסתרה';
       case 'show_optional_section': { setOptional(a.key, true); const lab = (E.optional || []).find((x) => x.key === a.key); setTimeout(() => frameSend({ type: 'cms-select-key', key: a.key }), 300); return 'נוסף קטע' + (lab ? ': ' + lab.label : ''); }
+      case 'add_image_beside_text': {
+        for (const k of a.keys) await addElement(k, 'avatar', { p: { size: a.size, shape: a.shape } });
+        return `נוספו ${a.keys.length} מקומות לתמונה. ללחוץ על כל עיגול כדי להעלות תמונה`;
+      }
       case 'add_section_html': await addElement(topSection(a.after), 'html', { p: { html: a.html, label: a.label } }); return 'נוסף קטע: ' + (a.label || 'חדש');
       default: return null;
     }
@@ -1248,6 +1252,7 @@ async function viewEditor(siteId) {
       ta.addEventListener('input', () => (u.kind === 'text' ? setSpec(u.key, { t: ta.value }) : setNode(u.key, u.idx, ta.value)));
       out.push(h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'הטקסט'), ta,
         u.kind === 'text' && h('span', { class: 'help' }, 'Enter מוסיף שורה חדשה.')));
+      if (!locked() && E.ready && E.kitVersion >= 13) out.push(h('button', { class: 'btn mint small', type: 'button', title: 'מוסיף עיגול לתמונת פרופיל לפני הטקסט הזה. לוחצים עליו כדי להעלות תמונה', onclick: () => addElement(u.key, 'avatar', { p: { size: 56, shape: 'circle' } }) }, '＋ עיגול תמונה ליד הטקסט'));
     }
     if (u.kind === 'image' || u.kind === 'bg') {
       const src = spec.src || spec.bgimg;
@@ -1357,6 +1362,13 @@ async function viewEditor(siteId) {
     } else if (d.type === 'cms-sections') {
       E.sections = d.sections || []; E.optional = d.optional || []; E.todo = d.todo || 0;
       if (E.tab === 'struct' || (E.tab === 'sel' && !E.unit)) renderInsp();   // the empty state has a "where to add" list
+    } else if (d.type === 'cms-move-added') {
+      const op = layoutOps().find((o) => o.op === 'add' && o.id === d.id);
+      if (op && typeof d.key === 'string' && !d.key.startsWith('@' + d.id)) {
+        mutate(() => { op.after = d.key; if (d.before) op.before = true; else delete op.before; }, { force: true });
+        sendToFrame();
+        setTimeout(() => frameSend({ type: 'cms-select-key', key: '@' + d.id }), 200);
+      }
     } else if (d.type === 'cms-subtree-map-result' || d.type === 'cms-outline-result' || d.type === 'cms-drop-result') {
       const w = waiters.get(d.reqId); if (w) { waiters.delete(d.reqId); w(d); }
     } else if (d.type === 'cms-select') {

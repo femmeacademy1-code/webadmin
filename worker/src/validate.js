@@ -18,7 +18,8 @@ const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
 const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;                  // images
 const FILE_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(pdf|docx?|xlsx?|pptx?|zip)$/;     // downloadable files
-const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols', 'html']);
+const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols', 'html', 'avatar']);
+const AVATAR_SHAPES = new Set(['circle', 'rounded', 'square']);
 const SHAPES = new Set(['none', 'circle', 'rounded', 'arch', 'blob', 'triangle', 'diamond', 'pentagon', 'hexagon', 'star']);
 const RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 const VIDEO_ID = { youtube: /^[A-Za-z0-9_-]{6,20}$/, vimeo: /^\d{5,12}$/ };
@@ -128,6 +129,11 @@ function layout(ops) {
       } else if (op.type === 'cols') {
         if (!op.p || ![2, 3, 4].includes(op.p.n)) bad('מספר העמודות לא תקין');
         added.p = { n: op.p.n };
+      } else if (op.type === 'avatar') {
+        const pp = op.p || {};
+        const size = pp.size == null ? 56 : pp.size, shape = pp.shape == null ? 'circle' : pp.shape;
+        if (!Number.isInteger(size) || size < 24 || size > 200 || !AVATAR_SHAPES.has(shape)) bad('הגדרות תמונת הפרופיל לא תקינות');
+        added.p = { size, shape };
       } else if (op.type === 'html') {
         if (!op.p || typeof op.p.html !== 'string') bad('תוכן הקטע חסר');
         added.p = { html: sanitizeHtml(op.p.html), label: str(op.p.label == null ? '' : op.p.label, 60, 'שם הקטע') };

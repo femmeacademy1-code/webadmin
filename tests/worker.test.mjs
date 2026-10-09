@@ -928,6 +928,25 @@ test('chat: needs the key and the site flag; the flag and config reach the edito
   assert.equal((await call('POST', '/api/sites/demo/chat', { body: { messages: [] } })).status, 401);
 });
 
+test('avatar (picture slot beside text): validated on save and offered to the chat', async () => {
+  const { client } = await chatSetup();
+  const good = withPage({});
+  good.pages['index.html'].layout = [{ op: 'add', after: '#a', id: 'av1', type: 'avatar', p: { size: 64, shape: 'rounded' } }, { op: 'add', after: '#a', id: 'av2', type: 'avatar' }, { op: 'add', before: true, after: '#a', id: 'av3', type: 'divider' }];
+  const pr = await putWith(client, good); assert.equal(pr.status, 200, JSON.stringify(pr.data));
+  const saved = JSON.parse(repo.files['cms/edits.json'].toString()).pages['index.html'].layout;
+  assert.deepEqual(saved[0].p, { size: 64, shape: 'rounded' }); assert.deepEqual(saved[1].p, { size: 56, shape: 'circle' }); assert.equal(saved[2].before, true);
+  for (const bad of [{ size: 5 }, { size: 999 }, { shape: 'star' }, { size: 'x' }]) {
+    const b = withPage({}); b.pages['index.html'].layout = [{ op: 'add', after: '#a', id: 'av9', type: 'avatar', p: bad }];
+    assert.equal((await putWith(client, b)).status, 400, JSON.stringify(bad));
+  }
+  aiReply = [{ type: 'tool_use', id: 'x1', name: 'add_image_beside_text', input: { keys: ['#a>h3:nth-of-type(1)', '#a>h3:nth-of-type(2)'], size: 72, shape: 'circle', junk: 1 } },
+    { type: 'tool_use', id: 'x2', name: 'add_image_beside_text', input: { keys: [], size: 72 } }, { type: 'tool_use', id: 'x3', name: 'add_image_beside_text', input: { keys: ['#a'], size: 9999 } }];
+  const r = await say(client, 'תוסיף עיגולי תמונה ליד שמות הצוות');
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data.actions, [{ tool: 'add_image_beside_text', keys: ['#a>h3:nth-of-type(1)', '#a>h3:nth-of-type(2)'], size: 72, shape: 'circle' }]);
+  assert.equal(r.data.rejected.length, 2);
+});
+
 test('chat: Claude is called with the tools, a cached system prompt and the page data; actions come back normalised', async () => {
   const { client } = await chatSetup();
   aiReply = [
@@ -953,7 +972,7 @@ test('chat: Claude is called with the tools, a cached system prompt and the page
   assert.equal(sent.headers['x-api-key'], 'ak-test');
   assert.equal(sent.body.model, 'claude-sonnet-5-5');
   assert.equal(sent.body.system[0].cache_control.type, 'ephemeral');
-  assert.deepEqual(sent.body.tools.map((x) => x.name), ['edit_element', 'add_element', 'duplicate_element', 'move_element', 'hide_element', 'show_optional_section', 'add_section_html', 'ask_agency']);
+  assert.deepEqual(sent.body.tools.map((x) => x.name), ['edit_element', 'add_element', 'add_image_beside_text', 'duplicate_element', 'move_element', 'hide_element', 'show_optional_section', 'add_section_html', 'ask_agency']);
   assert.deepEqual(sent.body.messages.map((m) => m.role), ['user', 'assistant', 'user']);
   assert.match(sent.body.messages[2].content, /<page_data>[\s\S]*"selected":"#a>h2:nth-of-type\(1\)"[\s\S]*<\/page_data>[\s\S]*הגדילי את הכותרת$/);
   env.CHAT_MODEL = 'claude-haiku-4-5-20251001';

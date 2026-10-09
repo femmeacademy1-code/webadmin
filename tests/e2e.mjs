@@ -205,7 +205,7 @@ try {
   const fs61 = await fr.locator('.hero h1').evaluate((e) => [Math.round(parseFloat(getComputedStyle(e).fontSize)), e.getAttribute('data-cms-p'), e.id]);
   ok(fs61[0] === 61, 'chat: edit_element action applied live (font size 61) got ' + fs61.join(','));
   ok(await pg.locator('#chip').getAttribute('data-s') === 'dirty', 'chat: change is unsaved until published');
-  ok(aiSeen.length === 1 && aiSeen[0].model && aiSeen[0].tools.length === 8, 'chat: model call carries the tools');
+  ok(aiSeen.length === 1 && aiSeen[0].model && aiSeen[0].tools.length === 9, 'chat: model call carries the tools');
   aiMode = 'section';
   await pg.fill('.chat-box textarea', 'תוסיפי קטע המלצות');
   await pg.click('.chat-box button.primary');
@@ -237,6 +237,29 @@ try {
   ok(await fr.locator('.hero h2').evaluate((e) => e.previousElementSibling && e.previousElementSibling.getAttribute('data-cms-add') === 'divider'), 'drag: dropped on the upper half of a block -> added before it');
   await pg.click('button:has-text("מחיקת האלמנט")');
   await pg.waitForSelector('.hint', { timeout: 8000 });
+
+  /* picture slot (round avatar) beside a text */
+  await fr.locator('.hero h2').click();
+  await pg.click('button:has-text("עיגול תמונה ליד הטקסט")');
+  await fr.locator('.hero h2 > img[data-cms-add="avatar"]').waitFor({ timeout: 8000 });
+  ok(await fr.locator('.hero h2 > img[data-cms-add="avatar"]').evaluate((e) => getComputedStyle(e).borderRadius.includes('50%') && e.offsetWidth === 56 && e.nextSibling && /\S/.test(e.nextSibling.nodeValue || '')), 'avatar: a round 56px picture slot sits inside the text, before it');
+  await pg.waitForSelector('.insp-body button:has-text("החלפת תמונה")');
+  ok(true, 'avatar: selecting it offers the picture upload');
+  /* the added element can be dragged again to another place */
+  const avBox = await fr.locator('.hero h2 > img[data-cms-add="avatar"]').boundingBox();
+  const h1Box = await fr.locator('.hero h1').boundingBox();
+  await pg.mouse.move(avBox.x + avBox.width / 2, avBox.y + avBox.height / 2);
+  await pg.mouse.down();
+  await pg.mouse.move(avBox.x + 30, avBox.y + 30, { steps: 3 });
+  await pg.mouse.move(h1Box.x + h1Box.width / 2, h1Box.y + 10, { steps: 8 });
+  await pg.mouse.up();
+  await fr.locator('.hero h1 > img[data-cms-add="avatar"]').waitFor({ timeout: 8000 });
+  ok(await fr.locator('.hero h2 > img').count() === 0, 'avatar: dragged to another text, it moved there (and left the first one)');
+  await pg.waitForSelector('.insp-body button:has-text("החלפת תמונה")');
+  await pg.click('button:has-text("מחיקת האלמנט")');
+  await pg.waitForSelector('.hint', { timeout: 8000 });
+  await pg.waitForTimeout(400);
+  ok(await fr.locator('.hero h2 > img').count() === 0 && await fr.locator('.hero h2').innerText() !== '', 'avatar: deleting it leaves the text intact');
 
   await fr.locator('.hero h1').click();
   await pg.waitForSelector('.insp-body textarea');
