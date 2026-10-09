@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 14;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it
+  var KIT_VERSION = 15;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it · 15: the page scrolls while dragging near its edge
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -893,7 +893,7 @@
       var par = selEl && selEl.parentElement;
       if (par && par !== document.body && par !== document.documentElement) select({ kind: kindOf(par), el: par }, true);
     } else if (d.type === 'cms-drag') {
-      showDropLine(dropTarget(+d.x, +d.y));
+      showDropLine(dropTarget(+d.x, +d.y)); edgeScroll(+d.y);
     } else if (d.type === 'cms-drag-end') {
       var dt = d.drop ? dropTarget(+d.x, +d.y) : null;
       showDropLine(null);
@@ -920,8 +920,15 @@
     var r = b.getBoundingClientRect();
     return { el: b, key: pathOf(b), before: y < r.top + r.height / 2 };
   }
+  /* while dragging near the top/bottom edge of the page the page scrolls by itself, so far-away places can be reached */
+  var edgeTimer = null, edgeDy = 0;
+  function edgeScroll(y) {
+    edgeDy = y < 70 && y >= 0 ? -16 : (y > innerHeight - 70 && y <= innerHeight + 5 ? 16 : 0);
+    if (edgeDy && !edgeTimer) edgeTimer = setInterval(function () { if (!edgeDy) { clearInterval(edgeTimer); edgeTimer = null; return; } window.scrollBy(0, edgeDy); }, 30);
+    if (!edgeDy && edgeTimer) { clearInterval(edgeTimer); edgeTimer = null; }
+  }
   function showDropLine(t) {
-    if (!t) { if (dropLineEl) dropLineEl.style.display = 'none'; return; }
+    if (!t) { if (dropLineEl) dropLineEl.style.display = 'none'; edgeScroll(-100); return; }
     if (!dropLineEl) {
       dropLineEl = document.createElement('div');
       dropLineEl.setAttribute('data-cms-ui', '');
@@ -946,12 +953,13 @@
     e.preventDefault();
     var t = dropTarget(e.clientX, e.clientY);
     mv.t = t && !selEl.contains(t.el) ? t : null;
-    showDropLine(mv.t);
+    showDropLine(mv.t); edgeScroll(e.clientY);
   }, true);
-  document.addEventListener('pointerup', function () {
+  document.addEventListener('pointerup', function (e) {
     if (!mv) return;
     var m = mv; mv = null; showDropLine(null);
     if (!m.on) return;
+    var t2 = dropTarget(e.clientX, e.clientY); m.t = t2 && !selEl.contains(t2.el) ? t2 : null;      // re-evaluated: the page may have scrolled meanwhile
     swallowClick = true; setTimeout(function () { swallowClick = false; }, 0);
     if (m.t && selEl) send({ type: 'cms-move-added', id: selEl.getAttribute(CID), key: m.t.key, before: m.t.before });
   }, true);
