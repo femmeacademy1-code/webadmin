@@ -831,7 +831,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 10;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 11;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 

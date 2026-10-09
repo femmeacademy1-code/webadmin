@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 10;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing
+  var KIT_VERSION = 11;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -855,6 +855,9 @@
     if (!editingEl) return;
     if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); stopEditing(true); }
     else if (e.key === 'Enter') { e.preventDefault(); if (!document.execCommand('insertLineBreak')) document.execCommand('insertText', false, '\n'); }   // Enter = new line; Esc / Ctrl+Enter / click away = done
+  }, true);
+  document.addEventListener('beforeinput', function (e) {      // phone keyboards: Enter arrives as an input event, not always as a keydown
+    if (editingEl && e.inputType === 'insertParagraph') { e.preventDefault(); if (!document.execCommand('insertLineBreak')) document.execCommand('insertText', false, '\n'); }
   }, true);
   document.addEventListener('focusout', function (e) { if (editingEl && e.target === editingEl) stopEditing(true); }, true);
   document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
