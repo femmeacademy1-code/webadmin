@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 11;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards
+  var KIT_VERSION = 12;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -624,7 +624,7 @@
       var made = buildAdded(op, base);
       if (!made || !made.target.parentNode) return false;
       remember(made.target.parentNode);
-      made.target.parentNode.insertBefore(made.el, made.target.nextSibling);
+      made.target.parentNode.insertBefore(made.el, op.before ? made.target : made.target.nextSibling);
       return true;
     }
     if (op.op === 'dup') {
@@ -879,12 +879,45 @@
     } else if (d.type === 'cms-select-parent') {
       var par = selEl && selEl.parentElement;
       if (par && par !== document.body && par !== document.documentElement) select({ kind: kindOf(par), el: par }, true);
+    } else if (d.type === 'cms-drag') {
+      showDropLine(dropTarget(+d.x, +d.y));
+    } else if (d.type === 'cms-drag-end') {
+      var dt = d.drop ? dropTarget(+d.x, +d.y) : null;
+      showDropLine(null);
+      send({ type: 'cms-drop-result', reqId: d.reqId, key: dt ? dt.key : null, before: dt ? dt.before : false });
     } else if (d.type === 'cms-outline') {
       send({ type: 'cms-outline-result', reqId: d.reqId, outline: outline() });
     } else if (d.type === 'cms-subtree-map') {
       send({ type: 'cms-subtree-map-result', reqId: d.reqId, pairs: subtreeMap(String(d.src), String(d.id)) });
     }
   });
+  /* Drag & drop from the editor: the editor reports the pointer position over the page; we say where a new element would land (before/after a block) and draw a line there. */
+  var dropLineEl = null;
+  function dropTarget(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el || el.closest('[data-cms-ui]')) return null;
+    var secs = listSections(), b;
+    if (el === document.documentElement || el === document.body) {
+      if (!secs.length) return null;
+      var last = resolve(secs[secs.length - 1].key);
+      return last ? { el: last, key: secs[secs.length - 1].key, before: false } : null;
+    }
+    b = blockOf(el);
+    if (!b || b === document.body) return null;
+    var r = b.getBoundingClientRect();
+    return { el: b, key: pathOf(b), before: y < r.top + r.height / 2 };
+  }
+  function showDropLine(t) {
+    if (!t) { if (dropLineEl) dropLineEl.style.display = 'none'; return; }
+    if (!dropLineEl) {
+      dropLineEl = document.createElement('div');
+      dropLineEl.setAttribute('data-cms-ui', '');
+      dropLineEl.style.cssText = 'position:fixed;height:4px;border-radius:2px;background:#ff7a1a;box-shadow:0 0 0 2px rgba(255,122,26,.25);z-index:2147483646;pointer-events:none';
+      document.documentElement.appendChild(dropLineEl);
+    }
+    var r = t.el.getBoundingClientRect();
+    dropLineEl.style.cssText += ';display:block;left:' + Math.max(0, r.left) + 'px;width:' + Math.max(40, Math.min(r.width, innerWidth - Math.max(0, r.left))) + 'px;top:' + ((t.before ? r.top : r.bottom) - 2) + 'px';
+  }
   var lastUnit = null;
   function kindOf(el) { return el.tagName === 'IMG' ? 'image' : (isTextOnly(el) ? 'text' : 'box'); }
   function describeSelected() {
