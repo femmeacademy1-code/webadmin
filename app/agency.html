@@ -405,7 +405,7 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 </style>
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
-:root{--aA:.6;--aB:1;--ax:2%;--ay:95%;--bx:92%;--by:28%}
+:root{--aA:.95;--aB:1;--ax:6%;--ay:0%;--bx:94%;--by:40%}
 body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(150,230,216,var(--aB)),transparent 58%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
@@ -581,6 +581,24 @@ nav{gap:clamp(18px,2.2vw,34px)!important}
 .hbf{display:inline-block;width:.62em;height:auto;margin-inline-start:.14em;vertical-align:.18em;transform-origin:50% 60%;animation:hbfHover 4.2s ease-in-out infinite;pointer-events:none}
 @keyframes hbfHover{0%,100%{transform:translate(0,0) rotate(-8deg)}25%{transform:translate(-6px,-12px) rotate(4deg) scale(1.06)}50%{transform:translate(4px,-5px) rotate(10deg) scale(.96)}75%{transform:translate(-3px,-14px) rotate(-3deg) scale(1.04)}}
 @media(prefers-reduced-motion:reduce){.hbf{animation:none}}
+/* about us: full cut-out photos leaning in from the sides */
+.scene#s8 .duo{width:min(1220px,100%);gap:40px 72px;align-items:stretch}
+.scene#s8 .duo .panel{position:relative;overflow:visible;text-align:start;padding:38px 34px;min-height:430px}
+.scene#s8 .duo .panel:first-child{padding-inline-start:230px}
+.scene#s8 .duo .panel:last-child{padding-inline-end:250px}
+.scene#s8 .duo .ph{position:absolute;bottom:0;width:auto;height:calc(100% + 40px);max-width:none;margin:0;border:0;border-radius:0;object-fit:contain;object-position:bottom;background:none;padding:0;box-shadow:none;filter:drop-shadow(0 22px 26px rgba(70,90,100,.25));pointer-events:none;z-index:2}
+.scene#s8 .duo .panel:first-child .ph{inset-inline-start:-40px}
+.scene#s8 .duo .panel:last-child .ph{inset-inline-end:-40px}
+.scene#s8 .duo .panel::after{content:"";position:absolute;bottom:-14px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,184,.85),rgba(255,214,184,0) 70%);z-index:0;pointer-events:none}
+.scene#s8 .duo .panel:first-child::after{inset-inline-start:-40px}
+.scene#s8 .duo .panel:last-child::after{inset-inline-end:-40px;background:radial-gradient(circle,rgba(150,230,216,.9),rgba(150,230,216,0) 70%)}
+.scene#s8 .duo .panel>*:not(.ph){position:relative;z-index:1}
+@media(max-width:900px){
+ .scene#s8 .duo{gap:34px}
+ .scene#s8 .duo .panel,.scene#s8 .duo .panel:first-child,.scene#s8 .duo .panel:last-child{padding:250px 22px 28px;min-height:0;text-align:center}
+ .scene#s8 .duo .ph{height:290px!important;inset-inline:0!important;margin-inline:auto;top:-40px;bottom:auto;left:0;right:0}
+ .scene#s8 .duo .panel::after{inset-inline:0!important;margin-inline:auto;top:60px;bottom:auto}
+}
 /* bigger hero + service doodles */
 .dd.d1{width:clamp(78px,7.5vw,116px)}
 .dd.d4{width:clamp(66px,6.6vw,100px)}
@@ -749,10 +767,10 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     <div class="stack" style="width:100%">
       <div class="rv" style="text-align:center"><p class="tag" style="text-align:center">נעים להכיר</p><h2>אורין ורוני</h2></div>
       <div class="duo rv">
-        <div class="panel"><img class="ph" src="team/orin.jpg" alt="אורין" loading="lazy"><h3>אני אורין</h3><p class="role">דולה עסקית ליוצרות עצמאיות</p>
+        <div class="panel"><img class="ph" src="team/orin-cut.webp" alt="אורין" loading="lazy" width="480" height="1000"><h3>אני אורין</h3><p class="role">דולה עסקית ליוצרות עצמאיות</p>
           <p>ליוויתי עשרות נשים ליצור עסק מצליח מהמתנות, הידע והכישרונות שלהן. התחלתי את דרכי מגיל צעיר כתחביב ומשיכה לעיצוב גרפי ולמיתוג, ואז למדתי בניית אתרים, שיווק ומיתוג באופן מקצועי.</p>
           <p>הכי מרגש אותי לעצב לך את העולם הדיגיטלי שלך.</p></div>
-        <div class="panel"><img class="ph" src="team/roni.jpg" alt="רוני" loading="lazy"><h3>אני רוני</h3><p class="role">אמנית, יוצרת</p>
+        <div class="panel"><img class="ph" src="team/roni-cut.webp" alt="רוני" loading="lazy" width="543" height="970"><h3>אני רוני</h3><p class="role">אמנית, יוצרת</p>
           <p>בעלת שנים של ניסיון בעולמות הקריאייטיב, העיצוב והיצירה, יזמית של רעיונות ובעלת אש חזקה להוציא אותם לאור באמת. אני עוזרת לך למצוא את האני האותנטי שלך, להבין את החסמים שלך ולעלות לשלב הבא שלך, כאישה, יוצרת ובעלת עסק.</p>
           <p>הכי מתרגשת לעבור איתך מסע אישי, מלב אל לב.</p></div>
       </div>
@@ -1036,8 +1054,8 @@ document.documentElement.classList.add('no-js');
   // background: tint pair per scene, eased
   var scenes=$$('.scene[data-bg]');if(!scenes.length)return;
   var names=['--aA','--aB','--ax','--ay','--bx','--by'],units=['','','%','%','%','%'];
-  var cur=[.6,1,2,95,92,28],tgt=cur.slice(),raf=0;
-  var mix={s0:[.6,1,2,95,92,28],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
+  var cur=[.95,1,6,0,94,40],tgt=cur.slice(),raf=0;
+  var mix={s0:[.95,1,6,0,94,40],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
   function put(){for(var k=0;k<6;k++)H.style.setProperty(names[k],(k<2?cur[k].toFixed(3):Math.round(cur[k])+'%'))}
   function paint(){
     var moving=false;for(var k=0;k<6;k++){var d=tgt[k]-cur[k],e=k<2?.01:.4;if(Math.abs(d)>e){cur[k]+=d*.05;moving=true}else cur[k]=tgt[k]}
