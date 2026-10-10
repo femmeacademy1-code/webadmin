@@ -405,8 +405,8 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 </style>
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
-:root{--bgA:253,226,210;--bgB:212,242,234}
-body{background:radial-gradient(130% 85% at 6% 0%,rgba(var(--bgA),.95),transparent 62%),radial-gradient(125% 90% at 96% 100%,rgba(var(--bgB),.95),transparent 58%),linear-gradient(180deg,#f6fcfa,#fff6f1) fixed!important}
+:root{--aA:.9;--aB:.9;--ax:6%;--ay:0%;--bx:96%;--by:100%}
+body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(150,230,216,var(--aB)),transparent 58%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
 .panel{background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(244,252,249,.9))!important}
@@ -866,12 +866,18 @@ document.documentElement.classList.add('no-js');
 
   // a few well-placed moving doodles (one or two per scene, no repeats) and soft blobs on some scenes
   var plan={
-    s5:[['dd/hearts.png','beat','88%','62%',60]],
-    s6:[['dd/daisy.png','sway','6%','60%',84]],
-    s7:[['dd/butterfly.png','flyer','0%','20%',58]],
+    s0:[['dd/sparkles.png','twinkle','3%','16%',52],['dd/bfly-s.png','flyer small','0%','78%',38]],
+    s1:[['dd/star.png','spin','92%','12%',34],['dd/swirls.png','sway','2%','72%',64]],
+    s2:[['dd/flower-s.png','sway','93%','70%',54],['dd/sparkle.png','twinkle','3%','10%',40]],
+    s3:[['dd/megaphone.png','beat','4%','66%',58],['dd/burst.png','spin','93%','14%',40]],
+    s4:[['dd/camera.png','sway','93%','72%',54],['dd/sparkles.png','twinkle','2%','12%',48]],
+    s5:[['dd/hearts.png','beat','88%','62%',60],['dd/swoosh.png','sway','3%','14%',60]],
+    s6:[['dd/daisy.png','sway','6%','60%',84],['dd/star.png','spin','92%','16%',34]],
+    s7:[['dd/butterfly.png','flyer','0%','20%',58],['dd/crown.png','beat','92%','74%',50]],
     s8:[['dd/sparkles.png','twinkle','90%','14%',64],['dd/bfly-s.png','flyer small','0%','70%',40]],
-    s9:[['dd/hearts.png','beat','8%','24%',56],['dd/star.png','spin','90%','66%',34]]
+    s9:[['dd/hearts.png','beat','8%','24%',56],['dd/star.png','spin','90%','66%',34],['dd/flower-s.png','sway','4%','76%',48]]
   };
+
   scenes.forEach(function(s,k){
     if(k%2===0&&!s.classList.contains('hero')){var b=document.createElement('div');b.className='blob';b.setAttribute('aria-hidden','true');b.style.insetBlockStart=(k%4?'8%':'30%');b.style[k%4?'insetInlineStart':'insetInlineEnd']='-6%';s.appendChild(b)}
     (plan[s.id]||[]).forEach(function(d,n){
@@ -1009,13 +1015,15 @@ document.documentElement.classList.add('no-js');
 
   // background: tint pair per scene, eased
   var scenes=$$('.scene[data-bg]');if(!scenes.length)return;
-  var cur=[253,226,210,212,242,234],tgt=cur.slice(),raf=0;
+  var names=['--aA','--aB','--ax','--ay','--bx','--by'],units=['','','%','%','%','%'];
+  var cur=[.9,.9,6,0,96,100],tgt=cur.slice(),raf=0;
+  var mix={s0:[.95,.8,6,0,96,100],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
+  function put(){for(var k=0;k<6;k++)H.style.setProperty(names[k],(k<2?cur[k].toFixed(3):Math.round(cur[k])+'%'))}
   function paint(){
-    var moving=false;for(var k=0;k<6;k++){var d=tgt[k]-cur[k];if(Math.abs(d)>.4){cur[k]+=d*.06;moving=true}else cur[k]=tgt[k]}
-    H.style.setProperty('--bgA',cur.slice(0,3).map(Math.round).join(','));H.style.setProperty('--bgB',cur.slice(3).map(Math.round).join(','));
-    raf=moving?requestAnimationFrame(paint):0;
+    var moving=false;for(var k=0;k<6;k++){var d=tgt[k]-cur[k],e=k<2?.01:.4;if(Math.abs(d)>e){cur[k]+=d*.05;moving=true}else cur[k]=tgt[k]}
+    put();raf=moving?requestAnimationFrame(paint):0;
   }
-  function setBg(sc){var p=sc.getAttribute('data-bg').split('|').join(',').split(',').map(Number);if(p.length!==6)return;tgt=p;if(calm){cur=p.slice();H.style.setProperty('--bgA',cur.slice(0,3).join(','));H.style.setProperty('--bgB',cur.slice(3).join(','))}else if(!raf)raf=requestAnimationFrame(paint)}
+  function setBg(sc){var p=mix[sc.id];if(!p)return;tgt=p.slice();if(calm){cur=p.slice();put()}else if(!raf)raf=requestAnimationFrame(paint)}
   if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)setBg(e.target)})},{rootMargin:'-45% 0px -45% 0px'});scenes.forEach(function(s){io.observe(s)})}
 })();
 </script>
