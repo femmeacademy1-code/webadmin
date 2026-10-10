@@ -678,6 +678,17 @@ nav{display:none!important}
 .svc-intro{text-align:center;padding:clamp(54px,8vw,96px) max(16px,6vw) 0;position:relative;z-index:1}
 .svc-intro h2{font-family:var(--f-display);font-weight:400;font-size:clamp(40px,7vw,92px);line-height:1.08;margin:0 0 10px;background:linear-gradient(100deg,#9c3b3b 0%,var(--rose) 50%,#d9776a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .svc-intro svg{width:clamp(90px,12vw,150px);height:auto;display:block;margin:0 auto}
+/* mobile: more breathing room between and inside sections */
+@media(max-width:640px){
+ .scene:not(.hero):not(#s9){padding-top:84px!important;padding-bottom:78px!important;row-gap:34px!important}
+ .scene:not(.hero) .stack{gap:22px!important}
+ .svc-intro{padding-top:70px!important}
+ .scene .panel{margin-bottom:6px}
+ .logoband{margin-top:14px}
+ .scene.hero{padding-bottom:56px!important}
+ .showwrap,.lapwrap{margin-top:8px}
+ .vhint{margin-top:10px}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
