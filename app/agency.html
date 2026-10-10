@@ -571,6 +571,12 @@ html.a11y-nomotion .ltrack{animation:none}
 .hud{display:none!important}
 .blob{background:radial-gradient(circle at 30% 30%,rgba(var(--pc),.16),rgba(var(--pc),.03) 70%)!important}
 .wash{background:radial-gradient(circle at 50% 50%,rgba(var(--pc),.07),transparent 62%)!important}
+/* bigger hero + service doodles */
+.dd.d1{width:clamp(78px,7.5vw,116px)}
+.dd.d4{width:clamp(66px,6.6vw,100px)}
+.dd.d5{width:58px}
+.sym{width:96px!important}
+@media(max-width:900px){.sym{width:72px!important}}
 </style>
 </head>
 <body>
@@ -869,24 +875,25 @@ document.documentElement.classList.add('no-js');
 
   // a few well-placed moving doodles (one or two per scene, no repeats) and soft blobs on some scenes
   var plan={
-    s0:[['dd/sparkles.png','twinkle','3%','16%',52],['dd/bfly-s.png','flyer small','0%','78%',38]],
-    s1:[['dd/star.png','spin','92%','12%',34],['dd/swirls.png','sway','2%','72%',64]],
-    s2:[['dd/flower-s.png','sway','93%','70%',54],['dd/sparkle.png','twinkle','3%','10%',40]],
-    s3:[['dd/megaphone.png','beat','4%','66%',58],['dd/burst.png','spin','93%','14%',40]],
-    s4:[['dd/camera.png','sway','93%','72%',54],['dd/sparkles.png','twinkle','2%','12%',48]],
-    s5:[['dd/hearts.png','beat','88%','62%',60],['dd/swoosh.png','sway','3%','14%',60]],
-    s6:[['dd/daisy.png','sway','6%','60%',84],['dd/star.png','spin','92%','16%',34]],
-    s7:[['dd/butterfly.png','flyer','0%','20%',58],['dd/crown.png','beat','92%','74%',50]],
-    s8:[['dd/sparkles.png','twinkle','90%','14%',64],['dd/bfly-s.png','flyer small','0%','70%',40]],
-    s9:[['dd/hearts.png','beat','8%','24%',56],['dd/star.png','spin','90%','66%',34],['dd/flower-s.png','sway','4%','76%',48]]
+    s0:[['dd/sparkles.png','twinkle','46%','12%',70],['dd/bfly-s.png','flyer small','0%','78%',54],['dd/star.png','spin','48%','84%',44],['dd/diamond.png','sway','95%','88%',52]],
+    s1:[['dd/star.png','spin','93%','10%',48],['dd/swirls.png','sway','1%','74%',84],['dd/arrow.png','sway','46%','90%',70],['dd/sparkle.png','twinkle','2%','8%',54]],
+    s2:[['dd/flower-s.png','sway','92%','72%',72],['dd/sparkle.png','twinkle','2%','10%',58],['dd/swoosh.png','sway','3%','80%',84],['dd/hearts.png','beat','94%','8%',56]],
+    s3:[['dd/megaphone.png','beat','3%','68%',76],['dd/burst.png','spin','92%','12%',58],['dd/diamond.png','sway','94%','80%',54],['dd/sparkles.png','twinkle','3%','8%',60]],
+    s4:[['dd/camera.png','sway','92%','74%',72],['dd/sparkles.png','twinkle','2%','10%',64],['dd/bolt.png','beat','94%','10%',56],['dd/swirls.png','sway','2%','78%',70]],
+    s5:[['dd/hearts.png','beat','88%','64%',78],['dd/swoosh2.png','sway','3%','12%',80],['dd/sparkle.png','twinkle','46%','90%',54],['dd/daisy.png','sway','2%','72%',66]],
+    s6:[['dd/daisy.png','sway','5%','58%',100],['dd/star.png','spin','92%','14%',46],['dd/bfly-s.png','flyer small','0%','30%',50],['dd/burst.png','spin','93%','78%',52]],
+    s7:[['dd/butterfly.png','flyer','0%','20%',72],['dd/crown.png','beat','92%','10%',64],['dd/sparkles.png','twinkle','2%','80%',64],['dd/diamond.png','sway','94%','86%',50]],
+    s8:[['dd/sparkles.png','twinkle','90%','12%',80],['dd/bfly-s.png','flyer small','0%','70%',54],['dd/swoosh.png','sway','3%','10%',84],['dd/hearts.png','beat','92%','78%',60]],
+    s9:[['dd/hearts.png','beat','8%','20%',72],['dd/star.png','spin','90%','60%',46],['dd/flower-s.png','sway','4%','76%',64],['dd/butterfly.png','flyer','0%','45%',64],['dd/sparkles.png','twinkle','88%','10%',66]]
   };
+
 
   scenes.forEach(function(s,k){
     if(k%2===0&&!s.classList.contains('hero')){var b=document.createElement('div');b.className='blob';b.setAttribute('aria-hidden','true');b.style.insetBlockStart=(k%4?'8%':'30%');b.style[k%4?'insetInlineStart':'insetInlineEnd']='-6%';s.appendChild(b)}
     (plan[s.id]||[]).forEach(function(d,n){
       var f=document.createElement('div');f.className='fl '+d[1];f.setAttribute('aria-hidden','true');
       f.style.left=d[2];f.style.top=d[3];f.style.setProperty('--ft',d[3]);f.style.setProperty('--w',d[4]+'px');f.style.setProperty('--d',(n+1)*6*(k%2?1:-1));f.dataset.depth=(.05+n*.06)*(n%2?-1:1);
-      var im=document.createElement('img');im.src=d[0];im.alt='';im.loading='lazy';f.appendChild(im);s.appendChild(f)
+      var im=document.createElement('img');im.src='brand/'+d[0];im.alt='';im.loading='lazy';f.appendChild(im);s.appendChild(f)
     });
   });
   var fl=$$('.fl'),ribbon=$$('.ribbon');
