@@ -636,6 +636,17 @@ nav{display:none!important}
 @media(max-width:900px){.scene.hero{padding-top:130px!important}.gem{left:auto!important;right:2%!important;top:-.5em!important;font-size:64px!important}}
 /* hero photo: soft fade into the ribbon instead of a hard cut */
 .hero-photo .duo{-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent 99%);mask-image:linear-gradient(180deg,#000 80%,transparent 99%)}
+/* the words carry the gradient, the heading box must not paint it again (was doubling) */
+.sp #s0 h2{background:none!important}
+.sp #s1 h2{background:none!important}
+.sp #s2 h2{background:none!important}
+.sp #s3 h2{background:none!important}
+.sp #s4 h2{background:none!important}
+.sp #s5 h2{background:none!important}
+.sp #s6 h2{background:none!important}
+.sp #s7 h2{background:none!important}
+.sp #s8 h2{background:none!important}
+.sp #s9 h2{background:none!important}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
