@@ -483,6 +483,64 @@ html.ed .ph .bars{display:none}
 @media(max-width:900px){.supphoto{position:relative;inset:auto!important;margin:18px auto 0;width:min(92%,520px);--k:.9;order:2;animation:none}.scene#s5{min-height:0}.scene#s5 .panel{order:1;max-width:680px}}
 @media(prefers-reduced-motion:reduce){.supphoto,.supphoto .sph{animation:none!important}}
 </style>
+<style>
+/* ===== showcases closer to their text panel (panel width 560, gap 36) ===== */
+.scene#s2 .showwrap,.scene#s4 .showwrap{inset-inline-end:auto;inset-inline-start:auto;right:calc(max(6vw,16px) + 560px + 36px);left:auto}
+.scene#s3 .showwrap{inset-inline-start:auto;inset-inline-end:auto;left:calc(max(6vw,16px) + 560px + 36px);right:auto}
+.supphoto{inset-inline-start:auto;left:calc(max(6vw,16px) + 560px + 30px)}
+.lapwrap{inset-inline-start:max(3.2vw,18px)}
+@media(max-width:900px){.scene#s2 .showwrap,.scene#s3 .showwrap,.scene#s4 .showwrap{left:auto;right:auto}.supphoto{left:auto}.lapwrap{inset-inline-start:auto}}
+
+/* ===== video testimonials: a wall of cards that react to the pointer ===== */
+.vwall{display:flex;gap:14px;width:min(1120px,100%);height:min(500px,62vw);margin:6px auto 0;direction:rtl}
+.vt{position:relative;flex:1 1 0;min-width:0;border-radius:28px;overflow:hidden;cursor:pointer;border:3px solid #fff;box-shadow:0 24px 40px -22px rgba(60,60,80,.45);transition:flex .7s cubic-bezier(.2,.8,.2,1),box-shadow .4s,transform .4s;text-decoration:none;color:#fff;isolation:isolate;background:#d8e8e6}
+.vt.on{flex:3.4;box-shadow:0 30px 50px -20px rgba(var(--pc),.55)}
+.vt img{position:absolute;inset:-4%;width:108%;height:108%;object-fit:cover;transition:transform 1.4s cubic-bezier(.2,.8,.2,1);transform:translate(calc(var(--px,0)*-14px),calc(var(--py,0)*-10px)) scale(1.02);z-index:-2}
+.vt.on img{transform:translate(calc(var(--px,0)*-14px),calc(var(--py,0)*-10px)) scale(1.09)}
+.vt::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at var(--sx,50%) var(--sy,30%),rgba(255,255,255,.38),transparent 55%);opacity:0;transition:opacity .4s}
+.vt:hover::before{opacity:1}
+.vt::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(transparent 45%,rgba(25,20,35,.7))}
+.vt .play{position:absolute;left:50%;top:42%;width:68px;height:68px;margin:-34px 0 0 -34px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;transition:transform .4s cubic-bezier(.2,.9,.3,1.4)}
+.vt .play::before,.vt .play::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.8);animation:playPulse 2.4s ease-out infinite}
+.vt .play::after{animation-delay:1.2s}
+.vt .play i{width:0;height:0;margin-inline-start:4px;border-style:solid;border-width:11px 0 11px 18px;border-color:transparent transparent transparent rgb(var(--pc))}
+@keyframes playPulse{from{transform:scale(1);opacity:.9}to{transform:scale(1.9);opacity:0}}
+.vt:hover .play{transform:scale(1.15)}
+.vt .vname{position:absolute;inset-inline:0;bottom:20px;display:block;text-align:center;font:700 15px var(--f-body);writing-mode:vertical-rl;text-orientation:mixed;inset-block:auto 20px;margin:auto;transition:opacity .3s}
+.vt.on .vname{opacity:0}
+.vt .meta{position:absolute;inset-inline:0;bottom:0;padding:20px 22px;display:grid;gap:2px;text-align:start;opacity:0;transform:translateY(16px);transition:opacity .45s .12s,transform .5s .12s}
+.vt.on .meta{opacity:1;transform:none}
+.vt .meta b{font:400 26px var(--f-display)}
+.vt .meta em{font:700 14px var(--f-body);font-style:normal;opacity:.9}
+.vt .meta small{font:600 12px var(--f-body);opacity:.8;letter-spacing:.06em}
+.vt:not(.on) .play{transform:scale(.8);opacity:.85}
+.vt:focus-visible{outline:4px solid rgb(var(--pc));outline-offset:3px}
+.vhint{font:600 13px var(--f-body)!important;color:var(--muted);text-align:center;margin:10px auto 6px!important;max-width:60ch}
+@media(max-width:820px){.vwall{height:auto;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 4px 14px;scrollbar-width:none}.vwall::-webkit-scrollbar{display:none}.vt,.vt.on{flex:0 0 72%;aspect-ratio:3/4;scroll-snap-align:center}.vt .vname{display:none}.vt .meta{opacity:1;transform:none}}
+dialog#vbox{border:0;padding:0;background:transparent;max-width:min(94vw,960px);width:100%;overflow:visible}
+dialog#vbox::backdrop{background:rgba(24,22,34,.78);backdrop-filter:blur(6px)}
+.vframe{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:#000;box-shadow:0 40px 80px -20px rgba(0,0,0,.6)}
+.vframe.tall{aspect-ratio:9/16;max-height:86vh;width:auto;margin:0 auto}
+.vframe iframe,.vframe video{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vframe .vmsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#fff;padding:24px;font:700 18px/1.6 var(--f-body)}
+.vclose{position:absolute;top:-46px;inset-inline-end:0;all:unset;cursor:pointer;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--paper);font:800 16px var(--f-body);display:grid;place-items:center;position:absolute;top:-48px;left:0}
+.vclose:focus-visible{outline:3px solid rgb(var(--pc));outline-offset:2px}
+html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
+@media(prefers-reduced-motion:reduce){.vt .play::before,.vt .play::after{animation:none}.vt,.vt img{transition:none}}
+</style>
+<style>
+/* ===== scene headings: a living gradient with a shimmer, plus a waving marker underline ===== */
+.scene h2{background:linear-gradient(100deg,var(--paper) 0%,rgb(var(--pc)) 38%,#2f8f86 62%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
+.sp .scene h2{background:none;animation:none}
+.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,rgb(var(--pc)) 38%,#2f8f86 62%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
+@keyframes h2Shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
+.scene h2::after{content:"";display:block;width:92px;height:9px;margin-top:10px;background:linear-gradient(90deg,rgb(var(--pc)),#2f8f86);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;animation:waveSlide 1.8s linear infinite}
+.scene.center h2::after{margin-inline:auto}
+@keyframes waveSlide{to{-webkit-mask-position:36px 0;mask-position:36px 0}}
+.hero h1::after{display:none}
+@media(prefers-reduced-motion:reduce){.scene h2,.sp .scene h2 .wi,.scene h2::after{animation:none!important}}
+html.a11y-nomotion .scene h2,html.a11y-nomotion .scene h2::after{animation:none!important}
+</style>
 </head>
 <body>
 <style>
@@ -526,7 +584,6 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     </div>
     <div>
       <img class="hero-logo" src="brand/logo.png" alt="Femme Digital">
-      <p class="tag">סוכנות דיגיטל ליצירה עסקית</p>
       <h1 aria-label="נעים מאוד, אנחנו פאם דיגיטל"><span style="--i:0">נעים</span> <span style="--i:1">מאוד</span><br><span style="--i:2">אנחנו</span> <em><span style="--i:3">פאם דיגיטל</span></em></h1>
       <p class="rotline reveal" aria-label="מלוות אותך באתרים, מיתוג, שיווק ותוכן">מלוות אותך ב<span class="rotbox" aria-hidden="true"><span class="rotin"><b>אתרים ודפי נחיתה</b><b>מיתוג ממגנט</b><b>שיווק ממומן</b><b>תוכן וצילום</b><b>אתרים ודפי נחיתה</b></span></span></p>
       <p class="reveal">סוכנות של נשים שמלווה יוצרות ויוצרים עצמאיים בדרך להצלחה. אנחנו כאן כדי לעזור לעסק שלך להוציא את השירותים והמוצרים לאור, דרך אתרים, מיתוג ושיווק, ביד מקצועית ותומכת.</p>
@@ -627,6 +684,8 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   <section class="scene center" id="s7" data-pc="192,80,77" data-label="המלצות" data-next="נעים להכיר" data-bg="205,232,245|255,230,218">
     <div class="stack" style="width:100%">
       <div class="rv" style="text-align:center"><p class="tag" style="text-align:center">ההמלצות שלכם על הסוכנות</p><h2>מי שעבדו איתנו מספרים</h2></div>
+      <div class="vwall rv" aria-label="סרטוני המלצה"><a class="vt on" href="#" data-video><img src="brand/vt-1.svg" alt="סרטון המלצה 1" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>אתר ומיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-2.svg" alt="סרטון המלצה 2" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>דף נחיתה לקורס</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-3.svg" alt="סרטון המלצה 3" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>קמפיין ולידים</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-4.svg" alt="סרטון המלצה 4" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>ערכת מיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-5.svg" alt="סרטון המלצה 5" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>ליווי אישי</em><small>לחצו לצפייה בסרטון</small></span></a></div>
+      <p class="vhint rv">הוסיפו קישור YouTube / Vimeo / mp4 לכל כרטיס (בעורך: לחיצה על הכרטיס ושדה הקישור) והסרטון ייפתח בחלון משלו.</p>
       <div class="wall"><div class="track" id="track"></div></div>
     </div>
   </section>
@@ -742,6 +801,7 @@ document.documentElement.classList.add('no-js');
 })();
 </script>
 
+<dialog id="vbox" aria-label="סרטון המלצה"><button type="button" class="vclose" aria-label="סגירה">✕</button><div class="vframe" id="vframe"></div></dialog>
 <script>
 /* extra "alive" layer: decorations, word reveals, cursor, parallax, tilt. Skipped in the editor and with reduced motion. */
 (function(){
@@ -922,6 +982,52 @@ document.documentElement.classList.add('no-js');
   }
   function setBg(sc){var p=sc.getAttribute('data-bg').split('|').join(',').split(',').map(Number);if(p.length!==6)return;tgt=p;if(calm){cur=p.slice();H.style.setProperty('--bgA',cur.slice(0,3).join(','));H.style.setProperty('--bgB',cur.slice(3).join(','))}else if(!raf)raf=requestAnimationFrame(paint)}
   if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)setBg(e.target)})},{rootMargin:'-45% 0px -45% 0px'});scenes.forEach(function(s){io.observe(s)})}
+})();
+</script>
+
+<script>
+/* video testimonials: expanding cards that follow the pointer, and a lightbox that understands YouTube / Vimeo / mp4 links */
+(function(){
+  var H=document.documentElement,ed=H.classList.contains('ed');
+  var wall=document.querySelector('.vwall'),box=document.getElementById('vbox'),frame=document.getElementById('vframe');
+  if(!wall||!box)return;
+  var cards=[].slice.call(wall.querySelectorAll('.vt'));
+  function focusCard(c){cards.forEach(function(x){x.classList.toggle('on',x===c)})}
+  cards.forEach(function(c){
+    c.addEventListener('mouseenter',function(){focusCard(c)});
+    c.addEventListener('focus',function(){focusCard(c)});
+    c.addEventListener('pointermove',function(e){
+      var r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      c.style.setProperty('--sx',(x*100).toFixed(0)+'%');c.style.setProperty('--sy',(y*100).toFixed(0)+'%');
+      c.style.setProperty('--px',((x-.5)*2).toFixed(2));c.style.setProperty('--py',((y-.5)*2).toFixed(2));
+    });
+    c.addEventListener('pointerleave',function(){c.style.setProperty('--px',0);c.style.setProperty('--py',0)});
+    c.addEventListener('click',function(e){
+      if(ed)return;e.preventDefault();
+      if(!c.classList.contains('on')&&matchMedia('(hover:none)').matches){focusCard(c);return}
+      open(c.getAttribute('href')||'');
+    });
+  });
+  function parse(u){
+    var m;u=String(u).trim();
+    if((m=u.match(/^https:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{11})/)))return{src:'https://www.youtube-nocookie.com/embed/'+m[1]+'?autoplay=1&rel=0&playsinline=1',tall:true};
+    if((m=u.match(/^https:\/\/(?:www\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([\w-]{11})/))||(m=u.match(/^https:\/\/youtu\.be\/([\w-]{11})/))||(m=u.match(/^https:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/)))return{src:'https://www.youtube-nocookie.com/embed/'+m[1]+'?autoplay=1&rel=0&playsinline=1'};
+    if((m=u.match(/^https:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d{6,12})/)))return{src:'https://player.vimeo.com/video/'+m[1]+'?autoplay=1'};
+    if(/^(https:\/\/|\/|[\w.\-\/]+)[^\s"'<>]*\.(mp4|webm|mov)(\?[^\s"'<>]*)?$/i.test(u)&&!/^(javascript|data):/i.test(u))return{video:u};
+    return null;
+  }
+  function open(href){
+    frame.className='vframe';frame.textContent='';
+    var p=parse(href);
+    if(!p){var d=document.createElement('div');d.className='vmsg';d.textContent='כאן יופיע הסרטון. מוסיפים לכרטיס קישור YouTube, Vimeo או קובץ mp4.';frame.appendChild(d)}
+    else if(p.video){var v=document.createElement('video');v.src=p.video;v.controls=true;v.autoplay=true;v.playsInline=true;frame.appendChild(v)}
+    else{if(p.tall)frame.classList.add('tall');var f=document.createElement('iframe');f.src=p.src;f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;f.referrerPolicy='strict-origin-when-cross-origin';f.title='סרטון המלצה';frame.appendChild(f)}
+    if(box.showModal)box.showModal();else box.setAttribute('open','')
+  }
+  function close(){frame.textContent='';if(box.close)box.close();else box.removeAttribute('open')}
+  box.querySelector('.vclose').addEventListener('click',close);
+  box.addEventListener('click',function(e){if(e.target===box)close()});
+  box.addEventListener('close',function(){frame.textContent=''});
 })();
 </script>
 <script src="ui.js"></script>
