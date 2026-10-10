@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 15;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it · 15: the page scrolls while dragging near its edge
+  var KIT_VERSION = 16;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it · 15: the page scrolls while dragging near its edge · 16: keyboard shortcuts
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -340,7 +340,7 @@
       if (el === editingEl) return;
       Object.keys(s.attrs).forEach(function (a) { s.attrs[a] == null ? el.removeAttribute(a) : el.setAttribute(a, s.attrs[a]); });
       Object.keys(s.nodes).forEach(function (i) { if (el.childNodes[i]) el.childNodes[i].nodeValue = s.nodes[i]; });
-      if (s.children) { while (el.firstChild) el.removeChild(el.firstChild); s.children.forEach(function (c) { el.appendChild(c.cloneNode(true)); }); }
+      if (s.children) { while (el.firstChild) el.removeChild(el.firstChild); s.children.forEach(function (c) { if (c.nodeType === 1 && c.hasAttribute(CID)) return; el.appendChild(c.cloneNode(true)); }); }   // added picture slots are not part of the original
       Object.keys(s.style).forEach(function (p) { s.style[p][0] ? el.style.setProperty(p, s.style[p][0], s.style[p][1]) : el.style.removeProperty(p); });
     });
     touched.clear();
@@ -821,6 +821,11 @@
   }
 
   var editWs = '';
+  /* Remember typed text locally at once, so the page's own re-apply of the (older) saved edits cannot flash the old text back while the editor syncs. */
+  function localText(el, v) {
+    var pgs = edits.pages = edits.pages || {}, pg = pgs[pageKey] = pgs[pageKey] || {}, els = pg.els = pg.els || {}, k = pathOf(el);
+    els[k] = Object.assign({}, els[k], { t: v });
+  }
   function stopEditing(commit) {
     if (!editingEl) return;
     var el = editingEl;
@@ -828,7 +833,7 @@
     if (!el.getAttribute('style')) el.removeAttribute('style');
     el.removeAttribute('contenteditable');
     editingEl = null;
-    if (commit) { var v = getText(el); if (v.indexOf('\n') >= 0) setText(el, v); send({ type: 'cms-text', key: pathOf(el), value: v }); }   // typed line breaks become <br>
+    if (commit) { var v = getText(el); localText(el, v); if (v.indexOf('\n') >= 0) setText(el, v); send({ type: 'cms-text', key: pathOf(el), value: v }); }   // typed line breaks become <br>
   }
 
   document.addEventListener('mouseover', function (e) {
@@ -851,6 +856,10 @@
     if (!u || u.kind !== 'text') return;
     e.preventDefault();
     select(u);
+    startEditing(u);
+  }, true);
+
+  function startEditing(u) {
     editingEl = u.el;
     editWs = u.el.style.whiteSpace;
     u.el.style.whiteSpace = 'pre-wrap';                       // so a typed line break is visible while editing
@@ -859,10 +868,24 @@
     u.el.focus();
     var r = document.createRange(); r.selectNodeContents(u.el);
     var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
+
+  /* Keyboard shortcuts: forwarded to the editor, which knows what the selection can do (Delete, Ctrl+D/C/V, Alt+arrows, Esc, Ctrl+Z/Y/S).
+   * Enter on a selected text starts typing in it. Nothing is intercepted while typing in the page or in a field. */
+  document.addEventListener('keydown', function (e) {
+    if (editingEl || e.isComposing) return;
+    if (e.target && e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return;
+    var k = e.key, mod = e.ctrlKey || e.metaKey, low = k.length === 1 ? k.toLowerCase() : k;
+    if (k === 'Enter' && !mod && !e.altKey && selEl && kindOf(selEl) === 'text') { e.preventDefault(); e.stopImmediatePropagation(); startEditing({ kind: 'text', el: selEl }); return; }
+    var always = mod && /^[szy]$/.test(low);
+    var withSel = !!selEl && ((mod && /^[dcv]$/.test(low)) || k === 'Delete' || k === 'Backspace' || k === 'Escape' || (e.altKey && /^Arrow(Up|Down)$/.test(k)));
+    if (!always && !withSel) return;
+    e.preventDefault();
+    send({ type: 'cms-key', key: low, ctrl: mod, shift: e.shiftKey, alt: e.altKey });
   }, true);
 
   document.addEventListener('input', function () {
-    if (editingEl) send({ type: 'cms-text', key: pathOf(editingEl), value: getText(editingEl), live: true });
+    if (editingEl) { localText(editingEl, getText(editingEl)); send({ type: 'cms-text', key: pathOf(editingEl), value: getText(editingEl), live: true }); }
   }, true);
   document.addEventListener('keydown', function (e) {
     if (!editingEl) return;
@@ -884,6 +907,8 @@
       obsUntil = Date.now() + 20000;
       applyAll(true);
       if (selEl) send({ type: 'cms-select', unit: describeSelected(), refresh: true });
+    } else if (d.type === 'cms-begin-edit') {
+      if (selEl && kindOf(selEl) === 'text') startEditing({ kind: 'text', el: selEl });
     } else if (d.type === 'cms-deselect') {
       select(null);
     } else if (d.type === 'cms-select-key') {
