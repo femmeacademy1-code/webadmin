@@ -628,6 +628,14 @@ nav{display:none!important}
 #s9 h2,.sp #s9 h2 .wi{background:linear-gradient(100deg,#1c6f66 0%,#2fa095 50%,#5cc4b6 100%)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important}
 #s6 .logoband .lab{background:linear-gradient(100deg,#9c3b3b 0%,var(--rose) 50%,#d9776a 100%)!important;-webkit-background-clip:text!important;background-clip:text!important}
 #s7 .logoband .lab{background:linear-gradient(100deg,#1c6f66 0%,#2fa095 50%,#5cc4b6 100%)!important;-webkit-background-clip:text!important;background-clip:text!important}
+.hero-logo.top{position:absolute!important;top:22px;left:50%;margin:0!important;width:clamp(150px,15vw,230px)!important;z-index:5;animation:heroLogoFloat 4s ease-in-out infinite!important}
+@keyframes heroLogoFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+.scene.hero{padding-top:150px!important}
+.hero h1{position:relative}
+.gem{left:6%!important;top:-.2em!important;bottom:auto!important;font-size:clamp(80px,7vw,112px)!important}
+@media(max-width:900px){.scene.hero{padding-top:130px!important}.gem{left:auto!important;right:2%!important;top:-.5em!important;font-size:64px!important}}
+/* hero photo: soft fade into the ribbon instead of a hard cut */
+.hero-photo .duo{-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent 99%);mask-image:linear-gradient(180deg,#000 80%,transparent 99%)}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
