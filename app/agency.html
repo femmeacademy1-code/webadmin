@@ -620,6 +620,12 @@ nav{display:none!important}
 .sp .scene h2 .wd:nth-child(even) .wi{color:#2f9a90!important}
 .scene h2{background:linear-gradient(100deg,var(--rose) 0%,var(--rose) 50%,#2f9a90 50%,#2f9a90 100%)!important;-webkit-background-clip:text!important;background-clip:text!important}
 .sp .scene h2{background:none!important;color:inherit!important;-webkit-text-fill-color:initial}
+.hero-logo.top{position:absolute!important;top:22px;left:50%;margin:0!important;width:clamp(150px,15vw,230px)!important;z-index:5;animation:heroLogoFloat 4s ease-in-out infinite!important}
+@keyframes heroLogoFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+.scene.hero{padding-top:150px!important}
+.hero h1{position:relative}
+.gem{left:6%!important;top:-.2em!important;bottom:auto!important;font-size:clamp(80px,7vw,112px)!important}
+@media(max-width:900px){.scene.hero{padding-top:130px!important}.gem{left:auto!important;right:2%!important;top:-.5em!important;font-size:64px!important}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -670,13 +676,14 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
 
 <main>
   <section class="scene hero" id="s0" data-pc="184,81,80" data-label="פתיחה" data-next="אתרים ודפי נחיתה" data-bg="253,226,210|212,242,234">
+      <img class="hero-logo top" src="brand/logo.png" alt="Femme Digital">
+
     <div class="doodles" aria-hidden="true">
       <svg class="dd d1" viewBox="0 0 80 80" fill="none" stroke="#2a2a3c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 40 C28 8 4 8 8 28 C10 40 28 46 40 40 Z M40 40 C52 8 76 8 72 28 C70 40 52 46 40 40 Z M40 40 C30 52 18 72 30 68 C38 64 40 50 40 40 Z M40 40 C50 52 62 72 50 68 C42 64 40 50 40 40 Z" fill="#fff8f3"/><path d="M40 22 V54"/></svg>
       <svg class="dd d4" viewBox="0 0 60 60" fill="none" stroke="#2a2a3c" stroke-width="2.2" stroke-linejoin="round"><path d="M30 8 C38 -2 52 6 46 16 C58 14 60 30 48 32 C56 42 44 54 34 46 C30 58 14 54 16 42 C4 40 4 24 16 22 C8 12 20 0 30 8Z" fill="#fff8f3"/><circle cx="30" cy="30" r="5" fill="#2a2a3c"/></svg>
       <svg class="dd d5" viewBox="0 0 40 36" fill="none" stroke="#2a2a3c" stroke-width="2" stroke-linejoin="round"><path d="M20 33 C4 22 2 10 11 6 C16 4 19 8 20 11 C21 8 24 4 29 6 C38 10 36 22 20 33Z" fill="#fde0d4"/></svg>
     </div>
     <div>
-      <img class="hero-logo" src="brand/logo.png" alt="Femme Digital">
       <h1 aria-label="נעים מאוד, אנחנו פאם דיגיטל"><span class="gem" aria-hidden="true"><img src="brand/dd/gem.png" alt=""><i class="g1">✦</i><i class="g2">✦</i><i class="g3">✦</i></span><span style="--i:0">נעים</span> <span style="--i:1">מאוד</span><br><span style="--i:2">אנחנו</span> <em><span style="--i:3">פאם דיגיטל</span></em><img class="hbf" src="brand/dd/butterfly.png" alt="" aria-hidden="true"></h1>
       <p class="rotline reveal" aria-label="מלוות אותך באתרים, מיתוג, שיווק ותוכן">מלוות אותך ב<span class="rotbox" aria-hidden="true"><span class="rotin"><b>אתרים ודפי נחיתה</b><b>מיתוג ממגנט</b><b>שיווק ממומן</b><b>תוכן וצילום</b><b>אתרים ודפי נחיתה</b></span></span></p>
       <p class="reveal">סוכנות של נשים שמלווה יוצרות ויוצרים עצמאיים בדרך להצלחה. אנחנו כאן כדי לעזור לעסק שלך להוציא את השירותים והמוצרים לאור, דרך אתרים, מיתוג ושיווק, ביד מקצועית ותומכת.</p>
