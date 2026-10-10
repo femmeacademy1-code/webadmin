@@ -355,7 +355,11 @@ for (const [name, op] of Object.entries({
   'hide with selector injection': { op: 'hide', key: 'a{}</style><script>' },
   'move without key': { op: 'move', dir: 1 },
   'op not an object': 'dup',
-  'remove op (not allowed)': { op: 'remove', key: '#a' },
+  'delete op (not allowed)': { op: 'delete', key: '#a' },
+  'remove without key': { op: 'remove' },
+  'remove with bad key': { op: 'remove', key: 'a{}</style>' },
+  'video file with a bad path': { op: 'add', after: '#a', id: 'v1x', type: 'video', p: { provider: 'file', src: '../x.mp4' } },
+  'video file with a wrong extension': { op: 'add', after: '#a', id: 'v2x', type: 'video', p: { provider: 'file', src: 'cms/uploads/a.exe' } },
   'html op (not allowed)': { op: 'html', key: '#a', value: '<script>1</script>' },
 })) {
   test('rejects structure op: ' + name, async () => {
@@ -972,7 +976,7 @@ test('chat: Claude is called with the tools, a cached system prompt and the page
   assert.equal(sent.headers['x-api-key'], 'ak-test');
   assert.equal(sent.body.model, 'claude-sonnet-5-5');
   assert.equal(sent.body.system[0].cache_control.type, 'ephemeral');
-  assert.deepEqual(sent.body.tools.map((x) => x.name), ['edit_element', 'add_element', 'add_image_beside_text', 'duplicate_element', 'move_element', 'hide_element', 'show_optional_section', 'add_section_html', 'ask_agency']);
+  assert.deepEqual(sent.body.tools.map((x) => x.name), ['edit_element', 'add_element', 'add_image_beside_text', 'duplicate_element', 'move_element', 'hide_element', 'delete_element', 'insert_image', 'insert_video', 'replace_image', 'show_optional_section', 'add_section_html', 'ask_agency']);
   assert.deepEqual(sent.body.messages.map((m) => m.role), ['user', 'assistant', 'user']);
   assert.match(sent.body.messages[2].content, /<page_data>[\s\S]*"selected":"#a>h2:nth-of-type\(1\)"[\s\S]*<\/page_data>[\s\S]*הגדילי את הכותרת$/);
   env.CHAT_MODEL = 'claude-haiku-4-5-20251001';
@@ -1031,4 +1035,51 @@ test('chat: monthly limit per client, Claude errors are explained, history is cl
   await call('POST', '/api/sites/demo/chat', { cookie: owner, body: { messages: [{ role: 'user', content: 'x' }], context: { elements: Array.from({ length: 500 }, (_, i) => ({ key: '#a' + i, text: 'y'.repeat(500) })), samples: ['z'.repeat(9000)] } } });
   const pd = JSON.parse(aiCalls.at(-1).body.messages[0].content.match(/<page_data>\n([\s\S]*)\n<\/page_data>/)[1]);
   assert.equal(pd.elements.length, 150); assert.equal(pd.elements[0].text.length, 90); assert.equal(pd.sample_sections[0].length, 3500);
+});
+
+
+/* ---------- delete for good + uploaded videos + chat attachments ---------- */
+test('accepts the remove operation (delete for good) and a video file element', async () => {
+  const { client } = await setup();
+  const r = await putEditsBody(client, withPage({ layout: [{ op: 'remove', key: '#a', evil: 1 }, { op: 'add', after: '#a', id: 'vid1', type: 'video', p: { provider: 'file', src: 'cms/uploads/clip-1.mp4', x: 1 } }] }));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data.edits.pages['index.html'].layout, [{ op: 'remove', key: '#a' }, { op: 'add', after: '#a', id: 'vid1', type: 'video', p: { provider: 'file', src: 'cms/uploads/clip-1.mp4' } }]);
+});
+
+test('video uploads: mp4 and webm are accepted when the content matches, anything else is refused', async () => {
+  const { client } = await setup();
+  const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(40)]).toString('base64');
+  const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(40)]).toString('base64');
+  const ok = await putWith(client, withPage({}), [{ path: 'cms/uploads/clip-1.mp4', base64: mp4 }, { path: 'cms/uploads/clip-2.webm', base64: webm }]);
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const fake = await putWith(client, withPage({}), [{ path: 'cms/uploads/evil.mp4', base64: Buffer.from('<html>not a video at all</html>').toString('base64') }]);
+  assert.equal(fake.status, 400);
+  const exe = await putWith(client, withPage({}), [{ path: 'cms/uploads/evil.exe', base64: mp4 }]);
+  assert.equal(exe.status, 400);
+  const big = await putWith(client, withPage({}), [{ path: 'cms/uploads/big.mp4', base64: Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(13_000_000)]).toString('base64') }]);
+  assert.equal(big.status, 400);
+});
+
+test('chat: delete / insert image / insert video / replace image only work with files she attached', async () => {
+  const { client } = await chatSetup();
+  aiReply = [
+    { type: 'tool_use', id: 'a', name: 'delete_element', input: { key: '#a' } },
+    { type: 'tool_use', id: 'b', name: 'insert_image', input: { after: '#a', path: 'cms/uploads/pic-1.jpg', alt: 'צוות' } },
+    { type: 'tool_use', id: 'c', name: 'insert_video', input: { after: '#a', path: 'cms/uploads/clip-1.mp4' } },
+    { type: 'tool_use', id: 'd', name: 'replace_image', input: { key: '#a>img:nth-of-type(1)', path: 'cms/uploads/pic-1.jpg' } },
+    { type: 'tool_use', id: 'e', name: 'insert_image', input: { after: '#a', path: 'cms/uploads/not-attached.jpg' } },
+    { type: 'tool_use', id: 'f', name: 'insert_video', input: { after: '#a', path: '../../etc/passwd.mp4' } },
+  ];
+  const r = await say(client, 'מחקי והוסיפי', { attachments: [{ path: 'cms/uploads/pic-1.jpg', name: 'pic.jpg' }, { path: 'cms/uploads/clip-1.mp4', name: 'clip.mp4' }, { path: '../evil.sh', name: 'x' }] });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data.actions, [
+    { tool: 'delete_element', key: '#a' },
+    { tool: 'insert_image', after: '#a', path: 'cms/uploads/pic-1.jpg', alt: 'צוות' },
+    { tool: 'insert_video', after: '#a', path: 'cms/uploads/clip-1.mp4' },
+    { tool: 'replace_image', key: '#a>img:nth-of-type(1)', path: 'cms/uploads/pic-1.jpg' },
+  ]);
+  assert.equal(r.data.rejected.length, 2);
+  const sent = aiCalls[aiCalls.length - 1].body.messages.slice(-1)[0].content;
+  assert.match(sent, /<attachments>[\s\S]*pic-1\.jpg[\s\S]*clip-1\.mp4[\s\S]*<\/attachments>/);
+  assert.doesNotMatch(sent, /evil\.sh/);                      // paths outside the upload allow-list never reach the model
 });

@@ -47,7 +47,7 @@
   var editingEl = null;       // element currently being typed in (never re-applied)
   var applying = false;
   var palette = [];
-  var KIT_VERSION = 16;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it · 15: the page scrolls while dragging near its edge · 16: keyboard shortcuts
+  var KIT_VERSION = 17;   // 2: formatting + structure edits · 3: copies of scroll-reveal elements stay visible · 4: add elements · 5: boxes, corner radius, borders, shadows, image shapes + crop · 6: columns, gap, padding, size · 7: text spacing (line height, letter spacing, margin above) · 8: exact font sizes (desktop + separate phone size), font weight · 9: html sections (chat), optional sections, outline for the chat  · 10: Enter adds a line break in inline editing · 11: same, from phone keyboards · 12: drag & drop of new elements onto the page · 13: picture slot beside text (avatar) · 14: drag an added element to move it · 15: the page scrolls while dragging near its edge · 16: keyboard shortcuts · 17: delete an element for good, uploaded video files
   var STAMP = 'data-cms-p', CID = 'data-cms-id';   // original-path stamp / id of a duplicated block
   var stamped = false;
   var layoutDone = {};                              // op index -> applied
@@ -607,6 +607,19 @@
       m = findModel('hr', after);
       el = make('hr', m ? cleanClass(m.className) : '');
       if (!m) el.setAttribute('style', 'border:0;border-top:1px solid rgba(0,0,0,.2);margin:24px 0');
+    } else if (t === 'video' && op.p && op.p.provider === 'file') {
+      var vsrc = resolveSrc(op.p.src);
+      if (!vsrc) return null;
+      el = make('div', '');
+      el.setAttribute('style', 'position:relative;width:100%;max-width:800px;margin:16px auto');
+      el.setAttribute('data-cms-vid', 'file:' + op.p.src);
+      var vv = document.createElement('video');
+      vv.setAttribute('src', vsrc);
+      vv.setAttribute('controls', '');
+      vv.setAttribute('playsinline', '');
+      vv.setAttribute('preload', 'metadata');
+      vv.setAttribute('style', 'display:block;width:100%;height:auto;border-radius:12px;background:#000');
+      el.appendChild(vv);
     } else if (t === 'video' && op.p) {
       var src = op.p.provider === 'vimeo' ? 'https://player.vimeo.com/video/' + op.p.vid : 'https://www.youtube-nocookie.com/embed/' + op.p.vid;
       el = make('div', '');
@@ -655,6 +668,7 @@
       return true;
     }
     var el = resolve(op.key);
+    if (op.op === 'remove' && (!el || !el.parentNode)) return true;   // already gone
     if (!el || !el.parentNode) return false;
     if (op.op === 'show') return true;                        // handled by applyOptional(): the section is simply not hidden
     if (op.op === 'move') {
@@ -662,6 +676,10 @@
       if (!sib) return true;
       remember(el.parentNode);
       el.parentNode.insertBefore(el, op.dir < 0 ? sib : sib.nextSibling);
+    } else if (op.op === 'remove') {
+      // Deleted for good. In the editor it only disappears (so Ctrl+Z can bring it back); on the live site the node is really removed.
+      if (EDIT) setStyle(el, 'display', 'none');
+      else { remember(el.parentNode); el.parentNode.removeChild(el); }
     } else if (op.op === 'hide') {
       if (EDIT) { snapAttr(el, 'data-cms-hidden'); el.setAttribute('data-cms-hidden', ''); }   // dimmed, still clickable, so it can be shown again
       else setStyle(el, 'display', 'none');

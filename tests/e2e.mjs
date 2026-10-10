@@ -46,7 +46,15 @@ globalThis.fetch = async (url, init = {}) => {
     const b = JSON.parse(init.body); aiSeen.push(b);
     const page = JSON.parse(String(b.messages[b.messages.length - 1].content).match(/<page_data>\n([\s\S]*?)\n<\/page_data>/)[1]);
     const h1 = page.elements.find((e) => e.tag === 'h1');
-    const content = aiMode === 'edit'
+    const att = (String(b.messages[b.messages.length - 1].content).match(/<attachments>\n([\s\S]*?)\n<\/attachments>/) || [])[1];
+    const files = att ? JSON.parse(att) : [];
+    const h2 = page.elements.find((e) => e.tag === 'h2');
+    const content = aiMode === 'files'
+      ? [{ type: 'text', text: 'הוספתי את התמונה והסרטון ומחקתי כותרת' },
+        { type: 'tool_use', id: 'f1', name: 'insert_image', input: { after: h1.key, path: (files.find((f) => f.kind === 'image') || {}).path, alt: 'בדיקה' } },
+        { type: 'tool_use', id: 'f2', name: 'insert_video', input: { after: h1.key, path: (files.find((f) => f.kind === 'video') || {}).path } },
+        { type: 'tool_use', id: 'f3', name: 'delete_element', input: { key: h2.key } }]
+      : aiMode === 'edit'
       ? [{ type: 'text', text: 'הגדלתי את הכותרת' }, { type: 'tool_use', id: 'e1', name: 'edit_element', input: { key: h1.key, fields: { fs: 61, fw: 800 } } }]
       : [{ type: 'text', text: 'הוספתי קטע המלצות' }, { type: 'tool_use', id: 'e2', name: 'add_section_html', input: { label: 'המלצות', html: '<section style="padding:30px;background:#fff7ee"><h2>מה אומרים עלינו</h2><p data-cms-todo>כאן יופיע ציטוט של לקוח</p><script>alert(1)</script></section>' } }];
     return new Response(JSON.stringify({ id: 'm', type: 'message', role: 'assistant', content, stop_reason: 'tool_use' }));
@@ -205,7 +213,7 @@ try {
   const fs61 = await fr.locator('.hero h1').evaluate((e) => [Math.round(parseFloat(getComputedStyle(e).fontSize)), e.getAttribute('data-cms-p'), e.id]);
   ok(fs61[0] === 61, 'chat: edit_element action applied live (font size 61) got ' + fs61.join(','));
   ok(await pg.locator('#chip').getAttribute('data-s') === 'dirty', 'chat: change is unsaved until published');
-  ok(aiSeen.length === 1 && aiSeen[0].model && aiSeen[0].tools.length === 9, 'chat: model call carries the tools');
+  ok(aiSeen.length === 1 && aiSeen[0].model && aiSeen[0].tools.length === 13, 'chat: model call carries the tools');
   aiMode = 'section';
   await pg.fill('.chat-box textarea', 'תוסיפי קטע המלצות');
   await pg.click('.chat-box button.primary');
@@ -218,6 +226,30 @@ try {
   await pg.locator('.chat-msg.bot button.link').first().click();
   await pg.waitForTimeout(400);
   ok(await fr.locator('.hero h1').evaluate((e) => Math.round(parseFloat(getComputedStyle(e).fontSize))) !== 61, 'chat: undo restores the heading size');
+  /* chat attachments: a picture and a video are uploaded in the chat, the assistant places them and deletes an element for good */
+  aiMode = 'files';
+  const PNG1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(64)]);
+  const [fcA] = await Promise.all([pg.waitForEvent('filechooser'), pg.click('.chat-attach')]);
+  await fcA.setFiles({ name: 'pic.png', mimeType: 'image/png', buffer: PNG1 });
+  await pg.waitForSelector('.chat-file');
+  const [fcB] = await Promise.all([pg.waitForEvent("filechooser"), pg.click(".chat-attach")]);
+  await fcB.setFiles({ name: "clip.mp4", mimeType: 'video/mp4', buffer: MP4 });
+  await pg.waitForFunction(() => document.querySelectorAll('.chat-box ~ *, .chat-files .chat-file').length >= 2);
+  ok(await pg.locator('.chat > .chat-files .chat-file').count() === 2, 'chat: picture and video appear as attachments before sending');
+  await pg.fill('.chat-box textarea', 'שימי את התמונה והסרטון מתחת לכותרת ותמחקי את הכותרת השנייה');
+  await pg.click('.chat-box button.primary');
+  await fr.locator('[data-cms-add="video"] video').waitFor({ timeout: 10000 });
+  await pg.waitForFunction(() => !document.querySelector('.chat-msg .dots'), null, { timeout: 10000 });   // all actions applied
+  await pg.waitForTimeout(800);
+  ok(await fr.locator('[data-cms-add="image"] img, img[data-cms-add="image"]').count() >= 1, 'chat: attached picture inserted into the page');
+  ok(/^file:cms\/uploads\/.*\.mp4$/.test((await fr.locator('[data-cms-add="video"]').getAttribute('data-cms-vid')) || ''), 'chat: attached video embedded as a playable video');
+  ok(await fr.locator('h2').evaluateAll((l) => l.some((e) => getComputedStyle(e).display === 'none')), 'chat: delete_element removes the element completely ' + (await pg.locator('.chat-msg.bot').last().innerText().catch(() => '')).replace(/\n/g, ' | '));
+  ok(await pg.locator('.chat-msg.me .chat-file').count() === 2 && await pg.locator('.chat > .chat-files .chat-file').count() === 0, 'chat: attachments are shown in the message and cleared from the box');
+  ok(aiSeen[aiSeen.length - 1].messages.slice(-1)[0].content.includes('<attachments>'), 'chat: the model call carries the attachments');
+  await pg.locator('.chat-msg.bot button.link').last().click();
+  await pg.waitForTimeout(500);
+  ok(await fr.locator('[data-cms-add="video"]').count() === 0 && await fr.locator('h2').evaluateAll((l) => l.every((e) => getComputedStyle(e).display !== 'none')), 'chat: undo brings back the deleted element and removes the inserted media');
   await pg.click('.insp-tabs button:has-text("עריכה")');
 
   /* drag & drop: pull a tile from the add block onto the page; it lands before/after the block under the pointer */
@@ -257,10 +289,10 @@ try {
   await pg.waitForSelector('.insp-body textarea');
   await pg.keyboard.press('Delete');
   await pg.waitForTimeout(500);
-  ok(await fr.locator('.hero h2').first().evaluate((e) => e.hasAttribute('data-cms-hidden')), 'shortcut: Delete on an original element hides it');
+  ok(await fr.locator('.hero h2').first().evaluate((e) => getComputedStyle(e).display === 'none'), 'shortcut: Delete on an original element removes it (gone from the page, not just dimmed)');
   await pg.keyboard.press('Control+z');
   await pg.waitForTimeout(500);
-  ok(await fr.locator('.hero h2').first().evaluate((e) => !e.hasAttribute('data-cms-hidden')), 'shortcut: Ctrl+Z brings it back');
+  ok(await fr.locator('.hero h2').first().evaluate((e) => getComputedStyle(e).display !== 'none'), 'shortcut: Ctrl+Z brings it back');
   await fr.locator('.hero h2').first().click();
   await pg.waitForSelector('.insp-body textarea');
   await pg.keyboard.press('Enter');

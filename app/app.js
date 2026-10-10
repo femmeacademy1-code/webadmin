@@ -493,6 +493,16 @@ async function processDocument(file) {
   return { path: `cms/uploads/${Date.now().toString(36)}-${slug(file.name)}.${ext}`, base64, dataUrl: null, uploaded: false, name };
 }
 
+const MAX_VIDEO = 12 * 1024 * 1024;
+async function processVideo(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['mp4', 'webm'].includes(ext)) throw new Error('אפשר להעלות סרטון בפורמט MP4 או WebM.');
+  if (file.size > MAX_VIDEO) throw new Error('הסרטון גדול מדי (עד 12MB). אפשר לדחוס אותו, או להעלות ליוטיוב ולשלוח קישור.');
+  const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(file); });
+  const mime = ext === 'webm' ? 'video/webm' : 'video/mp4';
+  return { path: `cms/uploads/${Date.now().toString(36)}-${slug(file.name)}.${ext}`, dataUrl: dataUrl.replace(/^data:[^;]*;/, `data:${mime};`), base64: dataUrl.split(',')[1], uploaded: false, name: file.name };
+}
+
 // YouTube / Vimeo links in any common form -> {provider, vid}; anything else is refused.
 function parseVideoUrl(input) {
   let u;
@@ -526,7 +536,7 @@ async function viewEditor(siteId) {
     site, edits: null, loaded: '', baseSha: null, pending: new Map(), undo: [], redo: [], lastPush: 0,
     page: site.pages[0], palette: [], origFonts: {}, unit: null, tab: 'sel', ready: false, device: 'desktop', liveToken: 0,
     sections: [], kitVersion: 0, optional: [], todo: 0,
-    chat: { msgs: [], busy: false, remaining: null },
+    chat: { msgs: [], busy: false, remaining: null, files: [] },
   };
 
   let data;
@@ -595,6 +605,20 @@ async function viewEditor(siteId) {
       const i = ops.findIndex((o) => o.op === 'hide' && o.key === key);
       if (i >= 0) ops.splice(i, 1); else ops.push({ op: 'hide', key });
     }, { force: true });
+  }
+  const DEL_KIT = 17;
+  // Delete for good (not just hide): the element is removed from the site when published. Ctrl+Z / the chat's undo bring it back before publishing.
+  function removeEl(key) {
+    mutate(() => {
+      const ops = layoutOps();
+      for (let i = ops.length - 1; i >= 0; i--) if (ops[i].op === 'hide' && ops[i].key === key) ops.splice(i, 1);
+      if (!ops.some((o) => o.op === 'remove' && o.key === key)) ops.push({ op: 'remove', key });
+    }, { force: true });
+  }
+  function confirmRemove(key, label) {
+    if (E.kitVersion < DEL_KIT) { toast('מחיקה מלאה תעבוד אחרי עדכון ערכת העריכה באתר. בינתיים אפשר להסתיר.', true); return; }
+    if (!confirm((label ? `למחוק את "${label}" לגמרי מהאתר?` : 'למחוק את האלמנט לגמרי מהאתר?') + '\nאפשר לבטל עם Ctrl+Z עד הפרסום.')) return;
+    removeEl(key); E.unit = null; renderInsp();
   }
   async function duplicateEl(key, { newText } = {}) {
     const id = newId();
@@ -834,7 +858,7 @@ async function viewEditor(siteId) {
   const STYLE_KIT = 5;     // first kit version with boxes, corner radius, borders, shadows and image shapes
   const SPACE_KIT = 7;     // first kit version with text spacing
   const LAYOUT_KIT = 6;    // first kit version with columns, gap, padding and size
-  const LATEST_KIT = 16;    // newest kit; older sites keep working, the owner is just offered the update
+  const LATEST_KIT = 17;    // newest kit; older sites keep working, the owner is just offered the update
   const kitTooOld = () => E.ready && E.kitVersion < NEED_KIT;
   const oldKitNote = () => h('p', { class: 'help warnbox' }, 'האפשרות הזו תעבוד אחרי עדכון ערכת העריכה באתר (פעולה חד-פעמית של הסוכנות).');
 
@@ -981,7 +1005,7 @@ async function viewEditor(siteId) {
     const mac = /Mac|iPhone|iPad/.test(navigator.platform || '');
     const C = mac ? '⌘' : 'Ctrl';
     return h('details', { class: 'keys' }, h('summary', {}, '⌨ קיצורי מקלדת'),
-      h('ul', {}, [['Delete', 'מחיקת אלמנט שהוספתם / הסתרת אלמנט מקורי'], [C + '+D', 'שכפול'], [C + '+C ואז ' + C + '+V', 'העתקה והדבקה (עותק)'], ['Alt+↑ / Alt+↓', 'הזזה למעלה / למטה'],
+      h('ul', {}, [['Delete', 'מחיקת האלמנט (Ctrl+Z מחזיר עד הפרסום)'], [C + '+D', 'שכפול'], [C + '+C ואז ' + C + '+V', 'העתקה והדבקה (עותק)'], ['Alt+↑ / Alt+↓', 'הזזה למעלה / למטה'],
         ['Enter', 'עריכת הטקסט שנבחר'], ['Esc', 'ביטול בחירה'], [C + '+Z / ' + C + '+Y', 'ביטול / שחזור'], [C + '+S', 'פרסום באתר']].map(([k, t]) => h('li', {}, h('kbd', {}, k), ' ' + t))));
   }
   function elementSection(u) {
@@ -994,7 +1018,8 @@ async function viewEditor(siteId) {
         h('button', { class: 'btn small mint', disabled: old, title: 'יוצר עותק זהה מיד אחרי האלמנט הזה', onclick: () => duplicateEl(u.key) }, '⎘ שכפול'),
         isText && h('button', { class: 'btn small mint', disabled: old, onclick: () => duplicateEl(u.key, { newText: 'טקסט חדש' }) }, '＋ הוספת טקסט כזה מתחת'),
         h('button', { class: 'btn small', disabled: old, onclick: () => { toggleHide(u.key); } }, u.hidden ? '👁 הצגה' : '🚫 הסתרה'),
-        u.clone && h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, u.added ? '✕ מחיקת האלמנט' : '✕ מחיקת העותק')),
+        u.clone ? h('button', { class: 'btn small danger', onclick: () => deleteCopy(u.clone) }, u.added ? '✕ מחיקת האלמנט' : '✕ מחיקת העותק')
+          : h('button', { class: 'btn small danger', title: 'מוחק את האלמנט לגמרי מהאתר (לא רק מסתיר)', onclick: () => confirmRemove(u.key, u.text ? String(u.text).slice(0, 30) : '') }, '🗑 מחיקה לגמרי')),
       h('button', { class: 'link', onclick: () => frameSend({ type: 'cms-select-parent' }) }, '⬆ בחירת האלמנט שמעל (למשל כל הקטע)'),
       h('span', { class: 'help' }, 'להזיז או לשכפל קטע שלם: לחצו "בחירת האלמנט שמעל" עד שהקטע כולו מסומן, או השתמשו בלשונית "מבנה".'),
       shortcutsHelp());
@@ -1025,17 +1050,19 @@ async function viewEditor(siteId) {
   /* ---- editing chat ---- */
   const chatOn = () => !!(me.config && me.config.chat) && (me.user.role === 'owner' || !!site.chat);
   const chatEl = h('div', { class: 'chat' });
-  let chatList, chatInput, chatSend, chatSel;
+  let chatList, chatInput, chatSend, chatSel, chatFiles, chatAttach;
   function chatBuild() {
     chatList = h('div', { class: 'chat-list', 'aria-live': 'polite' });
     chatInput = h('textarea', { rows: 2, placeholder: 'מה לשנות באתר? למשל: הגדילי את הכותרת הראשית', 'aria-label': 'הודעה לעוזר' });
     chatSend = h('button', { class: 'btn primary', type: 'button', onclick: () => chatSubmit() }, 'שליחה');
     chatSel = h('div', { class: 'chat-sel' });
+    chatFiles = h('div', { class: 'chat-files' });
+    chatAttach = h('button', { class: 'btn ghost chat-attach', type: 'button', title: 'צירוף תמונה או סרטון', 'aria-label': 'צירוף קובץ', onclick: () => chatAttachPick() }, '📎');
     chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSubmit(); } });
     chatEl.replaceChildren(
       h('h3', {}, 'עוזר ', h('span', { class: 'hl' }, 'העריכה')),
       h('p', { class: 'muted' }, 'כותבים מה לשנות, והעוזר משנה בתצוגה החיה. השינויים עולים לאתר רק אחרי "פרסום באתר", ואפשר לבטל.'),
-      chatList, chatSel, h('div', { class: 'chat-box' }, chatInput, chatSend));
+      chatList, chatSel, chatFiles, h('div', { class: 'chat-box' }, chatAttach, chatInput, chatSend));
   }
   const SUGGEST = ['הגדילי את הכותרת הראשית', 'שני את הצבע של הכפתורים', 'הוסיפי קטע המלצות', 'כתבי מחדש את הטקסט שבחרתי'];
   function chatRefresh() {
@@ -1044,11 +1071,29 @@ async function viewEditor(siteId) {
     chatSel.textContent = E.unit && E.unit.text ? 'נבחר בדף: "' + String(E.unit.text).slice(0, 40) + '"' : 'אפשר לבחור אלמנט בדף ולכתוב עליו, או לכתוב בלי לבחור.';
     chatList.replaceChildren(...(c.msgs.length ? c.msgs.map(chatBubble) : [h('div', { class: 'chat-sug' }, SUGGEST.map((t) => h('button', { type: 'button', class: 'chip-btn', onclick: () => { chatInput.value = t; chatInput.focus(); } }, t)))]),
       ...(c.busy ? [h('div', { class: 'chat-msg bot' }, h('span', { class: 'dots' }, 'חושבת…'))] : []));
-    chatSend.disabled = c.busy;
+    chatSend.disabled = c.busy; chatAttach.disabled = c.busy;
+    chatFiles.replaceChildren(...c.files.map((f, i) => h('span', { class: 'chat-file' },
+      f.kind === 'image' ? h('img', { src: f.dataUrl, alt: '' }) : h('span', { class: 'vid' }, '🎬'),
+      h('span', { class: 'nm' }, f.name),
+      h('button', { type: 'button', class: 'x', 'aria-label': 'הסרה', onclick: () => { c.files.splice(i, 1); chatRefresh(); } }, '✕'))));
     chatList.scrollTop = chatList.scrollHeight;
   }
+  async function chatAttachPick() {
+    const c = E.chat;
+    if (c.files.length >= 4) { toast('אפשר לצרף עד 4 קבצים בהודעה', true); return; }
+    const f = await pickFile('image/*,video/mp4,video/webm,.mp4,.webm'); if (!f) return;
+    try {
+      const isVideo = /^video\//.test(f.type) || /\.(mp4|webm)$/i.test(f.name);
+      toast(isVideo ? 'מעלה סרטון…' : 'מעבד תמונה…');
+      const x = isVideo ? await processVideo(f) : await processImage(f);
+      E.pending.set(x.path, x);
+      c.files.push({ path: x.path, kind: isVideo ? 'video' : 'image', name: f.name.slice(0, 40), dataUrl: isVideo ? null : x.dataUrl });
+      chatRefresh();
+    } catch (e) { toast(e.message || 'הקובץ לא נקלט', true); }
+  }
   function chatBubble(m) {
-    if (m.role === 'user') return h('div', { class: 'chat-msg me' }, m.content);
+    if (m.role === 'user') return h('div', { class: 'chat-msg me' }, m.content,
+      m.files && m.files.length ? h('div', { class: 'chat-files in' }, m.files.map((f) => h('span', { class: 'chat-file' }, f.kind === 'image' ? h('img', { src: f.dataUrl, alt: '' }) : h('span', { class: 'vid' }, '🎬'), h('span', { class: 'nm' }, f.name)))) : null);
     return h('div', { class: 'chat-msg bot' + (m.error ? ' err' : '') }, m.content,
       m.done && m.done.length ? h('ul', { class: 'chat-done' }, m.done.map((t) => h('li', {}, '✓ ' + t))) : null,
       m.failed && m.failed.length ? h('ul', { class: 'chat-done bad' }, m.failed.map((t) => h('li', {}, '✕ ' + t))) : null,
@@ -1086,6 +1131,16 @@ async function viewEditor(siteId) {
       }
       case 'duplicate_element': await duplicateEl(a.key); return 'שכפול';
       case 'move_element': moveEl(a.key, a.direction === 'up' ? -1 : 1); return 'הזזה';
+      case 'delete_element': {
+        if (E.kitVersion < DEL_KIT) { if (!layoutOps().some((o) => o.op === 'hide' && o.key === a.key)) toggleHide(a.key); return 'הוסתר (מחיקה מלאה תעבוד אחרי עדכון הערכה)'; }
+        removeEl(a.key); if (E.unit && E.unit.key === a.key) { E.unit = null; renderInsp(); } return 'נמחק';
+      }
+      case 'insert_image': await addElement(a.after, 'image', { spec: { src: a.path, alt: a.alt || '' } }); return 'נוספה תמונה';
+      case 'insert_video': {
+        if (E.kitVersion < DEL_KIT) throw new Error('הטמעת סרטון מקובץ תעבוד אחרי עדכון ערכת העריכה באתר');
+        await addElement(a.after, 'video', { p: { provider: 'file', src: a.path } }); return 'נוסף סרטון';
+      }
+      case 'replace_image': setSpec(a.key, a.alt != null ? { src: a.path, alt: a.alt } : { src: a.path }, { force: true }); return 'הוחלפה תמונה';
       case 'hide_element': if (!layoutOps().some((o) => o.op === 'hide' && o.key === a.key)) toggleHide(a.key); return 'הסתרה';
       case 'show_optional_section': { setOptional(a.key, true); const lab = (E.optional || []).find((x) => x.key === a.key); setTimeout(() => frameSend({ type: 'cms-select-key', key: a.key }), 300); return 'נוסף קטע' + (lab ? ': ' + lab.label : ''); }
       case 'add_image_beside_text': {
@@ -1097,15 +1152,17 @@ async function viewEditor(siteId) {
     }
   }
   async function chatSubmit() {
-    const c = E.chat, text = chatInput.value.trim();
+    const c = E.chat;
+    const files = c.files.slice();
+    const text = chatInput.value.trim() || (files.length ? (files.length > 1 ? 'צירפתי קבצים' : files[0].kind === 'video' ? 'צירפתי סרטון' : 'צירפתי תמונה') : '');
     if (!text || c.busy) return;
-    chatInput.value = '';
-    c.msgs.push({ role: 'user', content: text }); c.busy = true; chatRefresh();
+    chatInput.value = ''; c.files = [];
+    c.msgs.push({ role: 'user', content: text, files }); c.busy = true; chatRefresh();
     const before = JSON.stringify(E.edits);
     try {
       const context = await chatContext();
       const history = c.msgs.filter((m) => !m.error).slice(-10).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.role === 'user' ? m.content : m.content + (m.done && m.done.length ? ` [בוצע: ${m.done.join(', ')}]` : '') }));
-      const res = await api('POST', `/sites/${siteId}/chat`, { messages: history, context });
+      const res = await api('POST', `/sites/${siteId}/chat`, { messages: history, context, attachments: files.map((f) => ({ path: f.path, name: f.name })) });
       const done = [], failed = (res.rejected || []).map((r) => r.error);
       let agency = null;
       for (const a of res.actions || []) {
@@ -1228,7 +1285,8 @@ async function viewEditor(siteId) {
           h('button', { class: 'tg', title: 'הזזה למטה', disabled: old || !x.down, onclick: () => moveEl(x.key, 1) }, '↓'),
           h('button', { class: 'tg', title: 'שכפול הקטע', disabled: old, onclick: () => duplicateEl(x.key) }, '⎘'),
           h('button', { class: 'tg', title: x.hidden ? 'הצגה' : 'הסתרה', disabled: old, onclick: () => toggleHide(x.key) }, x.hidden ? '👁' : '🚫'),
-          x.clone && h('button', { class: 'tg del', title: 'מחיקת העותק', onclick: () => deleteCopy(x.clone) }, '✕'))))];
+          x.clone ? h('button', { class: 'tg del', title: 'מחיקת העותק', onclick: () => deleteCopy(x.clone) }, '✕')
+            : h('button', { class: 'tg del', title: 'מחיקת הקטע לגמרי', disabled: old, onclick: () => confirmRemove(x.key, x.label || '') }, '🗑'))))];
   }
 
   // Text-only page: just the text, nothing else (the server enforces this too).
@@ -1551,8 +1609,9 @@ async function viewEditor(siteId) {
     if (k.key === 'Delete' || k.key === 'Backspace') {
       const clone = u.clone;
       if (clone) { deleteCopy(clone); E.unit = null; renderInsp(); return done('האלמנט נמחק (Ctrl+Z לביטול)'); }
-      toggleHide(u.key);
-      return done(u.hidden ? 'האלמנט מוצג שוב' : 'האלמנט הוסתר מהאתר (Delete שוב או Ctrl+Z להחזרה)');
+      if (E.kitVersion < DEL_KIT) { toggleHide(u.key); return done(u.hidden ? 'האלמנט מוצג שוב' : 'האלמנט הוסתר מהאתר (מחיקה מלאה אחרי עדכון הערכה)'); }
+      removeEl(u.key); E.unit = null; renderInsp();
+      return done('האלמנט נמחק (Ctrl+Z לביטול)');
     }
     if (k.ctrl && k.key === 'd') { duplicateEl(u.key); return done('האלמנט שוכפל'); }
     if (k.ctrl && k.key === 'c') { E.clip = u.key; return done('האלמנט הועתק. Ctrl+V מדביק עותק'); }

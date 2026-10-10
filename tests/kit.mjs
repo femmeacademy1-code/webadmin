@@ -37,6 +37,12 @@ fs.writeFileSync(S + '/site/cms/edits.json', `{"v":1,"global":{"colors":{"#52725
 "body>main:nth-of-type(1)>img:nth-of-type(1)":{"alt":"לוגו חדש"},
 "body>footer:nth-of-type(1)":{"bgc":"#112233"}}}}}
 `);
+fs.copyFileSync(S + '/site/index.html', S + '/site/del.html');
+{
+  const e = JSON.parse(fs.readFileSync(S + '/site/cms/edits.json', 'utf8'));
+  e.pages['del.html'] = { layout: [{ op: 'remove', key: '#plain' }, { op: 'add', after: 'body>main:nth-of-type(1)>img:nth-of-type(1)', id: 'vid1', type: 'video', p: { provider: 'file', src: 'cms/uploads/clip-1.mp4' } }] };
+  fs.writeFileSync(S + '/site/cms/edits.json', JSON.stringify(e));
+}
 fs.writeFileSync(S + '/admin/index.html', `<!DOCTYPE html><html><body><iframe id="f" style="width:900px;height:600px" src="http://localhost:9001/index.html?cms-edit=1"></iframe>
 <script>window.__msgs=[];addEventListener('message',e=>{if(e.origin==='http://localhost:9001')window.__msgs.push(e.data)});
 window.sendEdits=(edits,assets)=>document.getElementById('f').contentWindow.postMessage({type:'cms-edits',edits,assets:assets||{}},'http://localhost:9001');</script></body></html>
@@ -50,6 +56,9 @@ await (async()=>{
  const pg=await b.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
  try{
  // ---- public mode
+ await pg.goto('http://localhost:9001/del.html');await pg.waitForFunction(()=>!document.getElementById('cms-hide'),null,{timeout:4000});
+ ok(await pg.locator('#plain').count()===0,'public: removed element is gone from the page for good');
+ ok(await pg.locator('div[data-cms-add="video"] > video[controls]').count()===1 && (await pg.locator('div[data-cms-add="video"] video').getAttribute('src')).endsWith('cms/uploads/clip-1.mp4'),'public: uploaded video file is embedded as a playable <video>');
  await pg.goto('http://localhost:9001/index.html');await pg.waitForFunction(()=>!document.getElementById('cms-hide'),null,{timeout:4000});
  ok(await pg.locator('h1').innerText()==='כותרת חדשה','public: text edit applied');
  ok((await pg.locator('#plain').innerHTML())==='שורה 1<br>שורה 2','public: multi-line text -> <br>');

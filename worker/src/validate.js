@@ -18,13 +18,14 @@ const FONT_URL = /^https:\/\/fonts\.googleapis\.com\/css2\?family=[A-Za-z0-9+:;@
 const PAGE_KEY = /^[\w./-]{1,120}\.html?$/;
 const UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(jpg|png|webp)$/;                  // images
 const FILE_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(pdf|docx?|xlsx?|pptx?|zip)$/;     // downloadable files
+const VIDEO_UPLOAD = /^cms\/uploads\/[a-z0-9][a-z0-9._-]{0,80}\.(mp4|webm)$/;                    // uploaded video files
 const ADD_TYPES = new Set(['text', 'heading', 'image', 'button', 'video', 'file', 'divider', 'box', 'cols', 'html', 'avatar']);
 const AVATAR_SHAPES = new Set(['circle', 'rounded', 'square']);
 const SHAPES = new Set(['none', 'circle', 'rounded', 'arch', 'blob', 'triangle', 'diamond', 'pentagon', 'hexagon', 'star']);
 const RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 const VIDEO_ID = { youtube: /^[A-Za-z0-9_-]{6,20}$/, vimeo: /^\d{5,12}$/ };
 
-export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, file: 10_000_000, images: 12, ops: 300 };
+export const LIMITS = { json: 400_000, els: 3000, pages: 30, text: 8000, image: 4_000_000, file: 10_000_000, video: 12_000_000, images: 12, ops: 300 };
 
 function str(v, max, what) {
   if (typeof v !== 'string') bad(`${what}: ערך לא תקין`);
@@ -122,7 +123,10 @@ function layout(ops) {
       if (!ADD_TYPES.has(op.type)) bad('סוג אלמנט לא מותר');
       const added = { op: 'add', after: key(op.after), id: op.id, type: op.type };
       if (op.before === true) added.before = true;
-      if (op.type === 'video') {
+      if (op.type === 'video' && op.p && op.p.provider === 'file') {
+        if (typeof op.p.src !== 'string' || !VIDEO_UPLOAD.test(op.p.src)) bad('נתיב הסרטון לא תקין');
+        added.p = { provider: 'file', src: op.p.src };
+      } else if (op.type === 'video') {
         const v = op.p;
         if (!v || !VIDEO_ID[v.provider] || typeof v.vid !== 'string' || !VIDEO_ID[v.provider].test(v.vid)) bad('קישור הסרטון לא תקין (YouTube או Vimeo בלבד)');
         added.p = { provider: v.provider, vid: v.vid };
@@ -146,6 +150,7 @@ function layout(ops) {
     }
     if (op.op === 'hide') return { op: 'hide', key: key(op.key) };
     if (op.op === 'show') return { op: 'show', key: key(op.key) };
+    if (op.op === 'remove') return { op: 'remove', key: key(op.key) };
     return bad('פעולת מבנה לא מוכרת');
   });
 }
@@ -193,6 +198,8 @@ function magicOk(ext, head) {
   if (ext === 'jpg') return head.startsWith('\xff\xd8\xff');
   if (ext === 'png') return head.startsWith('\x89PNG');
   if (ext === 'webp') return head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP';
+  if (ext === 'mp4') return head.slice(4, 8) === 'ftyp';
+  if (ext === 'webm') return head.startsWith('\x1a\x45\xdf\xa3');
   if (ext === 'pdf') return head.startsWith('%PDF-');
   if (['docx', 'xlsx', 'pptx', 'zip'].includes(ext)) return head.startsWith('PK\x03\x04');
   if (['doc', 'xls', 'ppt'].includes(ext)) return head.startsWith('\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1');
@@ -205,14 +212,14 @@ export function validateImages(images) {
   if (!Array.isArray(images) || images.length > LIMITS.images) bad('יותר מדי קבצים בבת אחת');
   return images.map((im) => {
     const p = im && im.path;
-    const isImage = UPLOAD.test(p || '');
-    if (!isImage && !FILE_UPLOAD.test(p || '')) bad('נתיב קובץ לא מותר');
-    const limit = isImage ? LIMITS.image : LIMITS.file;
-    if (typeof im.base64 !== 'string' || !B64.test(im.base64) || im.base64.length > limit * 1.4) bad(isImage ? 'התמונה גדולה מדי' : 'הקובץ גדול מדי (עד 10MB)');
+    const isImage = UPLOAD.test(p || ''), isVideo = VIDEO_UPLOAD.test(p || '');
+    if (!isImage && !isVideo && !FILE_UPLOAD.test(p || '')) bad('נתיב קובץ לא מותר');
+    const limit = isImage ? LIMITS.image : isVideo ? LIMITS.video : LIMITS.file;
+    if (typeof im.base64 !== 'string' || !B64.test(im.base64) || im.base64.length > limit * 1.4) bad(isImage ? 'התמונה גדולה מדי' : isVideo ? 'הסרטון גדול מדי (עד 12MB)' : 'הקובץ גדול מדי (עד 10MB)');
     let head = '';
     try { head = atob(im.base64.slice(0, 16)); } catch { bad('קובץ לא תקין'); }
     const ext = p.split('.').pop();
-    if (!magicOk(ext, head)) bad(isImage ? 'הקובץ אינו תמונה תקינה' : 'תוכן הקובץ אינו תואם לסוג שלו');
+    if (!magicOk(ext, head)) bad(isImage ? 'הקובץ אינו תמונה תקינה' : isVideo ? 'הקובץ אינו סרטון תקין (MP4 או WebM)' : 'תוכן הקובץ אינו תואם לסוג שלו');
     return { path: p, base64: im.base64 };
   });
 }
@@ -257,4 +264,4 @@ export function validateUser(u, partial = false) {
   return out;
 }
 export { PAGE_KEY };
-export const PATHS = { UPLOAD, FILE_UPLOAD };
+export const PATHS = { UPLOAD, FILE_UPLOAD, VIDEO_UPLOAD };
