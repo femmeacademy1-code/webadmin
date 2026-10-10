@@ -700,11 +700,37 @@ nav{display:none!important}
 }
 /* phones: no small wobbling animations near the top (they looked like trembling) */
 @media(max-width:900px),(hover:none){
- .hp,.hp img,.hbf,.hero-logo,.hero-logo.top,.sym,.ddc,.hero-photo .duo{animation:none!important}
- .hero-logo.top{transform:translateX(-50%)!important}
- .hp{transform:none!important;will-change:auto}
- .hero h1 em span,.btn,.btn.alt{animation:none!important}
- .fl,.fl img{animation:none!important}
+ .hero h1 em span{animation:none!important}
+ .hp{will-change:auto}
+}
+/* ===== phones: about-us photos stand flush on the bottom edge of the card ===== */
+@media(max-width:900px){
+ .scene#s8 .duo .panel,.scene#s8 .duo .panel:first-child,.scene#s8 .duo .panel:last-child{display:grid!important;grid-template-columns:minmax(0,1fr) 40%;column-gap:12px;align-items:start;padding:24px 18px 0!important;overflow:hidden}
+ .scene#s8 .duo .panel:first-child{grid-template-columns:40% minmax(0,1fr)}
+ .scene#s8 .duo .panel>*:not(.ph){grid-column:2;position:relative;z-index:1}
+ .scene#s8 .duo .panel:last-child>*:not(.ph){grid-column:1}
+ .scene#s8 .duo .panel:first-child>*:not(.ph){grid-column:2}
+ .scene#s8 .duo .panel .ph{float:none!important;position:static!important;grid-row:1 / span 12;align-self:end;width:100%!important;max-width:none;margin:0!important;height:auto!important;display:block}
+ .scene#s8 .duo .panel:first-child .ph{grid-column:1}
+ .scene#s8 .duo .panel:last-child .ph{grid-column:2}
+ .scene#s8 .duo .panel>p:last-of-type{margin-bottom:22px}
+}
+/* ===== phones: gentle living motion (slow, smooth, transform-only) ===== */
+@media(max-width:900px),(hover:none){
+ .sym{animation:symWiggle 6s ease-in-out infinite!important}
+ .hp.crown{animation:ddFloat 7s ease-in-out infinite!important}
+ .hp.twinkle{animation:twinkle 3.4s ease-in-out infinite!important}
+ .hp.swoosh{animation:ddFloat 9s ease-in-out infinite -2s!important}
+ .hbf{animation:hbfHover 5s ease-in-out infinite!important}
+ .fl:not(.flyer){display:block!important;transform:none!important;will-change:auto}
+ .fl.flyer{display:none!important}
+ .fl img{width:calc(var(--w,60px)*.55)!important;animation-duration:7s!important}
+ .fl.beat img{animation:flBeat 2.6s ease-in-out infinite!important}
+ .fl.sway img{animation:sway 6s ease-in-out infinite!important}
+ .fl.twinkle img{animation:twinkle 3.2s ease-in-out infinite!important}
+ .fl.spin img{animation:flSpin 18s linear infinite!important}
+ .btn{animation:btnBreath 3.2s ease-in-out infinite!important}
+ .hero-logo.top{animation:heroLogoFloat 5s ease-in-out infinite!important;transform:translateX(-50%)}
 }
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
