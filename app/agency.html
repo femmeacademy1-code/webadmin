@@ -553,7 +553,7 @@ html.a11y-nomotion .scene h2,html.a11y-nomotion .scene h2::after{animation:none!
 .logos.clients .ltrack img{height:clamp(62px,7vw,98px)}
 .ltrack img:hover{opacity:1;filter:none;transform:scale(1.1)}
 @keyframes logoRun{to{transform:translateX(-33.3333%)}}
-.scene#s6,.scene#s7{align-content:center;row-gap:clamp(14px,2.6vh,28px)}
+.scene#s6,.scene#s7{grid-template-columns:minmax(0,1fr);align-content:center;row-gap:clamp(14px,2.6vh,28px)}
 .scene#s6 .logoband,.scene#s7 .logoband{margin-top:0}
 .logoband .lab{font-size:clamp(17px,1.7vw,22px)!important;font-weight:800!important;letter-spacing:.12em;background:linear-gradient(100deg,var(--rose),var(--peach),var(--rose));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;animation:shimmer 6s linear infinite;display:inline-block}
 html.ed .ltrack{animation:none}
