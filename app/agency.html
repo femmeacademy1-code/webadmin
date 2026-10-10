@@ -231,7 +231,7 @@ p{max-width:58ch}
 .hero .sticker,.sign,.duo .role,.mail{font-family:var(--f-body)!important;font-weight:700}
 
 /* ===== a living page ===== */
-html{scroll-snap-type:y proximity}
+html{scroll-snap-type:none}
 .scene{scroll-snap-align:start}
 .rotline{font-size:clamp(20px,2.2vw,28px)!important;font-family:var(--f-body);font-weight:800;color:var(--paper);margin:6px auto 16px!important;max-width:none!important}
 .rotbox{display:inline-block;height:1.5em;overflow:hidden;vertical-align:bottom;margin-inline-start:.35em}
@@ -406,7 +406,9 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
 :root{--aA:.95;--aB:.85;--ax:6%;--ay:0%;--bx:94%;--by:40%}
-body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(244,168,136,calc(var(--aA)*.75)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(160,234,222,var(--aB)),transparent 52%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
+html{background:#f6fcfa!important}
+body{background:transparent!important}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(244,168,136,calc(var(--aA)*.75)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(160,234,222,var(--aB)),transparent 52%),linear-gradient(180deg,#f4fcfa,#fff7f1);transform:translateZ(0)}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
 .panel{background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(244,252,249,.9))!important}
@@ -602,8 +604,7 @@ nav{gap:clamp(18px,2.2vw,34px)!important}
 header{display:none!important}
 nav{display:none!important}
 /* sparkling gem above the hero greeting */
-.hero h1{position:relative}
-.gem{position:absolute;left:9%;top:-.78em;width:1.35em;aspect-ratio:1;pointer-events:none;z-index:3;animation:gemFloat 5s ease-in-out infinite}
+.gem{position:absolute;left:-5%;bottom:-1%;font-size:clamp(96px,8.6vw,136px);width:1em;aspect-ratio:1;pointer-events:none;z-index:3;animation:gemFloat 5s ease-in-out infinite}
 .gem img{width:100%;height:auto;display:block;animation:gemGlow 2.8s ease-in-out infinite}
 .gem::after{content:"";position:absolute;inset:8% 6% 6%;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.95) 50%,transparent 65%);background-size:250% 100%;-webkit-mask:url(brand/dd/gem.png) center/contain no-repeat;mask:url(brand/dd/gem.png) center/contain no-repeat;mix-blend-mode:soft-light;animation:gemShine 3.2s ease-in-out infinite}
 .gem i{position:absolute;font-style:normal;font-size:.28em;line-height:1;color:#fff;text-shadow:0 0 8px #7fe3d6,0 0 16px #ffb88f;animation:gemTw 2.4s ease-in-out infinite}
@@ -613,7 +614,12 @@ nav{display:none!important}
 @keyframes gemShine{0%{background-position:150% 0}60%,100%{background-position:-60% 0}}
 @keyframes gemTw{0%,100%{opacity:.15;transform:scale(.5) rotate(0)}50%{opacity:1;transform:scale(1.25) rotate(45deg)}}
 @media(prefers-reduced-motion:reduce){.gem,.gem img,.gem::after,.gem i{animation:none}}
-@media(max-width:900px){.gem{left:auto;right:6%;top:-.9em;width:.8em}}
+@media(max-width:900px){.gem{left:auto;right:4%;top:2%;font-size:72px}}
+/* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
+.scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
+.hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
+.panel,.ribbon,.logos{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.scene{content-visibility:auto;contain-intrinsic-size:auto 800px}
 /* bigger hero + service doodles */
 .dd.d1{width:clamp(78px,7.5vw,116px)}
 .dd.d4{width:clamp(66px,6.6vw,100px)}
