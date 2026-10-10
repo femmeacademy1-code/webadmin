@@ -648,6 +648,8 @@ nav{display:none!important}
 .sp #s8 h2{background:none!important}
 .sp #s9 h2{background:none!important}
 .gem{display:none!important}
+/* contact section: photo as a faded background */
+#s9::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:url(brand/contact-bg.webp) center/cover no-repeat;opacity:.38;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 32%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 32%,#000 70%,transparent 100%)}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
