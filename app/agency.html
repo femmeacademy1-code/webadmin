@@ -698,6 +698,14 @@ nav{display:none!important}
  .hero-photo .disc,.hero-photo .disc::before{animation:none!important}
  .hero-photo{margin-bottom:0!important}
 }
+/* phones: no small wobbling animations near the top (they looked like trembling) */
+@media(max-width:900px),(hover:none){
+ .hp,.hp img,.hbf,.hero-logo,.hero-logo.top,.sym,.ddc,.hero-photo .duo{animation:none!important}
+ .hero-logo.top{transform:translateX(-50%)!important}
+ .hp{transform:none!important;will-change:auto}
+ .hero h1 em span,.btn,.btn.alt{animation:none!important}
+ .fl,.fl img{animation:none!important}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
