@@ -634,8 +634,8 @@ nav{display:none!important}
 .hero h1{position:relative}
 .gem{left:6%!important;top:-.2em!important;bottom:auto!important;font-size:clamp(80px,7vw,112px)!important}
 @media(max-width:900px){.hero-logo.top{width:min(230px,58vw)!important}.scene.hero{padding-top:150px!important}.gem{left:auto!important;right:2%!important;top:-.5em!important;font-size:64px!important}}
-/* hero photo: soft fade into the ribbon instead of a hard cut */
-.hero-photo .duo{-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent 99%);mask-image:linear-gradient(180deg,#000 80%,transparent 99%)}
+/* hero photo stands straight on the ribbon, no fade */
+.hero-photo .duo{-webkit-mask-image:none;mask-image:none}
 /* the words carry the gradient, the heading box must not paint it again (was doubling) */
 .sp #s0 h2{background:none!important}
 .sp #s1 h2{background:none!important}
@@ -693,6 +693,11 @@ nav{display:none!important}
  .scene.hero{row-gap:48px!important}
  .hero-photo{margin-top:40px!important}
 }
+@media(max-width:900px){
+ .scene.hero{padding-bottom:0!important}
+ .hero-photo .disc,.hero-photo .disc::before{animation:none!important}
+ .hero-photo{margin-bottom:0!important}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -704,8 +709,8 @@ nav{display:none!important}
 .dd.d5{width:58px}
 .sym{width:96px!important}
 .panel{position:relative}
-.panel>.sym{position:absolute;top:20px;left:24px;right:auto;margin:0!important;width:104px!important}
-@media(max-width:900px){.panel>.sym{width:60px!important;top:14px;left:14px}}
+.panel>.sym{position:absolute;top:30px;left:clamp(40px,11%,72px);right:auto;margin:0!important;width:104px!important}
+@media(max-width:900px){.panel>.sym{width:60px!important;top:24px;left:34px}}
 @media(max-width:900px){.sym{width:72px!important}}
 </style>
 </head>
