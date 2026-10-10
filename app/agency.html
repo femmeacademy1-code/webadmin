@@ -1133,7 +1133,7 @@ document.documentElement.classList.add('no-js');
 
   // the running ribbon: repeat its content until it always fills the screen (and a bit more), so it never runs out of text
   (function(){var rt=document.querySelector('.ribbon .rt');if(!rt)return;var unit=rt.innerHTML;
-    function fill(){rt.innerHTML=unit;var w=rt.scrollWidth,vw=document.documentElement.clientWidth;if(!w)return;var m=2*Math.max(1,Math.ceil(1.15*vw/w));var h='';for(var i=0;i<m;i++)h+=unit;rt.innerHTML=h;rt.style.animationDuration=Math.round(rt.scrollWidth/2/26)+'s'}
+    function fill(){rt.innerHTML=unit;var w=rt.scrollWidth,vw=document.documentElement.clientWidth;if(!w)return;var m=2*Math.max(1,Math.ceil(1.15*vw/w));var h='';for(var i=0;i<m;i++)h+=unit;rt.innerHTML=h;rt.style.animationDuration=Math.round(rt.scrollWidth/2/17)+'s'}
     fill();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fill);var t;addEventListener('resize',function(){clearTimeout(t);t=setTimeout(fill,250)});
   })();
   var fl=$$('.fl'),ribbon=$$('.ribbon');
