@@ -541,6 +541,32 @@ html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
 @media(prefers-reduced-motion:reduce){.scene h2,.sp .scene h2 .wi,.scene h2::after{animation:none!important}}
 html.a11y-nomotion .scene h2,html.a11y-nomotion .scene h2::after{animation:none!important}
 </style>
+<style>
+/* ===== running logo strips (platforms, clients): light, translucent, pause on hover ===== */
+.logoband{width:calc(100% + 2*max(16px,6vw));margin-inline:calc(-1*max(16px,6vw));text-align:center}
+.lab{font:700 14px var(--f-body)!important;letter-spacing:.2em;color:var(--muted);margin:6px auto 10px!important;max-width:none!important}
+.logos{position:relative;overflow:hidden;direction:ltr;background:rgba(255,255,255,.34);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-block:1px solid rgba(var(--pc),.18);-webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
+.ltrack{display:flex;align-items:center;gap:clamp(44px,6.5vw,92px);width:max-content;padding:18px clamp(22px,3.2vw,46px);animation:logoRun 52s linear infinite}
+.logos.clients .ltrack{animation-direction:reverse;animation-duration:58s}
+.logos:hover .ltrack,.logos:focus-within .ltrack{animation-play-state:paused}
+.ltrack img{height:clamp(34px,3.6vw,50px);width:auto;max-width:none;opacity:.6;filter:grayscale(1);transition:opacity .3s,filter .3s,transform .3s}
+.logos.clients .ltrack img{height:clamp(46px,5vw,68px)}
+.ltrack img:hover{opacity:1;filter:none;transform:scale(1.1)}
+@keyframes logoRun{to{transform:translateX(-33.3333%)}}
+.scene#s6 .logoband{margin-top:10px}
+.scene#s7 .logoband{margin-top:22px}
+html.ed .ltrack{animation:none}
+@media(prefers-reduced-motion:reduce){.ltrack{animation:none}.logos{overflow-x:auto}}
+html.a11y-nomotion .ltrack{animation:none}
+</style>
+<style>
+/* ===== showcases centred in the free space beside each text panel (not hugging it, not pushed to the edge) ===== */
+.scene#s2 .showwrap,.scene#s4 .showwrap{left:calc((100% - max(6vw,16px) - 560px)/2 - 250px*var(--k));right:auto}
+.scene#s3 .showwrap{left:calc((100% + max(6vw,16px) + 560px)/2 - 250px*var(--k));right:auto}
+.supphoto{left:calc((100% + max(6vw,16px) + 560px)/2 - 270px*var(--k));right:auto}
+.lapwrap{left:calc((100% + max(6vw,16px) + 540px)/2 - 382px*var(--k));right:auto}
+@media(max-width:900px){.scene#s2 .showwrap,.scene#s3 .showwrap,.scene#s4 .showwrap,.supphoto,.lapwrap{left:auto;right:auto}}
+</style>
 </head>
 <body>
 <style>
@@ -677,7 +703,11 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
       <h2>בפאם אנחנו מאמינות<br>בליווי שיתופי</h2>
       <p style="margin-inline:auto">בניגוד לחברות שמקבלות ממך חומרים ותוכן, עובדות חודש שלם על מצב שקט ובסוף החודש מפילות עליך את התוצר הגמור, אנחנו משתפות וחולקות בכל שלב ביצירה החדשה שלנו יחד.</p>
       <p style="margin-inline:auto">כך אנחנו מוודאות שאין מצב שהיצירה רחוקה מהוויז׳ן שלך, אלא הכי הכי הכי קרובה שיש.</p>
-      <ul class="pills"><li>אתרים</li><li>דפי נחיתה</li><li>מיתוג</li><li>קמפיינים</li><li>רילסים</li><li>ליווי אישי</li></ul>
+    </div>
+    <div class="logoband rv"><p class="lab">הפלטפורמות שאנחנו תותחיות בהן</p>
+      <div class="logos plat" role="group" aria-label="פלטפורמות שאנחנו עובדות איתן">
+        <div class="ltrack"><img src="brand/logos/canva.png" alt="Canva" loading="lazy" draggable="false"><img src="brand/logos/wix.svg" alt="Wix" loading="lazy" draggable="false"><img src="brand/logos/wordpress.svg" alt="WordPress" loading="lazy" draggable="false"><img src="brand/logos/ravmesser.png" alt="רב מסר" loading="lazy" draggable="false"><img src="brand/logos/facebook.svg" alt="Facebook" loading="lazy" draggable="false"><img src="brand/logos/instagram.svg" alt="Instagram" loading="lazy" draggable="false"><img src="brand/logos/shopify.svg" alt="Shopify" loading="lazy" draggable="false"><img src="brand/logos/claude.svg" alt="Claude" loading="lazy" draggable="false"><img src="brand/logos/canva.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/wix.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/wordpress.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/ravmesser.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/facebook.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/instagram.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/shopify.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/claude.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/canva.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/wix.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/wordpress.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/ravmesser.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/facebook.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/instagram.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/shopify.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/claude.svg" alt="" aria-hidden="true" loading="lazy" draggable="false"></div>
+      </div>
     </div>
   </section>
 
@@ -687,6 +717,11 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
       <div class="vwall rv" aria-label="סרטוני המלצה"><a class="vt on" href="#" data-video><img src="brand/vt-1.svg" alt="סרטון המלצה 1" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>אתר ומיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-2.svg" alt="סרטון המלצה 2" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>דף נחיתה לקורס</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-3.svg" alt="סרטון המלצה 3" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>קמפיין ולידים</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-4.svg" alt="סרטון המלצה 4" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>ערכת מיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-5.svg" alt="סרטון המלצה 5" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>ליווי אישי</em><small>לחצו לצפייה בסרטון</small></span></a></div>
       <p class="vhint rv">הוסיפו קישור YouTube / Vimeo / mp4 לכל כרטיס (בעורך: לחיצה על הכרטיס ושדה הקישור) והסרטון ייפתח בחלון משלו.</p>
       <div class="wall"><div class="track" id="track"></div></div>
+    </div>
+    <div class="logoband rv"><p class="lab">לקוחות ומותגים שסומכים עלינו</p>
+      <div class="logos clients" role="group" aria-label="לקוחות ומותגים">
+        <div class="ltrack"><img src="brand/logos/being.png" alt="being" loading="lazy" draggable="false"><img src="brand/logos/tedx.png" alt="TEDx JaffaWomen" loading="lazy" draggable="false"><img src="brand/logos/gunahouse.png" alt="Guna House" loading="lazy" draggable="false"><img src="brand/logos/nativ.png" alt="נתיב · הכשרת מנחי קבוצות" loading="lazy" draggable="false"><img src="brand/logos/academy.png" alt="האקדמיה להיזכרות" loading="lazy" draggable="false"><img src="brand/logos/ecstatic.png" alt="Ecstatic Dance Israel" loading="lazy" draggable="false"><img src="brand/logos/being.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/tedx.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/gunahouse.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/nativ.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/academy.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/ecstatic.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/being.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/tedx.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/gunahouse.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/nativ.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/academy.png" alt="" aria-hidden="true" loading="lazy" draggable="false"><img src="brand/logos/ecstatic.png" alt="" aria-hidden="true" loading="lazy" draggable="false"></div>
+      </div>
     </div>
   </section>
 
