@@ -767,6 +767,11 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 /* services: the squiggle with stars moves down beside the laptop */
 .c2{top:46%!important;left:8%!important}
 #s0::before{display:none!important}
+.ribbon{padding:12px 0!important}
+.ribbon .rt{font-size:clamp(24px,3.4vw,42px)!important;gap:28px!important;-webkit-text-stroke:0!important}
+.ribbon .rt span,.ribbon span:nth-of-type(3n){background:linear-gradient(100deg,#1c6f66,#2fa095 50%,#5cc4b6);-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-stroke:0!important}
+.ribbon i{color:#5cc4b6!important;font-size:.5em!important}
+@media(hover:none),(max-width:900px){.ribbon .rt{font-size:24px!important}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
