@@ -772,6 +772,22 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .ribbon .rt span,.ribbon span:nth-of-type(3n){background:linear-gradient(100deg,#1c6f66,#2fa095 50%,#5cc4b6);-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-stroke:0!important}
 .ribbon i{color:#5cc4b6!important;font-size:.5em!important}
 @media(hover:none),(max-width:900px){.ribbon .rt{font-size:24px!important}}
+/* phones: steady showcases (no 3D re-projection, no floating, GPU-layered, swipes never fight the page scroll) */
+@media(max-width:900px),(hover:none){
+ .lapimg{animation:none!important;transform:scale(var(--k))!important;filter:none!important;will-change:auto}
+ .ddc{animation:none!important}
+ .showwrap,.lapwrap{touch-action:pan-y;-webkit-tap-highlight-color:transparent}
+ [data-kind=cover] .stage{perspective:none!important}
+ [data-kind=cover] .sl[data-p="0"]{transform:none!important}
+ [data-kind=cover] .sl[data-p="1"]{transform:translateX(-58%) scale(.8)!important}
+ [data-kind=cover] .sl[data-p="-1"]{transform:translateX(58%) scale(.8)!important}
+ [data-kind=cover] .sl[data-p="2"]{transform:translateX(-92%) scale(.6)!important}
+ [data-kind=cover] .sl[data-p="-2"]{transform:translateX(92%) scale(.6)!important}
+ .sl{backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:flat}
+ .showwrap .sl,.showwrap .stage{will-change:auto}
+ [data-kind=phone] .ph,[data-kind=browser] .win,[data-kind=cover] .stage{transform:translateZ(0)}
+ .ph .bars b.run i{animation-timing-function:linear}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
