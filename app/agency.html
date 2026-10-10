@@ -600,6 +600,19 @@ nav{gap:clamp(18px,2.2vw,34px)!important}
  .scene#s8 .duo .panel::after{inset-inline:0!important;margin-inline:auto;top:60px;bottom:auto}
 }
 nav{display:none!important}
+/* sparkling gem above the hero greeting */
+.hero h1{position:relative}
+.gem{position:absolute;left:9%;top:-.78em;width:1.35em;aspect-ratio:1;pointer-events:none;z-index:3;animation:gemFloat 5s ease-in-out infinite}
+.gem img{width:100%;height:auto;display:block;animation:gemGlow 2.8s ease-in-out infinite}
+.gem::after{content:"";position:absolute;inset:8% 6% 6%;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.95) 50%,transparent 65%);background-size:250% 100%;-webkit-mask:url(brand/dd/gem.png) center/contain no-repeat;mask:url(brand/dd/gem.png) center/contain no-repeat;mix-blend-mode:soft-light;animation:gemShine 3.2s ease-in-out infinite}
+.gem i{position:absolute;font-style:normal;font-size:.28em;line-height:1;color:#fff;text-shadow:0 0 8px #7fe3d6,0 0 16px #ffb88f;animation:gemTw 2.4s ease-in-out infinite}
+.gem .g1{left:-6%;top:6%}.gem .g2{right:-10%;top:-4%;animation-delay:-.8s;font-size:.2em}.gem .g3{right:4%;bottom:2%;animation-delay:-1.6s;font-size:.22em}
+@keyframes gemFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+@keyframes gemGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(127,227,214,.55)) brightness(1)}50%{filter:drop-shadow(0 0 16px rgba(255,190,150,.95)) brightness(1.12) saturate(1.15)}}
+@keyframes gemShine{0%{background-position:150% 0}60%,100%{background-position:-60% 0}}
+@keyframes gemTw{0%,100%{opacity:.15;transform:scale(.5) rotate(0)}50%{opacity:1;transform:scale(1.25) rotate(45deg)}}
+@media(prefers-reduced-motion:reduce){.gem,.gem img,.gem::after,.gem i{animation:none}}
+@media(max-width:900px){.gem{left:auto;right:6%;top:-.9em;width:.8em}}
 /* bigger hero + service doodles */
 .dd.d1{width:clamp(78px,7.5vw,116px)}
 .dd.d4{width:clamp(66px,6.6vw,100px)}
@@ -652,7 +665,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     </div>
     <div>
       <img class="hero-logo" src="brand/logo.png" alt="Femme Digital">
-      <h1 aria-label="נעים מאוד, אנחנו פאם דיגיטל"><span style="--i:0">נעים</span> <span style="--i:1">מאוד</span><br><span style="--i:2">אנחנו</span> <em><span style="--i:3">פאם דיגיטל</span></em><img class="hbf" src="brand/dd/butterfly.png" alt="" aria-hidden="true"></h1>
+      <h1 aria-label="נעים מאוד, אנחנו פאם דיגיטל"><span class="gem" aria-hidden="true"><img src="brand/dd/gem.png" alt=""><i class="g1">✦</i><i class="g2">✦</i><i class="g3">✦</i></span><span style="--i:0">נעים</span> <span style="--i:1">מאוד</span><br><span style="--i:2">אנחנו</span> <em><span style="--i:3">פאם דיגיטל</span></em><img class="hbf" src="brand/dd/butterfly.png" alt="" aria-hidden="true"></h1>
       <p class="rotline reveal" aria-label="מלוות אותך באתרים, מיתוג, שיווק ותוכן">מלוות אותך ב<span class="rotbox" aria-hidden="true"><span class="rotin"><b>אתרים ודפי נחיתה</b><b>מיתוג ממגנט</b><b>שיווק ממומן</b><b>תוכן וצילום</b><b>אתרים ודפי נחיתה</b></span></span></p>
       <p class="reveal">סוכנות של נשים שמלווה יוצרות ויוצרים עצמאיים בדרך להצלחה. אנחנו כאן כדי לעזור לעסק שלך להוציא את השירותים והמוצרים לאור, דרך אתרים, מיתוג ושיווק, ביד מקצועית ותומכת.</p>
       <a class="btn reveal" href="#s9">בול בשבילי <span>←</span></a> <a class="btn alt reveal" href="#s1">מה אנחנו עושות <span>←</span></a>
