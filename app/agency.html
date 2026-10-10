@@ -89,7 +89,7 @@ p{margin:0 0 18px;color:#3b3a4d;max-width:52ch}
 
 /* hero letter reveal */
 .hero h1 span{display:inline-block;animation:intro-pop .9s both;animation-delay:calc(2.4s + var(--i)*.09s)}
-.hero .reveal{animation:intro-pop .9s 3.1s both}
+.hero .reveal{animation:intro-pop .9s .5s both}
 .hero h1 em{font-style:normal}.hero h1 em span{background:linear-gradient(100deg,var(--rose),var(--peach),var(--rose));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 6s linear infinite}
 @keyframes shimmer{to{background-position:-200% 0}}
 
@@ -476,7 +476,7 @@ html.ed .ph .bars{display:none}
 /* the duo photo next to "support and personal guidance" (right side) */
 .supphoto{--k:1;position:absolute;inset-inline-start:max(4.6vw,16px);top:50%;width:calc(540px*var(--k));margin:calc(-185px*var(--k)) 0 0;z-index:1;border-radius:30px;border:3px solid rgba(var(--pc),.5);box-shadow:0 28px 50px -24px rgba(60,80,80,.45);background:#fff;animation:ddFloat 9s ease-in-out infinite}
 .supphoto>img:first-child{display:block;width:100%;height:auto;border-radius:27px}
-.supphoto .sph{position:absolute;width:calc(74px*var(--k));right:-14px;bottom:-22px;animation:flBeat 2.2s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.12))}
+.supphoto .sph{position:absolute;width:calc(110px*var(--k));right:-14px;bottom:-22px;animation:flBeat 2.2s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.12))}
 .scene#s5{min-height:520px}
 .scene#s5 .panel{max-width:560px}
 @media(max-width:1380px){.supphoto{--k:.88}}
@@ -750,6 +750,8 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .sign{font-size:clamp(24px,3.4vw,40px)!important;background:linear-gradient(100deg,#1c6f66,#2fa095 50%,#5cc4b6);-webkit-background-clip:text;background-clip:text;color:transparent!important}
 .sign .sg-o{background:linear-gradient(100deg,#9c3b3b,var(--rose) 50%,#d9776a);-webkit-background-clip:text;background-clip:text;color:transparent}
 @media(max-width:640px){.sign{font-size:clamp(22px,6.4vw,30px)!important}}
+#intro{display:none!important}
+.hero h1 span{animation-delay:calc(.12s + var(--i)*.09s)!important}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -761,6 +763,7 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .dd.d5{width:58px}
 .sym{width:96px!important}
 .panel>.sym[src*="laptop-doodle"]{width:112px!important}
+.panel>.sym[src*="hand-in-hand"]{width:128px!important}
 .panel{position:relative}
 .panel>.sym{position:absolute;top:30px;left:clamp(40px,11%,72px);right:auto;margin:0!important;width:104px!important}
 @media(max-width:900px){.panel>.sym{width:60px!important;top:24px;left:34px}}
@@ -885,10 +888,10 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   </section>
 
   <section class="scene" id="s5" data-pc="232,128,140" data-label="תמיכה וליווי אישי" data-next="מה מייחד אותנו" data-bg="255,232,226|205,232,245">
-    <figure class="supphoto rv"><img src="team/duo-laptop.jpg" alt="רוני ואורין ליד הלפטופ" loading="lazy" width="1500" height="1000"><img class="sph" src="brand/dd/hearts.png" alt="" aria-hidden="true"></figure>
+    <figure class="supphoto rv"><img src="team/duo-laptop.jpg" alt="רוני ואורין ליד הלפטופ" loading="lazy" width="1500" height="1000"><img class="sph" src="brand/dd/hand-in-hand.png" alt="" aria-hidden="true"></figure>
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     <div class="panel rv">
-      <img class="sym beat" src="brand/dd/sparkles.png" alt="" aria-hidden="true"><p class="tag">לאורך כל הדרך אנחנו שם</p>
+      <img class="sym beat" src="brand/dd/hearts.png" alt="" aria-hidden="true"><p class="tag">לאורך כל הדרך אנחנו שם</p>
       <h2>תמיכה<br>וליווי אישי</h2>
       <p>לכל דבר ועניין, לכל חשש או תהייה שעולה, אנחנו איתך. עוטפות אותך ומלוות אותך במסע הגדילה המטורף הזה שאת.ה יוצא.ת אליו.</p>
       <p>תומכות בך ומרימות לך ת׳מורל והאנרגיה ברגעים של ייאוש, אנחנו שם :)</p>
@@ -967,7 +970,7 @@ document.documentElement.classList.add('no-js');
   // intro
   var intro=document.getElementById('intro');
   function hide(){intro.classList.add('done')}
-  setTimeout(hide,2700);
+  hide();
   // scenes
   var scenes=[].slice.call(document.querySelectorAll('.scene'));
   var rail=document.getElementById('rail');
