@@ -758,6 +758,9 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .track{align-items:flex-start}
 .quote.qc.open{width:min(430px,86vw);z-index:2;box-shadow:0 20px 50px -20px rgba(60,40,40,.45)}
 .quote.qc{transition:width .3s}
+/* hero: faded desk photo as the background */
+#s0::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:url(brand/hero-bg.webp) center/cover no-repeat;opacity:.55;-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 58%,transparent 100%)}
+@media(max-width:640px){#s0::before{opacity:.45;background-position:center top}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
