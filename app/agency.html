@@ -532,9 +532,9 @@ html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
 </style>
 <style>
 /* ===== scene headings: a living gradient with a shimmer, plus a waving marker underline ===== */
-.scene h2{background:linear-gradient(100deg,var(--rose) 0%,var(--rose) 40%,#2f9a90 60%,#2f9a90 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
+.scene h2{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
 .sp .scene h2{background:none;animation:none}
-.sp .scene h2 .wi{background:linear-gradient(100deg,var(--rose) 0%,var(--rose) 40%,#2f9a90 60%,#2f9a90 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
+.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
 @keyframes h2Shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 .scene h2::after{content:"";display:block;width:92px;height:9px;margin-top:10px;background:linear-gradient(90deg,rgb(var(--pc)),#2f8f86);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;animation:waveSlide 1.8s linear infinite}
 .scene.center h2::after{margin-inline:auto}
@@ -557,7 +557,7 @@ html.a11y-nomotion .scene h2,html.a11y-nomotion .scene h2::after{animation:none!
 @keyframes logoRun{to{transform:translateX(-33.3333%)}}
 .scene#s6,.scene#s7{grid-template-columns:minmax(0,1fr);align-content:center;row-gap:clamp(14px,2.6vh,28px)}
 .scene#s6 .logoband,.scene#s7 .logoband{margin-top:0}
-.logoband .lab{font-family:var(--f-display)!important;font-size:clamp(26px,3vw,40px)!important;font-weight:400!important;letter-spacing:0;line-height:1.15;background:linear-gradient(100deg,var(--rose) 0%,var(--rose) 48%,#2f9a90 52%,#2f9a90 100%);background-size:100% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;animation:none;display:inline-block}
+.logoband .lab{font-family:var(--f-display)!important;font-size:clamp(26px,3vw,40px)!important;font-weight:400!important;letter-spacing:0;line-height:1.15;background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:100% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;animation:none;display:inline-block}
 html.ed .ltrack{animation:none}
 @media(prefers-reduced-motion:reduce){.ltrack{animation:none}.logos{overflow-x:auto}}
 html.a11y-nomotion .ltrack{animation:none}
@@ -615,17 +615,6 @@ nav{display:none!important}
 @keyframes gemTw{0%,100%{opacity:.15;transform:scale(.5) rotate(0)}50%{opacity:1;transform:scale(1.25) rotate(45deg)}}
 @media(prefers-reduced-motion:reduce){.gem,.gem img,.gem::after,.gem i{animation:none}}
 @media(max-width:900px){.gem{left:auto;right:4%;top:2%;font-size:72px}}
-/* headings: our reddish orange and teal side by side (solid words, no muddy blends) */
-.sp .scene h2 .wi{background:none!important;-webkit-text-fill-color:currentColor;color:var(--rose)!important}
-.sp .scene h2 .wd:nth-child(even) .wi{color:#2f9a90!important}
-.scene h2{background:linear-gradient(100deg,var(--rose) 0%,var(--rose) 50%,#2f9a90 50%,#2f9a90 100%)!important;-webkit-background-clip:text!important;background-clip:text!important}
-.sp .scene h2{background:none!important;color:inherit!important;-webkit-text-fill-color:initial}
-.hero-logo.top{position:absolute!important;top:22px;left:50%;margin:0!important;width:clamp(150px,15vw,230px)!important;z-index:5;animation:heroLogoFloat 4s ease-in-out infinite!important}
-@keyframes heroLogoFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
-.scene.hero{padding-top:150px!important}
-.hero h1{position:relative}
-.gem{left:6%!important;top:-.2em!important;bottom:auto!important;font-size:clamp(80px,7vw,112px)!important}
-@media(max-width:900px){.scene.hero{padding-top:130px!important}.gem{left:auto!important;right:2%!important;top:-.5em!important;font-size:64px!important}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
