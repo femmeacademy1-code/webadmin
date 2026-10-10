@@ -405,8 +405,8 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 </style>
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
-:root{--aA:.95;--aB:1;--ax:6%;--ay:0%;--bx:94%;--by:40%}
-body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(150,230,216,var(--aB)),transparent 58%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
+:root{--aA:.95;--aB:.85;--ax:6%;--ay:0%;--bx:94%;--by:40%}
+body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(160,234,222,var(--aB)),transparent 52%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
 .panel{background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(244,252,249,.9))!important}
@@ -530,9 +530,9 @@ html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
 </style>
 <style>
 /* ===== scene headings: a living gradient with a shimmer, plus a waving marker underline ===== */
-.scene h2{background:linear-gradient(100deg,var(--paper) 0%,rgb(var(--pc)) 38%,#2f8f86 62%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
+.scene h2{background:linear-gradient(100deg,var(--paper) 0%,#e07a52 24%,#ea8a5e 44%,#2fa095 56%,#2f9a90 76%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
 .sp .scene h2{background:none;animation:none}
-.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,rgb(var(--pc)) 38%,#2f8f86 62%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
+.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,#e07a52 24%,#ea8a5e 44%,#2fa095 56%,#2f9a90 76%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
 @keyframes h2Shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 .scene h2::after{content:"";display:block;width:92px;height:9px;margin-top:10px;background:linear-gradient(90deg,rgb(var(--pc)),#2f8f86);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;animation:waveSlide 1.8s linear infinite}
 .scene.center h2::after{margin-inline:auto}
@@ -599,6 +599,7 @@ nav{gap:clamp(18px,2.2vw,34px)!important}
  .scene#s8 .duo .ph{height:290px!important;inset-inline:0!important;margin-inline:auto;top:-40px;bottom:auto;left:0;right:0}
  .scene#s8 .duo .panel::after{inset-inline:0!important;margin-inline:auto;top:60px;bottom:auto}
 }
+nav{display:none!important}
 /* bigger hero + service doodles */
 .dd.d1{width:clamp(78px,7.5vw,116px)}
 .dd.d4{width:clamp(66px,6.6vw,100px)}
@@ -1054,8 +1055,8 @@ document.documentElement.classList.add('no-js');
   // background: tint pair per scene, eased
   var scenes=$$('.scene[data-bg]');if(!scenes.length)return;
   var names=['--aA','--aB','--ax','--ay','--bx','--by'],units=['','','%','%','%','%'];
-  var cur=[.95,1,6,0,94,40],tgt=cur.slice(),raf=0;
-  var mix={s0:[.95,1,6,0,94,40],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
+  var cur=[.95,.85,6,0,94,40],tgt=cur.slice(),raf=0;
+  var mix={s0:[.95,.85,6,0,94,40],s1:[.9,.8,6,8,94,55],s2:[.95,.8,94,6,6,70],s3:[.9,.8,6,20,94,60],s4:[.95,.8,94,15,6,75],s5:[.95,.75,6,5,94,60],s6:[.9,.8,6,12,94,50],s7:[.95,.8,94,10,6,65],s8:[.9,.8,6,8,94,55],s9:[.95,.85,6,0,94,60]};
   function put(){for(var k=0;k<6;k++)H.style.setProperty(names[k],(k<2?cur[k].toFixed(3):Math.round(cur[k])+'%'))}
   function paint(){
     var moving=false;for(var k=0;k<6;k++){var d=tgt[k]-cur[k],e=k<2?.01:.4;if(Math.abs(d)>e){cur[k]+=d*.05;moving=true}else cur[k]=tgt[k]}
