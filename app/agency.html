@@ -666,6 +666,14 @@ nav{display:none!important}
  #s9{padding-top:300px!important}
  #s9::before{inset:0 0 auto 0;height:320px;background-position:center 35%;opacity:.85;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 18%,#000 68%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 18%,#000 68%,transparent 100%)}
 }
+/* about us on mobile: photo floats at the side inside the card, text wraps around it */
+@media(max-width:900px){
+ .scene#s8 .duo .panel,.scene#s8 .duo .panel:first-child,.scene#s8 .duo .panel:last-child{display:flow-root;padding:24px 18px 22px!important;text-align:start!important;min-height:0!important}
+ .scene#s8 .duo .panel .ph{position:static!important;float:inline-start;width:40%!important;max-width:150px;height:auto!important;margin:0 14px 6px 0!important;inset:auto!important;filter:drop-shadow(0 12px 14px rgba(70,90,100,.22));shape-outside:margin-box}
+ .scene#s8 .duo .panel:last-child .ph{float:inline-end;margin:0 0 6px 14px!important}
+ .scene#s8 .duo .panel::after{display:none!important}
+ .scene#s8 .duo .panel h3{margin-top:6px}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
