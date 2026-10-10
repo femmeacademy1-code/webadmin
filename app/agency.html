@@ -788,6 +788,22 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
  [data-kind=phone] .ph,[data-kind=browser] .win,[data-kind=cover] .stage{transform:translateZ(0)}
  .ph .bars b.run i{animation-timing-function:linear}
 }
+/* bigger Ploni Yad headings */
+.scene h2,.svc-intro h2{font-size:clamp(40px,5.6vw,70px)!important;line-height:1.08!important}
+.svc-intro h2{font-size:clamp(48px,8vw,104px)!important}
+.logoband .lab{font-size:clamp(30px,3.6vw,48px)!important}
+@media(max-width:640px){.scene h2{font-size:clamp(38px,10.4vw,48px)!important}.svc-intro h2{font-size:clamp(46px,13vw,60px)!important}.logoband .lab{font-size:clamp(28px,8vw,36px)!important}}
+/* phones: nothing near the top or in the ribbon may shake: no scroll-skew, no sub-pixel loops, no wobble on the hero picture and its doodles */
+@media(max-width:900px),(hover:none){
+ .ribbon{transform:none!important;transition:none!important}
+ .ribbon .rt{will-change:transform;backface-visibility:hidden;transform:translate3d(0,0,0)}
+ @keyframes ribbonMove{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+ .hp,.hp img,.hbf,.hero-logo.top,.hero-photo .duo,.hero .btn{animation:none!important}
+ .hero-logo.top{transform:translateX(-50%)!important}
+ .hero-photo,.hero-photo *{will-change:auto}
+ .hero-photo .duo{transform:none!important}
+}
+@media(max-width:900px),(hover:none){html body .hero-photo .hp,html body .hero-photo .hp.crown,html body .hero-photo .hp.twinkle,html body .hero-photo .hp.swoosh,html body .hero-photo .hp img{animation:none!important;transform:none!important}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -1164,7 +1180,7 @@ document.documentElement.classList.add('no-js');
   function onScroll(){
     var y=scrollY,v=y-last;last=y;skew+=(Math.max(-14,Math.min(14,v))*.5-skew)*.25;
     fl.forEach(function(f){var r=f.getBoundingClientRect();if(r.bottom<-200||r.top>innerHeight+200)return;f.style.setProperty('--py',((r.top+r.height/2-innerHeight/2)*parseFloat(f.dataset.depth)).toFixed(1))});
-    ribbon.forEach(function(r){r.style.transform='skewX('+(-skew).toFixed(2)+'deg)'});
+    if(!matchMedia('(max-width:900px),(hover:none)').matches)ribbon.forEach(function(r){r.style.transform='skewX('+(-skew).toFixed(2)+'deg)'});
     tk=false
   }
   addEventListener('scroll',function(){if(!tk){tk=true;requestAnimationFrame(onScroll)}},{passive:true});
