@@ -405,7 +405,7 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 </style>
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
-:root{--aA:.9;--aB:.9;--ax:6%;--ay:0%;--bx:96%;--by:100%}
+:root{--aA:.6;--aB:1;--ax:2%;--ay:95%;--bx:92%;--by:28%}
 body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(150,230,216,var(--aB)),transparent 58%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
@@ -1036,8 +1036,8 @@ document.documentElement.classList.add('no-js');
   // background: tint pair per scene, eased
   var scenes=$$('.scene[data-bg]');if(!scenes.length)return;
   var names=['--aA','--aB','--ax','--ay','--bx','--by'],units=['','','%','%','%','%'];
-  var cur=[.9,.9,6,0,96,100],tgt=cur.slice(),raf=0;
-  var mix={s0:[.95,.8,6,0,96,100],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
+  var cur=[.6,1,2,95,92,28],tgt=cur.slice(),raf=0;
+  var mix={s0:[.6,1,2,95,92,28],s1:[.45,.95,90,10,12,90],s2:[.85,.7,12,85,88,8],s3:[.4,.95,92,90,10,12],s4:[.8,.85,8,20,90,80],s5:[.95,.5,88,8,14,92],s6:[.4,.95,10,12,92,88],s7:[.85,.8,90,70,8,15],s8:[.5,.95,12,90,88,10],s9:[.95,.8,6,10,94,92]};
   function put(){for(var k=0;k<6;k++)H.style.setProperty(names[k],(k<2?cur[k].toFixed(3):Math.round(cur[k])+'%'))}
   function paint(){
     var moving=false;for(var k=0;k<6;k++){var d=tgt[k]-cur[k],e=k<2?.01:.4;if(Math.abs(d)>e){cur[k]+=d*.05;moving=true}else cur[k]=tgt[k]}
