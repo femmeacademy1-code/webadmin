@@ -653,6 +653,15 @@ nav{display:none!important}
 /* closing signature: bigger, Ploni Yad, with the logo */
 .sign{font-family:var(--f-display)!important;font-weight:400!important;font-size:clamp(34px,5vw,60px)!important;line-height:1.15;margin:6px 0 0!important}
 .sign-logo{display:block;width:clamp(180px,20vw,280px);margin:18px auto 0}
+/* mobile polish */
+@media(max-width:640px){
+ .doodles .dd{display:none!important}
+ .hero .doodles{display:none}
+ .tag{letter-spacing:.06em!important;font-size:clamp(15px,4.4vw,18px)!important;text-wrap:balance}
+ .sign{font-size:clamp(28px,8.4vw,40px)!important;text-wrap:balance}
+ .sign-logo{width:min(200px,52vw)}
+ .logoband .lab{font-size:clamp(22px,6.6vw,30px)!important}
+}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
