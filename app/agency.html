@@ -406,7 +406,7 @@ html.ed .hero-photo .disc,html.ed .hero-photo .disc::before{animation:none}
 <style>
 /* ===== bigger orange labels, fresher background (soft aqua + mint + a little peach, shifting by scene) ===== */
 :root{--aA:.95;--aB:.85;--ax:6%;--ay:0%;--bx:94%;--by:40%}
-body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(255,208,176,var(--aA)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(160,234,222,var(--aB)),transparent 52%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
+body{background:radial-gradient(130% 85% at var(--ax) var(--ay),rgba(244,168,136,calc(var(--aA)*.75)),transparent 62%),radial-gradient(125% 90% at var(--bx) var(--by),rgba(160,234,222,var(--aB)),transparent 52%),linear-gradient(180deg,#f4fcfa,#fff7f1) fixed!important}
 header{background:rgba(246,252,250,.9)!important}
 .ribbon{background:rgba(255,255,255,.55)}
 .panel{background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(244,252,249,.9))!important}
@@ -530,9 +530,9 @@ html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
 </style>
 <style>
 /* ===== scene headings: a living gradient with a shimmer, plus a waving marker underline ===== */
-.scene h2{background:linear-gradient(100deg,var(--paper) 0%,#e07a52 24%,#ea8a5e 44%,#2fa095 56%,#2f9a90 76%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
+.scene h2{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
 .sp .scene h2{background:none;animation:none}
-.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,#e07a52 24%,#ea8a5e 44%,#2fa095 56%,#2f9a90 76%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
+.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
 @keyframes h2Shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 .scene h2::after{content:"";display:block;width:92px;height:9px;margin-top:10px;background:linear-gradient(90deg,rgb(var(--pc)),#2f8f86);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;animation:waveSlide 1.8s linear infinite}
 .scene.center h2::after{margin-inline:auto}
