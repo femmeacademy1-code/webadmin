@@ -530,9 +530,9 @@ html.ed .vt .play::before,html.ed .vt .play::after{animation:none}
 </style>
 <style>
 /* ===== scene headings: a living gradient with a shimmer, plus a waving marker underline ===== */
-.scene h2{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
+.scene h2{background:linear-gradient(100deg,var(--rose) 0%,var(--peach) 50%,var(--rose) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 8s ease-in-out infinite}
 .sp .scene h2{background:none;animation:none}
-.sp .scene h2 .wi{background:linear-gradient(100deg,var(--paper) 0%,var(--rose) 22%,#cf6a55 47%,#2fa095 53%,#2f9a90 76%,var(--paper) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
+.sp .scene h2 .wi{background:linear-gradient(100deg,var(--rose) 0%,var(--peach) 50%,var(--rose) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h2Shine 7s ease-in-out infinite;animation-delay:calc(var(--i)*.35s)}
 @keyframes h2Shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 .scene h2::after{content:"";display:block;width:92px;height:9px;margin-top:10px;background:linear-gradient(90deg,rgb(var(--pc)),#2f8f86);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 9'%3E%3Cpath d='M0 5 Q4.5 0 9 5 T18 5 T27 5 T36 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/36px 9px repeat-x;animation:waveSlide 1.8s linear infinite}
 .scene.center h2::after{margin-inline:auto}
@@ -694,7 +694,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
       <p class="lapcap"><span class="cap on">שם הלקוח · דף נחיתה</span><span class="cap">שם הלקוח · אתר שירותים</span><span class="cap">שם הלקוח · אתר חנות</span></p>
     </div>
     <div class="panel rv">
-      <img class="sym" src="brand/dd/bolt.png" alt="" aria-hidden="true"><p class="tag">שירות</p>
+      <img class="sym" src="brand/dd/bolt.png" alt="" aria-hidden="true">
       <h2>אתרים<br>ודפי נחיתה</h2>
       <p>נבנה לך דף נחיתה או אתר מדויק וממיר, המתאימים למכירה של שירות אחד בלבד או לאיגוד של כל המתנות והשירותים שלך. נכתוב יחד קופי מדויק והצעה שאי אפשר לסרב לה.</p>
       <p>נטמיע סרטונים, תמונות אווירה ועוד, וכמובן נעצב את הדף לפי המיתוג שלך, כך שיעשה אפקט של וואו.</p>
@@ -707,7 +707,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     <div class="showwrap" data-kind="cover" role="region" aria-label="דוגמאות מיתוג ולוגואים"><div class="stage"><figure class="sl"><img src="brand/show-brand-1.svg" alt="ערכת מיתוג" draggable="false" loading="lazy"><figcaption>שם הלקוח · ערכת מיתוג</figcaption></figure><figure class="sl"><img src="brand/show-brand-2.svg" alt="לוגו" draggable="false" loading="lazy"><figcaption>שם הלקוח · לוגו</figcaption></figure><figure class="sl"><img src="brand/show-brand-3.svg" alt="סושיאל" draggable="false" loading="lazy"><figcaption>שם הלקוח · סושיאל</figcaption></figure><figure class="sl"><img src="brand/show-brand-4.svg" alt="כרטיס ביקור" draggable="false" loading="lazy"><figcaption>שם הלקוח · כרטיס ביקור</figcaption></figure><figure class="sl"><img src="brand/show-brand-5.svg" alt="דוגמה נוספת" draggable="false" loading="lazy"><figcaption>שם הלקוח · דוגמה נוספת</figcaption></figure></div><div class="sctl"><button type="button" class="sn" data-d="1" aria-label="הבא">→</button><span class="sds"><button type="button" class="sd" aria-label="תצוגה 1"></button><button type="button" class="sd" aria-label="תצוגה 2"></button><button type="button" class="sd" aria-label="תצוגה 3"></button><button type="button" class="sd" aria-label="תצוגה 4"></button><button type="button" class="sd" aria-label="תצוגה 5"></button></span><button type="button" class="sn" data-d="-1" aria-label="הקודם">←</button></div></div>
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     <div class="panel rv">
-      <img class="sym" src="brand/dd/crown.png" alt="" aria-hidden="true"><p class="tag">שירות</p>
+      <img class="sym" src="brand/dd/crown.png" alt="" aria-hidden="true">
       <h2>עיצוב גרפי<br>ומיתוג ממגנט</h2>
       <p>גרפיקות ייחודיות, לוגו מותאם אישית, מצגות ממותגות ועוד. אנחנו משתמשות בעיקר בעיצוב ייחודי שלנו בעבודה ידנית, או בטכנולוגיות של בינה מלאכותית.</p>
       <p>בסוף התוצאה נוגעת, ממגנטת ומותאמת אישית למי שאת.ה היום. מיתוג המותאם ישירות לאופי הנוכחי של השירותים שלך, שיראה ללקוחות בצורה החדה ביותר מי את.ה ומהי המתנה המיוחדת שיש לך להציע.</p>
@@ -720,7 +720,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     <div class="showwrap" data-kind="browser" role="region" aria-label="תוצאות קמפיינים"><div class="win"><div class="wbar"><i></i><i></i><i></i><span>תוצאות קמפיין</span></div><div class="stage"><figure class="sl"><img src="brand/show-camp-1.svg" alt="תוצאות קמפיין" draggable="false" loading="lazy"><figcaption>שם הלקוח · תוצאות קמפיין</figcaption></figure><figure class="sl"><img src="brand/show-camp-2.svg" alt="לידים מדויקים" draggable="false" loading="lazy"><figcaption>שם הלקוח · לידים מדויקים</figcaption></figure><figure class="sl"><img src="brand/show-camp-3.svg" alt="מכירות" draggable="false" loading="lazy"><figcaption>שם הלקוח · מכירות</figcaption></figure></div></div><div class="sctl"><button type="button" class="sn" data-d="1" aria-label="הבא">→</button><span class="sds"><button type="button" class="sd" aria-label="תצוגה 1"></button><button type="button" class="sd" aria-label="תצוגה 2"></button><button type="button" class="sd" aria-label="תצוגה 3"></button></span><button type="button" class="sn" data-d="-1" aria-label="הקודם">←</button></div></div>
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     <div class="panel rv">
-      <img class="sym" src="brand/dd/megaphone.png" alt="" aria-hidden="true"><p class="tag">שירות</p>
+      <img class="sym" src="brand/dd/megaphone.png" alt="" aria-hidden="true">
       <h2>שיווק ממומן</h2>
       <p>יצירת קמפיינים מותאמים למותג ולערכים שלך, דיוק קהל יעד והכוונת הקמפיין אליו. תפעול שוטף של הקמפיינים, בקרה ודיוקים לאורך הדרך.</p>
       <p>ויצירת מעטפת שיווקית שתפוצץ לך את הטלפון בלידים חמים ומדויקים :)</p>
@@ -733,7 +733,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
     <div class="showwrap" data-kind="phone" role="region" aria-label="דוגמאות צילום ורילסים"><div class="ph"><i class="notch"></i><div class="bars"></div><div class="stage"><figure class="sl"><img src="brand/show-reel-1.svg" alt="רילס" draggable="false" loading="lazy"><figcaption>שם הלקוח · רילס</figcaption></figure><figure class="sl"><img src="brand/show-reel-2.svg" alt="תוכן לסושיאל" draggable="false" loading="lazy"><figcaption>שם הלקוח · תוכן לסושיאל</figcaption></figure><figure class="sl"><img src="brand/show-reel-3.svg" alt="יום צילום" draggable="false" loading="lazy"><figcaption>שם הלקוח · יום צילום</figcaption></figure></div></div><div class="sctl"><button type="button" class="sn" data-d="1" aria-label="הבא">→</button><span class="sds"><button type="button" class="sd" aria-label="תצוגה 1"></button><button type="button" class="sd" aria-label="תצוגה 2"></button><button type="button" class="sd" aria-label="תצוגה 3"></button></span><button type="button" class="sn" data-d="-1" aria-label="הקודם">←</button></div></div>
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     <div class="panel rv">
-      <img class="sym" src="brand/dd/camera.png" alt="" aria-hidden="true"><p class="tag">שירות</p>
+      <img class="sym" src="brand/dd/camera.png" alt="" aria-hidden="true">
       <h2>ימי צילום<br>ועריכת תכנים</h2>
       <p>ימי צילום ממוקדים לשירותים הנוכחיים שלך, יצירת תכנים שיווקיים ועריכת רילסים וקריאייטיבים מסוגים שונים, לסושיאל, לקמפיינים ועוד.</p>
       <ul class="chips"><li>ימי צילום</li><li>רילסים</li><li>קריאייטיב</li><li>סושיאל</li></ul>
