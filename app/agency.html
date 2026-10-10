@@ -284,6 +284,49 @@ html.ed .fl,html.ed .blob,html.ed .wash,html.ed .cur,html.ed .ribbon,html.ed .ro
 html.ed{scroll-snap-type:none}
 @media(prefers-reduced-motion:reduce){.rotin,.ribbon .rt,.fl img,.blob,.sp .btn{animation:none!important}html{scroll-snap-type:none}}
 </style>
+
+<style>
+/* ===== the laptop of selected works (scrolling screen on a spiral pouf) ===== */
+.lapwrap{--k:.92;position:absolute;inset-inline-start:max(4vw,16px);top:50%;margin-top:calc(-290px*var(--k));width:calc(560px*var(--k));height:calc(590px*var(--k));z-index:1}
+.scene3d{position:absolute;left:0;top:calc(40px*var(--k));width:560px;height:480px;transform:scale(var(--k));transform-origin:0 0;perspective:1600px}
+.spiral-back{position:absolute;left:calc(-60px*var(--k));top:calc(-20px*var(--k));width:calc(640px*var(--k));height:calc(640px*var(--k));z-index:-1;stroke:rgba(var(--pc),.55);stroke-width:2.4;stroke-linecap:round;overflow:visible;animation:spinSlow 90s linear infinite;pointer-events:none}
+.spiral-back path,.pouf path{stroke-dasharray:1;stroke-dashoffset:0;animation:spiralDraw 9s ease-in-out infinite alternate}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+@keyframes spiralDraw{from{stroke-dashoffset:.72}to{stroke-dashoffset:0}}
+.lap{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(calc(24deg + var(--ry,0)*-6deg)) rotateY(calc(-20deg + var(--rx,0)*10deg)) rotateZ(1deg);animation:lapFloat 7s ease-in-out infinite}
+@keyframes lapFloat{50%{translate:0 -10px}}
+.lid{position:absolute;left:20px;top:8px;width:520px;height:330px;transform-origin:50% 100%;transform:rotateX(-4deg)}
+.bezel{position:relative;width:100%;height:100%;padding:12px 12px 18px;background:#0d0d11;border-radius:18px 18px 8px 8px;box-shadow:inset 0 0 0 2px #2b2b33,0 20px 50px -12px rgba(30,20,40,.55)}
+.cam{position:absolute;left:50%;top:5px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#2a2a36}
+.scr{position:relative;width:100%;height:100%;overflow:hidden;border-radius:6px;background:#000}
+.scroller{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;opacity:0;pointer-events:none;transition:opacity .6s;cursor:grab;overscroll-behavior:contain}
+.scroller::-webkit-scrollbar{display:none}
+.scroller.on{opacity:1;pointer-events:auto}
+.scroller:active{cursor:grabbing}
+.scroller img{display:block;width:100%;height:auto;user-select:none}
+.base{position:absolute;left:0;top:338px;width:560px;height:230px;transform-origin:50% 0;transform:rotateX(90deg);background:linear-gradient(180deg,#3b5e53,#2a463e);border-radius:10px 10px 26px 26px;box-shadow:inset 0 2px 0 rgba(255,255,255,.18),inset 0 -6px 14px rgba(0,0,0,.25)}
+.kb{position:absolute;left:34px;right:34px;top:18px;height:62%;border-radius:8px;background:repeating-linear-gradient(90deg,transparent 0 30px,rgba(0,0,0,.5) 30px 33px),repeating-linear-gradient(0deg,transparent 0 28px,rgba(0,0,0,.5) 28px 31px),#1f3832}
+.tp{position:absolute;left:50%;bottom:18px;width:38%;height:24%;margin-left:-19%;border-radius:8px;background:#34564c;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}
+.pouf{position:absolute;left:-30px;top:352px;width:620px;height:620px;transform-origin:50% 0;transform:translateZ(-120px) rotateX(90deg);border-radius:50%;background:radial-gradient(circle,#fffaf0 0 52%,#ffe0cc 100%);box-shadow:0 0 0 4px #47454D inset,0 40px 60px rgba(120,70,50,.25)}
+.pouf svg{position:absolute;inset:6%;width:88%;height:88%;stroke:#47454D;stroke-width:3.2;stroke-linecap:round;animation:spinSlow 70s linear infinite}
+.lapctl{position:absolute;left:0;right:0;bottom:calc(24px*var(--k));display:flex;gap:14px;align-items:center;justify-content:center;direction:ltr;z-index:3}
+.ln{all:unset;cursor:pointer;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#fff;border:2px solid var(--paper);font:800 18px var(--f-body);color:var(--paper);transition:transform .2s,background .2s}
+.ln:hover{transform:scale(1.12);background:var(--mint)}
+.ln:focus-visible,.ld:focus-visible{outline:3px solid rgb(var(--pc));outline-offset:2px}
+.lds{display:flex;gap:8px}
+.ld{all:unset;cursor:pointer;width:12px;height:12px;border-radius:50%;background:rgba(71,69,77,.25);transition:transform .25s,background .25s}
+.ld.on{background:rgb(var(--pc));transform:scale(1.5)}
+.lapcap{position:absolute;left:0;right:0;bottom:0;text-align:center;font:700 13px var(--f-body)!important;letter-spacing:.06em;color:var(--muted);margin:0!important;max-width:none!important}
+.cap{display:none}.cap.on{display:inline}
+@media(max-width:1320px){.lapwrap{--k:.8}}
+@media(max-width:1120px){.lapwrap{--k:.64}}
+@media(max-width:900px){.lapwrap{position:relative;inset:auto;margin:22px auto 6px;--k:.78;justify-self:center;order:2}.scene#s1{align-content:center;justify-items:center}.scene#s1 .panel{order:1}.lap{transform:rotateX(20deg) rotateY(-10deg) rotateZ(0)!important}}
+@media(max-width:460px){.lapwrap{--k:.55}}
+html.ed .spiral-back{display:none}
+html.ed .lap{animation:none}
+@media(prefers-reduced-motion:reduce){.lap,.spiral-back,.pouf svg,.spiral-back path,.pouf path{animation:none!important}}
+html.a11y-nomotion .lap,html.a11y-nomotion .spiral-back,html.a11y-nomotion .pouf svg,html.a11y-nomotion .spiral-back path,html.a11y-nomotion .pouf path{animation:none!important}
+</style>
 </head>
 <body>
 <style>
@@ -341,7 +384,18 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   <div class="ribbon" aria-hidden="true"><div class="rt"><span>אתרים</span><i>✦</i><span>מיתוג</span><i>✿</i><span>שיווק</span><i>♡</i><span>תוכן</span><i>✦</i><span>ליווי אישי</span><i>✿</i><span>אתרים</span><i>✦</i><span>מיתוג</span><i>✿</i><span>שיווק</span><i>♡</i><span>תוכן</span><i>✦</i><span>ליווי אישי</span><i>✿</i></div></div>
 
   <section class="scene" id="s1" data-pc="79,170,150" data-label="אתרים ודפי נחיתה" data-next="עיצוב ומיתוג">
-    <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+    <div class="lapwrap" id="lapwrap">
+      <svg class="spiral-back" viewBox="-210 -210 420 420" aria-hidden="true" fill="none"><path pathLength="1" d="M0.0 0.0 L1.0 0.1 L1.9 0.4 L2.6 0.8 L3.4 1.4 L4.1 2.3 L4.6 3.1 L5.0 4.2 L5.1 5.3 L5.3 6.7 L5.2 8.1 L4.8 9.5 L4.0 10.3 L3.3 12.0 L2.3 13.2 L1.0 13.8 L-0.5 15.5 L-2.1 16.4 L-3.8 16.3 L-6.0 17.5 L-7.8 17.1 L-10.0 17.1 L-12.6 17.3 L-14.8 16.5 L-16.4 15.0 L-18.8 14.1 L-21.1 12.7 L-22.8 10.8 L-24.5 8.7 L-26.3 6.5 L-28.5 4.1 L-28.4 1.2 L-30.3 -1.8 L-30.7 -4.9 L-30.1 -8.0 L-30.6 -11.5 L-30.7 -15.2 L-29.7 -18.5 L-27.6 -21.4 L-27.6 -26.1 L-25.2 -29.1 L-22.9 -32.6 L-19.0 -33.7 L-16.0 -36.7 L-12.4 -38.4 L-9.1 -42.3 L-4.8 -42.6 L-0.5 -43.4 L3.9 -45.0 L8.9 -46.7 L13.7 -46.2 L17.9 -43.9 L22.5 -42.5 L28.5 -42.8 L32.5 -39.6 L37.3 -37.1 L40.0 -32.5 L43.7 -28.8 L49.1 -25.8 L51.5 -20.7 L53.0 -15.4 L58.2 -10.8 L58.9 -4.9 L60.7 1.0 L58.5 6.9 L61.3 13.5 L57.6 18.9 L59.2 26.2 L55.7 31.7 L52.6 37.3 L50.0 43.6 L47.2 50.2 L40.8 53.2 L35.4 57.3 L30.7 63.0 L24.2 65.4 L17.6 67.8 L10.9 70.4 L3.9 71.5 L-3.4 73.2 L-10.9 73.9 L-18.4 73.3 L-26.7 74.1 L-33.4 69.8 L-41.2 67.8 L-47.4 62.8 L-54.6 59.1 L-59.7 52.8 L-66.4 47.9 L-70.6 40.8 L-78.6 35.6 L-81.8 27.5 L-83.1 19.0 L-87.1 10.9 L-91.2 2.3 L-87.3 -6.6 L-91.1 -16.1 L-87.8 -24.8 L-86.1 -33.9 L-84.9 -43.7 L-78.8 -51.1 L-74.5 -59.7 L-69.7 -68.3 L-64.3 -77.0 L-54.6 -80.5 L-48.2 -89.1 L-39.1 -93.6 L-29.7 -97.6 L-19.7 -99.5 L-9.7 -101.5 L0.4 -101.0 L10.7 -101.9 L20.9 -100.8 L32.5 -103.4 L41.7 -97.5 L51.4 -93.1 L60.7 -87.8 L73.1 -86.1 L82.2 -79.1 L89.3 -70.3 L94.4 -60.0 L100.5 -50.6 L106.2 -40.8 L111.8 -30.5 L113.1 -19.0 L117.5 -7.8 L117.2 3.9 L122.4 16.5 L121.2 28.8 L115.5 40.0 L109.7 50.8 L109.7 64.8 L99.3 73.0 L92.5 83.4 L82.4 90.8 L75.3 101.8 L65.7 110.2 L54.8 117.3 L42.3 120.7 L30.9 127.7 L17.5 127.0 L4.9 131.2 L-8.2 130.5 L-21.8 132.5 L-34.3 127.6 L-47.2 124.2 L-60.8 121.9 L-72.9 115.5 L-86.5 110.8 L-97.5 102.0 L-109.4 93.6 L-118.3 82.3 L-127.2 70.8 L-135.9 58.7 L-137.7 43.8 L-141.7 29.9 L-151.0 16.4 L-145.1 1.2 L-150.8 -13.9 L-148.8 -28.9 L-140.6 -42.3 L-143.6 -59.4 L-138.3 -74.1 L-128.8 -86.6 L-121.1 -100.4 L-111.7 -113.2 L-96.2 -119.3 L-86.5 -132.3 L-73.2 -140.9 L-60.3 -151.5 L-45.1 -157.4 L-29.3 -162.3 L-12.9 -162.9 L3.6 -167.5 L20.1 -165.1 L36.7 -163.3 L51.6 -155.1 L66.4 -148.1 L81.8 -142.5 L97.6 -136.3 L109.5 -124.6 L127.9 -119.0 L137.5 -104.4 L148.7 -91.1 L157.8 -76.2 L166.1 -60.6 L170.2 -43.4 L169.3 -25.5 L180.8 -9.0 L181.2 9.1 L177.6 26.9 L175.2 44.8 L172.1 62.9 L159.7 77.2 L158.6 97.3 L144.4 109.8 L131.8 122.9 L121.0 137.8 L110.3 154.4 L91.8 160.1 L78.3 175.2 L61.6 185.7"/></svg>
+      <div class="scene3d">
+        <div class="pouf" aria-hidden="true"><svg viewBox="-200 -200 400 400" fill="none"><path pathLength="1" d="M0.0 0.0 L0.6 0.1 L1.3 0.3 L1.8 0.7 L2.3 1.2 L2.7 1.8 L2.9 2.5 L3.1 3.4 L3.0 4.2 L2.8 5.2 L2.3 6.0 L1.8 6.9 L1.0 7.7 L0.1 8.6 L-1.0 9.0 L-2.2 9.5 L-3.6 9.9 L-5.1 10.0 L-6.5 9.8 L-8.1 9.4 L-9.8 9.0 L-11.0 7.9 L-12.7 7.0 L-13.8 5.6 L-15.0 4.0 L-16.0 2.3 L-16.9 0.4 L-17.7 -1.7 L-17.7 -3.9 L-17.9 -6.3 L-17.6 -8.7 L-16.9 -11.0 L-16.0 -13.5 L-14.5 -15.5 L-12.9 -17.7 L-11.1 -19.7 L-9.0 -21.8 L-6.5 -23.2 L-3.7 -24.4 L-0.8 -25.5 L2.3 -26.0 L5.5 -26.0 L8.9 -26.2 L12.2 -25.5 L15.3 -24.0 L18.7 -22.8 L21.7 -20.8 L24.8 -18.6 L27.3 -15.8 L29.2 -12.5 L31.8 -9.3 L32.5 -5.3 L33.8 -1.5 L34.8 2.7 L34.2 6.8 L34.1 11.2 L32.6 15.2 L31.8 19.8 L29.8 23.9 L27.0 27.6 L24.1 31.5 L20.1 34.1 L16.4 37.3 L12.0 39.5 L7.3 41.3 L2.3 42.3 L-2.9 43.5 L-8.2 43.6 L-13.4 42.3 L-18.7 41.2 L-23.4 38.5 L-28.8 36.7 L-33.4 33.4 L-38.1 29.9 L-41.7 25.3 L-44.3 20.0 L-47.2 14.8 L-49.7 9.3 L-50.0 3.2 L-51.4 -2.8 L-50.9 -9.0 L-50.0 -15.2 L-48.3 -21.3 L-47.0 -27.9 L-43.0 -33.0 L-39.3 -38.5 L-35.0 -43.7 L-30.3 -48.8 L-23.9 -51.4 L-18.0 -55.1 L-11.4 -57.7 L-4.5 -60.0 L2.7 -60.6 L10.1 -60.6 L17.1 -58.5 L24.3 -56.9 L31.2 -54.0 L38.5 -51.2 L44.9 -46.9 L49.4 -40.5 L54.5 -34.7 L59.0 -28.2 L62.5 -21.2 L65.8 -13.8 L67.8 -5.9 L68.0 2.3 L67.3 10.4 L67.1 18.8 L64.8 26.9 L62.1 35.0 L58.7 43.1 L53.2 49.9 L47.0 56.1 L40.4 62.1 L33.0 67.2 L24.5 69.8 L16.5 74.9 L7.5 76.7 L-1.8 77.9 L-11.2 77.6 L-20.3 75.4 L-29.4 73.0 L-37.9 68.9 L-47.0 65.5 L-54.0 58.8 L-61.1 52.3 L-67.8 45.2 L-73.2 37.0 L-78.2 28.3 L-80.9 18.8 L-83.0 9.0 L-84.6 -1.0 L-84.3 -11.2 L-83.7 -21.6 L-80.3 -31.3 L-78.6 -42.1 L-72.9 -51.2 L-65.8 -59.1 L-58.9 -67.3 L-50.9 -74.6 L-41.9 -80.8 L-31.9 -85.2 L-22.2 -91.1 L-11.2 -94.2 L0.1 -93.9 L11.4 -93.9 L22.5 -91.3 L33.5 -88.6 L44.5 -85.2 L54.6 -79.6 L65.3 -74.3 L72.7 -65.0 L80.1 -55.9 L89.4 -47.6 L93.8 -36.3 L96.9 -24.7 L101.1 -13.2 L100.9 -1.0 L102.6 11.4 L102.6 24.1 L99.2 36.3 L94.3 47.9 L87.2 58.4 L80.3 69.1 L71.5 78.2 L63.2 88.4 L52.0 95.2 L40.8 102.1 L28.1 105.4 L15.3 108.3 L2.3 112.1 L-11.3 112.8 L-24.7 110.8 L-38.0 107.5 L-50.9 102.8 L-63.1 96.3 L-73.3 87.1 L-84.5 78.9 L-93.4 68.3 L-100.4 56.3 L-107.0 44.1 L-113.0 31.4 L-116.6 17.8 L-120.1 3.7 L-121.4 -10.8 L-117.9 -25.0 L-116.5 -39.8 L-111.7 -53.8 L-104.9 -67.1 L-94.8 -78.1 L-84.9 -88.9 L-74.0 -99.0 L-61.9 -107.6 L-48.8 -114.9 L-35.4 -122.1 L-20.8 -127.2 L-5.4 -129.2 L10.0 -128.1 L25.6 -127.4 L41.0 -124.6 L54.6 -116.7 L69.8 -111.9 L83.8 -104.0 L95.7 -93.3 L106.6 -81.5 L115.2 -67.9 L121.9 -53.4 L130.6 -39.4 L133.1 -23.2 L137.6 -7.3 L138.8 9.4 L134.9 25.6 L131.5 41.7 L128.4 58.4 L120.2 73.2 L109.1 85.9 L98.3 98.7 L86.3 110.4 L74.6 123.4 L59.3 131.6 L42.4 135.5 L26.6 143.3 L9.3 146.9 L-8.3 146.1 L-25.5 143.3 L-43.0 140.7 L-59.0 133.3 L-74.6 125.4 L-92.2 119.7 L-105.3 107.2 L-117.4 93.8 L-130.0 80.5 L-137.1 63.6 L-146.4 47.6 L-151.4 29.8 L-151.6 11.3 L-152.7 -7.0 L-151.6 -25.3 L-147.8 -43.4 L-143.8 -61.7 L-134.5 -78.0 L-125.3 -94.4 L-112.6 -108.2 L-101.7 -124.4 L-84.9 -133.9 L-68.8 -144.2 L-51.4 -152.6 L-33.3 -159.9 L-13.7 -160.9 L5.7 -164.6 L25.2 -161.3 L44.5 -157.9 L63.3 -152.0 L80.1 -141.5 L98.2 -133.3 L112.9 -120.0 L126.2 -105.4 L142.1 -92.2 L149.6 -73.4 L159.5 -55.7 L167.0 -36.6 L169.9 -16.3 L170.0 4.1 L170.0 24.7 L166.7 45.1 L161.9 65.4 L150.1 82.8 L141.7 102.0 L127.7 117.5 L113.2 132.6 L98.4 148.1 L79.6 158.0 L60.5 167.3 L40.4 175.1 L19.3 180.2 L-2.4 179.2 L-24.0 179.2 L-45.3 175.1 L-66.2 169.1 L-86.8 161.4 L-105.0 149.3 L-122.9 136.4 L-138.6 121.0 L-154.9 105.4 L-165.7 85.7 L-176.4 65.9 L-184.0 44.6 L-184.6 21.8"/></svg></div>
+        <div class="lap">
+          <div class="lid"><div class="bezel"><i class="cam"></i><div class="scr"><div class="scroller on" tabindex="0" role="group" aria-label="תצוגת עבודה 1, אפשר לגלול"><img src="brand/work-1.svg" alt="עבודה לדוגמה 1" draggable="false"></div><div class="scroller" tabindex="0" role="group" aria-label="תצוגת עבודה 2, אפשר לגלול"><img src="brand/work-2.svg" alt="עבודה לדוגמה 2" draggable="false"></div><div class="scroller" tabindex="0" role="group" aria-label="תצוגת עבודה 3, אפשר לגלול"><img src="brand/work-3.svg" alt="עבודה לדוגמה 3" draggable="false"></div></div></div></div>
+          <div class="base" aria-hidden="true"><div class="kb"></div><div class="tp"></div></div>
+        </div>
+      </div>
+      <div class="lapctl"><button type="button" class="ln" data-d="1" aria-label="העבודה הבאה">→</button><span class="lds"><button type="button" class="ld on" aria-label="עבודה 1"></button><button type="button" class="ld" aria-label="עבודה 2"></button><button type="button" class="ld" aria-label="עבודה 3"></button></span><button type="button" class="ln" data-d="-1" aria-label="העבודה הקודמת">←</button></div>
+      <p class="lapcap"><span class="cap on">שם הלקוח · דף נחיתה</span><span class="cap">שם הלקוח · אתר שירותים</span><span class="cap">שם הלקוח · אתר חנות</span></p>
+    </div>
     <div class="panel rv">
       <p class="tag">שירות</p>
       <h2>אתרים<br>ודפי נחיתה</h2>
@@ -606,6 +660,60 @@ document.documentElement.classList.add('no-js');
   addEventListener('scroll',function(){if(!tk){tk=true;requestAnimationFrame(onScroll)}},{passive:true});
   setInterval(function(){if(Math.abs(skew)>.05){skew*=.8;ribbon.forEach(function(r){r.style.transform='skewX('+(-skew).toFixed(2)+'deg)'})}},60);
   onScroll();
+})();
+</script>
+
+<script>
+/* laptop of works: the screen scrolls by itself and can be scrolled by hand (wheel, drag, touch, keys); several works; the laptop leans toward the pointer */
+(function(){
+  var wrap=document.getElementById('lapwrap'); if(!wrap) return;
+  var calm=matchMedia('(prefers-reduced-motion: reduce)').matches||document.documentElement.classList.contains('a11y-nomotion');
+  var editing=document.documentElement.classList.contains('ed');
+  var $$=function(s,r){return [].slice.call((r||wrap).querySelectorAll(s))};
+  var sc=$$('.scroller'),dots=$$('.ld'),caps=$$('.cap'),cur=0,hold=0,pos=0,dir=1,since=0,visible=false;
+  function show(i){
+    cur=(i+sc.length)%sc.length;
+    sc.forEach(function(s,k){s.classList.toggle('on',k===cur)});
+    dots.forEach(function(d,k){d.classList.toggle('on',k===cur)});
+    caps.forEach(function(c,k){c.classList.toggle('on',k===cur)});
+    pos=0;dir=1;sc[cur].scrollTop=0;since=0;
+  }
+  dots.forEach(function(d,k){d.addEventListener('click',function(){show(k);hold=240})});
+  $$('.ln').forEach(function(b){b.addEventListener('click',function(){show(cur+(+b.dataset.d));hold=240})});
+  sc.forEach(function(s,k){
+    ['wheel','touchstart','keydown'].forEach(function(ev){s.addEventListener(ev,function(){hold=200},{passive:true})});
+    s.addEventListener('scroll',function(){if(k===cur&&hold>0)pos=s.scrollTop},{passive:true});
+    // drag with the mouse
+    var down=false,y0=0,t0=0;
+    s.addEventListener('pointerdown',function(e){if(e.pointerType==='touch')return;down=true;y0=e.clientY;t0=s.scrollTop;hold=240;s.setPointerCapture(e.pointerId)});
+    s.addEventListener('pointermove',function(e){if(down){s.scrollTop=t0-(e.clientY-y0)*1.6;pos=s.scrollTop}});
+    s.addEventListener('pointerup',function(){down=false});s.addEventListener('pointercancel',function(){down=false});
+  });
+  if('IntersectionObserver' in window)new IntersectionObserver(function(es){visible=es[0].isIntersecting}).observe(wrap);else visible=true;
+  // tilt toward the pointer
+  var fine=matchMedia('(hover:hover) and (pointer:fine)').matches,tx=0,ty=0,cx=0,cy=0,raf=0;
+  if(fine&&!calm){
+    wrap.addEventListener('pointermove',function(e){var r=wrap.getBoundingClientRect();tx=((e.clientX-r.left)/r.width-.5)*2;ty=((e.clientY-r.top)/r.height-.5)*2;if(!raf)raf=requestAnimationFrame(tilt)});
+    wrap.addEventListener('pointerleave',function(){tx=0;ty=0;if(!raf)raf=requestAnimationFrame(tilt)});
+    function tilt(){cx+=(tx-cx)*.1;cy+=(ty-cy)*.1;wrap.style.setProperty('--rx',cx.toFixed(3));wrap.style.setProperty('--ry',cy.toFixed(3));raf=(Math.abs(tx-cx)+Math.abs(ty-cy)>.003)?requestAnimationFrame(tilt):0}
+  }
+  if(calm||editing) return;
+  (function loop(){
+    var s=sc[cur];
+    if(visible){
+      if(hold>0)hold--;
+      else{
+        var max=s.scrollHeight-s.clientHeight;
+        if(max>0){
+          pos+=dir*.9;
+          if(pos>=max){pos=max;dir=-1;hold=70}
+          else if(pos<=0){pos=0;dir=1;hold=70;since++;if(since>=1&&sc.length>1){show(cur+1);hold=40}}
+          s.scrollTop=pos;
+        }
+      }
+    }
+    requestAnimationFrame(loop);
+  })();
 })();
 </script>
 <script src="ui.js"></script>
