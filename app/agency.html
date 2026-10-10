@@ -571,6 +571,12 @@ html.a11y-nomotion .ltrack{animation:none}
 .hud{display:none!important}
 .blob{background:radial-gradient(circle at 30% 30%,rgba(var(--pc),.16),rgba(var(--pc),.03) 70%)!important}
 .wash{background:radial-gradient(circle at 50% 50%,rgba(var(--pc),.07),transparent 62%)!important}
+/* bigger header logo, menu and hero logo */
+header .logo img{height:clamp(64px,6vw,84px)!important}
+nav a{font-size:clamp(17px,1.35vw,21px)!important;font-weight:600}
+nav{gap:clamp(18px,2.2vw,34px)!important}
+.hero-logo{width:clamp(170px,19vw,270px)!important}
+@media(max-width:900px){header .logo img{height:54px!important}nav a{font-size:15px!important}}
 /* bigger hero + service doodles */
 .dd.d1{width:clamp(78px,7.5vw,116px)}
 .dd.d4{width:clamp(66px,6.6vw,100px)}
