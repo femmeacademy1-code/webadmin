@@ -753,6 +753,11 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 #intro{display:none!important}
 .hero h1 span{animation-delay:calc(.12s + var(--i)*.09s)!important}
 .blob,.wash{display:none!important}
+.wall.qopen .track{animation-play-state:paused!important}
+.wall{padding-block:6px}
+.track{align-items:flex-start}
+.quote.qc.open{width:min(430px,86vw);z-index:2;box-shadow:0 20px 50px -20px rgba(60,40,40,.45)}
+.quote.qc{transition:width .3s}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -982,9 +987,10 @@ document.documentElement.classList.add('no-js');
   var tr=document.getElementById('track');
   function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
   tr.innerHTML=Q.concat(Q).map(function(q,k){var long=q[2].length>150;return '<figure class="quote qc" style="margin:0"><img class="qa" src="brand/people/'+q[1]+'.webp" alt="" width="64" height="64" loading="lazy"><cite>'+q[0]+'</cite><p class="qt'+(long?' clamp':'')+'">'+esc(q[2]).replace(/\n/g,'<br>')+'</p>'+(long?'<button type="button" class="more" data-q="'+(k%Q.length)+'">קרא עוד</button>':'')+'</figure>'}).join('');
-  var qd=document.createElement('dialog');qd.id='qbox';qd.innerHTML='<form method="dialog"><button class="qx" aria-label="סגירה">✕</button></form><img class="qa big" alt=""><h3></h3><p></p>';document.body.appendChild(qd);
-  tr.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.more');if(!b)return;var q=Q[+b.dataset.q];qd.querySelector('img').src='brand/people/'+q[1]+'.webp';qd.querySelector('h3').textContent=q[0];qd.querySelector('p').innerHTML=esc(q[2]).replace(/\n/g,'<br>');qd.showModal()});
-  qd.addEventListener('click',function(e){if(e.target===qd)qd.close()});
+  tr.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.more');if(!b)return;var f=b.closest('.quote'),t=f.querySelector('.qt'),open=!f.classList.contains('open');
+    [].forEach.call(tr.querySelectorAll('.quote.open'),function(o){if(o!==f){o.classList.remove('open');o.querySelector('.qt').classList.add('clamp');o.querySelector('.more').textContent='קרא עוד'}});
+    f.classList.toggle('open',open);t.classList.toggle('clamp',!open);b.textContent=open?'הצג פחות':'קרא עוד';
+    tr.parentNode.classList.toggle('qopen',open);});
   document.getElementById('lead').addEventListener('submit',function(e){e.preventDefault();var m=document.getElementById('fmsg'),f=e.target;
     if(!f.nm.value.trim()||!/^\S+@\S+\.\S+$/.test(f.em.value.trim())||f.ph.value.replace(/\D/g,'').length<9){m.textContent='נא למלא שם, אימייל וטלפון תקינים.';return}
     if(!f.ok.checked){m.textContent='כדי להמשיך צריך לאשר את התקנון ומדיניות הפרטיות.';return}
