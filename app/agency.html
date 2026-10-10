@@ -470,6 +470,19 @@ header{background:rgba(246,252,250,.9)!important}
 html.ed .ph .bars{display:none}
 @media(prefers-reduced-motion:reduce){[data-kind] .sl{transition:none}.ph .bars b.run i{animation:none;width:100%}}
 </style>
+<style>
+/* the duo photo next to "support and personal guidance" (right side) */
+.supphoto{--k:1;position:absolute;inset-inline-start:max(4.6vw,16px);top:50%;width:calc(540px*var(--k));margin:calc(-185px*var(--k)) 0 0;z-index:1;border-radius:30px;border:3px solid rgba(var(--pc),.5);box-shadow:0 28px 50px -24px rgba(60,80,80,.45);background:#fff;animation:ddFloat 9s ease-in-out infinite}
+.supphoto>img:first-child{display:block;width:100%;height:auto;border-radius:27px}
+.supphoto .sph{position:absolute;width:calc(74px*var(--k));right:-14px;bottom:-22px;animation:flBeat 2.2s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.12))}
+.scene#s5{min-height:520px}
+.scene#s5 .panel{max-width:560px}
+@media(max-width:1380px){.supphoto{--k:.88}}
+@media(max-width:1240px){.supphoto{--k:.74}}
+@media(max-width:1100px){.supphoto{--k:.6}}
+@media(max-width:900px){.supphoto{position:relative;inset:auto!important;margin:18px auto 0;width:min(92%,520px);--k:.9;order:2;animation:none}.scene#s5{min-height:0}.scene#s5 .panel{order:1;max-width:680px}}
+@media(prefers-reduced-motion:reduce){.supphoto,.supphoto .sph{animation:none!important}}
+</style>
 </head>
 <body>
 <style>
@@ -590,6 +603,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   </section>
 
   <section class="scene" id="s5" data-pc="232,128,140" data-label="תמיכה וליווי אישי" data-next="מה מייחד אותנו" data-bg="255,232,226|205,232,245">
+    <figure class="supphoto rv"><img src="team/duo-laptop.jpg" alt="רוני ואורין ליד הלפטופ" loading="lazy" width="1500" height="1000"><img class="sph" src="brand/dd/hearts.png" alt="" aria-hidden="true"></figure>
     <div class="art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     <div class="panel rv">
       <img class="sym beat" src="brand/dd/hearts.png" alt="" aria-hidden="true"><p class="tag">לאורך כל הדרך אנחנו שם</p>
@@ -620,7 +634,6 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   <section class="scene center" id="s8" data-pc="79,170,150" data-label="נעים להכיר" data-next="צור קשר" data-bg="212,242,234|205,232,245">
     <div class="stack" style="width:100%">
       <div class="rv" style="text-align:center"><p class="tag" style="text-align:center">נעים להכיר</p><h2>אורין ורוני</h2></div>
-      <figure class="teamphoto rv"><img src="team/duo-laptop.jpg" alt="רוני ואורין ליד הלפטופ" loading="lazy" width="1500" height="1000"></figure>
       <div class="duo rv">
         <div class="panel"><img class="ph" src="team/orin.jpg" alt="אורין" loading="lazy"><h3>אני אורין</h3><p class="role">דולה עסקית ליוצרות עצמאיות</p>
           <p>ליוויתי עשרות נשים ליצור עסק מצליח מהמתנות, הידע והכישרונות שלהן. התחלתי את דרכי מגיל צעיר כתחביב ומשיכה לעיצוב גרפי ולמיתוג, ואז למדתי בניית אתרים, שיווק ומיתוג באופן מקצועי.</p>
