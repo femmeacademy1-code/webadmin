@@ -18,12 +18,10 @@
  linear-gradient(180deg,#f4fcfa,#fff7f1);background-size:8640px 1350px}
 .s{position:absolute;top:0;left:0;width:1080px;height:1350px;direction:rtl;font-family:Assistant,sans-serif;color:var(--ink);padding:110px 90px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:visible}
 h1,h2{font-family:"Ploni Yad",Assistant,sans-serif;font-weight:400;margin:0;line-height:1.1}
-.o{background:linear-gradient(100deg,#9c3b3b,var(--rose) 50%,#d9776a);-webkit-background-clip:text;background-clip:text;color:transparent}
-.t{background:linear-gradient(100deg,#1c6f66,#2fa095 50%,#5cc4b6);-webkit-background-clip:text;background-clip:text;color:transparent}
-.big{font-size:108px}.mid{font-size:92px}.sm{font-size:64px}
-.sub{font-size:44px;line-height:1.5;font-weight:600;margin:34px 0 0;max-width:820px}
-.o .w{background:linear-gradient(100deg,#9c3b3b,#c0504d 50%,#d9776a);-webkit-background-clip:text;background-clip:text;color:transparent}
-.t .w{background:linear-gradient(100deg,#1c6f66,#2fa095 50%,#5cc4b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.big{font-size:96px}.mid{font-size:84px}.sm{font-size:64px}
+.sub{font-size:56px;line-height:1.45;font-weight:600;margin:40px 0 0;max-width:880px}
+.o .w,.o{color:#c0504d}
+.t .w,.t{color:#1f8a80}
 .w{display:inline-block;opacity:0;transform:translateY(60px) rotate(4deg);animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(var(--d,0s) + var(--i)*.09s)}
 @keyframes rise{to{opacity:1;transform:none}}
 .fade{opacity:0;animation:fadeUp .9s ease forwards;animation-delay:var(--d,1.6s)}
@@ -48,7 +46,7 @@ h1,h2{font-family:"Ploni Yad",Assistant,sans-serif;font-weight:400;margin:0;line
 .ring{position:absolute;border-radius:50%;border:5px solid rgba(192,80,77,.5);animation:ring 3s ease-out infinite;opacity:0}
 @keyframes ring{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.8);opacity:0}}
 .card{background:rgba(255,255,255,.86);border:4px solid rgba(47,154,144,.3);border-radius:48px;padding:56px 54px;box-shadow:0 34px 60px -30px rgba(60,40,40,.45);max-width:900px;text-align:center}
-.card p{font-size:44px;line-height:1.55;font-weight:600;margin:0 0 22px}
+.card p{font-size:50px;line-height:1.55;font-weight:600;margin:0 0 22px}
 .btn{margin-top:36px;background:var(--rose);color:#fff;border-radius:999px;padding:30px 72px;font:800 52px Assistant;box-shadow:0 20px 0 -8px #8d3a38;opacity:0;animation:fadeUp .8s ease 2.6s forwards,pulse 1.6s ease-in-out 3.4s infinite}
 @keyframes pulse{0%,100%{scale:1}50%{scale:1.07}}
 .duo{position:absolute;bottom:-96px;width:520px;left:50%;margin-left:-260px;opacity:0;transform:translateY(300px);animation:slideUp 1.1s cubic-bezier(.2,.8,.2,1) 1.2s forwards}
@@ -58,43 +56,43 @@ h1,h2{font-family:"Ploni Yad",Assistant,sans-serif;font-weight:400;margin:0;line
 <script>
 const P=document.getElementById('pano');
 const words=(t,d=0,start=0)=>t.split(' ').map((w,i)=>`<span class="w" style="--i:${i+start};--d:${d}s">${w}</span>`).join(' ');
-const dd=(f,x,y,wd,extra='',d='.4s',cls='')=>`<img class="d ${cls}" src="../../app/brand/dd/${f}.png" style="left:${x}px;top:${y}px;width:${wd}px;--d:${d};${extra}" alt="">`;
+const dd=(f,x,y,wd,extra='',d='.4s',cls='')=>`<img class="d ${cls}" src="${['bulb','dress','stage','umbrella','flag','egg','sprout'].includes(f)?'dd':'../../app/brand/dd'}/${f}.png" style="left:${x}px;top:${y}px;width:${wd}px;--d:${d};${extra}" alt="">`;
 const S=[];
 // 1 hook
 S.push(`<div class="ring" style="width:380px;height:380px;top:150px;left:350px"></div><div class="ring" style="width:380px;height:380px;top:150px;left:350px;animation-delay:1.5s"></div>
-${dd('hearts',390,225,300,'','.2s','beat')}
-<h1 class="big o" style="margin-top:300px">${words('5 סימנים שהעסק שלך',.5)}<br><span class="t">${words('עובר תהליך של לידה',1.0,4)}</span></h1>
-<p class="sub fade" style="--d:2.2s">ואת צריכה את הצוות הנכון לצידך</p>
+${dd('egg',390,190,300,'','.2s','beat')}
+<h1 class="big" style="margin-top:330px">${words('5 סימנים שהעסק שלך',.5)}<br><span class="o">${words('עובר תהליך של לידה',1.0,4)}</span></h1>
+<p class="sub fade" style="--d:2.2s">ואת צריכה את הצוות<br>הנכון לצידך</p>
 ${dd('sparkles',70,150,200,'','.9s')}${dd('bfly-s',800,1060,200,'','1.2s','fly')}${dd('star',860,200,110,'','1.4s')}
 <div class="cue" style="animation-delay:2.8s">החליקי ‹</div>`);
 const signs=[
- ['כשהרעיונות שלך גדולים יותר מהיכולת הטכנית שלך לבצע אותם','ואת מרגישה שהם נשארים רק בראש','bolt','o'],
- ['כשהנראות הנוכחית שלך כבר לא הולמת את המקצועיות שלך','הגיע הזמן שהדיגיטל ידבר כמוך','camera','t'],
- ['כשיש לך שירות חדש ומרגש שחייב במה משלו','ולא רק פוסט בפיד שנעלם אחרי 24 שעות','megaphone','o'],
- ['כשאת צריכה מישהי שתחזיק לך את היד','כשהפחד מחשיפה עולה','hearts','t'],
- ['כשאת מבינה שהעסק שלך כבר לא תחביב','הוא השליחות שלך','crown','o']];
+ ['כשהרעיונות שלך גדולים','יותר מהיכולת הטכנית שלך לבצע אותם','ואת מרגישה שהם נשארים רק בראש','bulb'],
+ ['כשהנראות הנוכחית שלך','כבר לא הולמת את המקצועיות שלך','הגיע הזמן שהדיגיטל ידבר כמוך','dress'],
+ ['כשיש לך שירות חדש ומרגש','שחייב במה משלו','ולא רק פוסט בפיד שנעלם אחרי 24 שעות','stage'],
+ ['כשאת צריכה מישהי','שתחזיק לך את היד','כשהפחד מחשיפה עולה','umbrella'],
+ ['כשאת מבינה שהעסק שלך','כבר לא תחביב – הוא השליחות שלך','והוא מגיע לבית שראוי לו','flag']];
 signs.forEach((s,k)=>{
  const num=k+1;
  S.push(`<div class="num ${k%2?'t2':''}">${num}</div>
- ${dd(s[2],k%2?110:760,110,220,'','.9s')}
- <h2 class="mid ${s[3]}" style="margin-top:230px;max-width:880px">${words(s[0],.6)}</h2>
- <p class="sub fade" style="--d:2.2s">${s[1]}</p>
- ${dd(k%2?'sparkle':'star',k%2?800:90,k%2?980:1000,120,'','1.5s')}
+ ${dd(s[3],k%2?120:760,100,230,'','.9s')}
+ <h2 class="mid" style="margin-top:210px;max-width:900px">${words(s[0],.6)}<br><span class="${k%2?'t':'o'}">${words(s[1],1.0,5)}</span></h2>
+ <p class="sub fade" style="--d:2.2s">${s[2]}</p>
+ ${dd(k%2?'sparkle':'star',k%2?800:90,k%2?1000:1010,120,'','1.5s')}
  <div class="bar"><i style="--p:${num*20}%"></i></div><div class="cue">‹</div>`);
 });
 // 7 copy
-S.push(`${dd('butterfly',60,90,230,'','.5s','fly')}${dd('flower-s',820,1000,170,'','1.6s')}
-<div class="card"><h2 class="sm t" style="margin-bottom:26px">${words('לבנות אתר זה לא רק קוד ועיצוב',.3)}</h2>
+S.push(`${dd('butterfly',40,20,190,'','.5s','fly')}${dd('flower-s',820,1000,170,'','1.6s')}
+<div class="card"><h2 class="sm" style="margin-bottom:30px">${words('לבנות אתר זה לא רק',.3)} <span class="o">${words('קוד ועיצוב',.8,4)}</span></h2>
 <p class="fade" style="--d:1.6s">זה תהליך של להוציא משהו ממך החוצה לעולם.</p>
 <p class="fade" style="--d:2.2s">זה רגיש, זה מפחיד לפעמים – וזה דורש ליווי שהוא גם מקצועי וגם רגשי.</p>
 <p class="fade" style="--d:2.9s;font-weight:800;color:var(--rose)">אנחנו כאן כדי שהלידה הזו תהיה רכה, מדויקת ועוצמתית.</p></div>
-${dd('hearts',430,1090,180,'','3.2s','beat')}<div class="cue" style="animation-delay:3.4s">‹</div>`);
+${dd('sprout',440,1060,190,'','3.2s')}<div class="cue" style="animation-delay:3.4s">‹</div>`);
 // 8 CTA
 S.push(`<img class="logo" src="../../app/brand/logo.png" style="position:absolute;top:70px;width:260px" alt="">
-<h1 class="big o" style="margin-top:60px;font-size:108px">${words('הגיע הזמן',.5)}<br><span class="t">${words('ללדת אותו?',.9,2)}</span></h1>
+<h1 class="big" style="margin-top:60px;font-size:100px">${words('הגיע הזמן',.5)}<br><span class="o">${words('ללדת אותו?',.9,2)}</span></h1>
 <p class="sub fade" style="--d:1.6s">שלחי לנו הודעה לתיאום <b>דייט עסקי</b><br>ונבנה יחד את הבית הדיגיטלי שלך</p>
 <div class="btn" style="margin-top:26px;padding:24px 62px;font-size:46px">דברי איתנו ←</div>
 <p class="fade" style="--d:3s;font:800 38px Assistant;color:var(--teal);direction:ltr;margin:20px 0 0">femme-digital.com</p>
-<img class="duo" src="../../app/brand/duo-cut.webp" alt="">${dd('sparkles',70,420,200,'','1.4s')}${dd('star',860,330,120,'','1.6s')}${dd('bfly-s',850,640,190,'','1.8s','fly')}`);
+<img class="duo" src="../../app/brand/duo-cut.webp" alt="">${dd('sparkles',70,420,200,'','1.4s')}${dd('star',860,330,120,'','1.6s')}${dd('bfly-s',850,1010,190,'','1.8s','fly')}`);
 S.forEach((h,i)=>{const e=document.createElement('section');e.className='s';e.style.backgroundPosition=`${-i*1080}px 0`;e.dataset.i=i;e.style.display=i===0?'flex':'none';e.innerHTML=h;P.appendChild(e)});
 </script></body></html>
