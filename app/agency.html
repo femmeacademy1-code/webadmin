@@ -863,6 +863,15 @@ main .scene h2,.svc-intro h2,.sp .scene h2 .wi{font-size:clamp(42px,5.2vw,66px)!
 /* bigger orange section labels */
 .tag,.scene .tag{font-size:clamp(24px,2.5vw,32px)!important;letter-spacing:.07em!important;font-weight:800!important;line-height:1.25!important;margin-bottom:10px!important}
 @media(max-width:640px){.tag,.scene .tag{font-size:clamp(21px,6vw,26px)!important;letter-spacing:.04em!important}}
+/* magic wand cursor */
+html.wandon,html.wandon *{cursor:none!important}
+html.wandon input,html.wandon textarea,html.wandon select{cursor:text!important}
+html.wandon .cur{width:auto!important;height:auto!important;border:0!important;border-radius:0!important;background:none!important;margin:0!important;left:0;top:0;opacity:0;transition:opacity .2s}
+html.wandon .cur.on{opacity:1}
+.cur img{display:block;width:62px;height:auto;margin:-12px 0 0 -14px;transform-origin:14px 12px;transition:transform .2s;filter:drop-shadow(0 6px 8px rgba(60,40,40,.25));pointer-events:none}
+.cur.big img{transform:scale(1.25) rotate(-12deg)}
+.wandfx{position:fixed;left:0;top:0;z-index:399;pointer-events:none}
+@media(hover:none),(max-width:900px){.wandfx{display:none}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -1219,14 +1228,28 @@ document.documentElement.classList.add('no-js');
   var fine=matchMedia('(hover:hover) and (pointer:fine)').matches;
   var cur=null,cx=0,cy=0,tx=0,ty=0,raf=0;
   if(fine){
-    cur=document.createElement('div');cur.className='cur';cur.setAttribute('aria-hidden','true');document.body.appendChild(cur);
+    cur=document.createElement('div');cur.className='cur';cur.setAttribute('aria-hidden','true');cur.innerHTML='<img src="brand/dd/wand.png" alt="" draggable="false">';document.body.appendChild(cur);if(!H.classList.contains('ed'))H.classList.add('wandon');
     addEventListener('pointermove',function(e){
       tx=e.clientX;ty=e.clientY;cur.classList.add('on');
       H.style.setProperty('--mx',((e.clientX/innerWidth-.5)*2).toFixed(3));H.style.setProperty('--my',((e.clientY/innerHeight-.5)*2).toFixed(3));
       cur.classList.toggle('big',!!(e.target.closest&&e.target.closest('a,button,.panel,.quote,input,label,.rail button')));
       if(!raf)raf=requestAnimationFrame(tick)},{passive:true});
     document.addEventListener('mouseleave',function(){cur.classList.remove('on')});
-    function tick(){cx+=(tx-cx)*.2;cy+=(ty-cy)*.2;cur.style.transform='translate('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px)';raf=(Math.abs(tx-cx)+Math.abs(ty-cy)>.4)?requestAnimationFrame(tick):0}
+    function tick(){cx+=(tx-cx)*.5;cy+=(ty-cy)*.5;cur.style.transform='translate('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px)';raf=(Math.abs(tx-cx)+Math.abs(ty-cy)>.4)?requestAnimationFrame(tick):0}
+    // magic wand sparkles: a few little stars leave the tip as it moves, and burst on click
+    if(!calm&&!H.classList.contains('ed')){
+      var cv=document.createElement('canvas');cv.className='wandfx';cv.setAttribute('aria-hidden','true');document.body.appendChild(cv);var g=cv.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),SP=[],run=0,lx=-99,ly=-99;
+      function fit(){cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';g.setTransform(dpr,0,0,dpr,0,0)}fit();addEventListener('resize',fit);
+      var COL=['#f4a27c','#5cc4b6','#ffd98a','#ffffff','#e58b7c'];
+      function star(x,y,r,rot,c,a){g.save();g.translate(x,y);g.rotate(rot);g.globalAlpha=a;g.fillStyle=c;g.beginPath();for(var i=0;i<8;i++){var rr=i%2?r*.28:r,an=i*Math.PI/4;g.lineTo(Math.cos(an)*rr,Math.sin(an)*rr)}g.closePath();g.fill();g.restore()}
+      function spawn(x,y,n,sp){for(var i=0;i<n;i++){var a=Math.random()*6.283,v=(Math.random()*.6+.2)*sp;SP.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-.2,r:Math.random()*5+3,rot:Math.random()*3,vr:(Math.random()-.5)*.2,c:COL[Math.random()*COL.length|0],t:0,life:620+Math.random()*420})}if(!run){run=1;last=performance.now();requestAnimationFrame(loop)}}
+      var last=0;
+      function loop(now){var dt=Math.min(40,now-last);last=now;g.clearRect(0,0,innerWidth,innerHeight);
+        for(var i=SP.length-1;i>=0;i--){var q=SP[i];q.t+=dt;if(q.t>q.life){SP.splice(i,1);continue}q.x+=q.vx*dt*.06;q.y+=q.vy*dt*.06+dt*.012;q.vy+=dt*.0016;q.rot+=q.vr;var k=1-q.t/q.life;star(q.x,q.y,q.r*(.5+k*.7),q.rot,q.c,Math.min(1,k*1.6))}
+        if(SP.length)requestAnimationFrame(loop);else{run=0;g.clearRect(0,0,innerWidth,innerHeight)}}
+      addEventListener('pointermove',function(e){var dx=e.clientX-lx,dy=e.clientY-ly;if(dx*dx+dy*dy>260){lx=e.clientX;ly=e.clientY;spawn(e.clientX,e.clientY,2,1.2)}},{passive:true});
+      addEventListener('pointerdown',function(e){spawn(e.clientX,e.clientY,16,3.2)});
+    }
     $$('.btn').forEach(function(b){
       b.addEventListener('mousemove',function(e){var r=b.getBoundingClientRect();b.style.transform='translate('+((e.clientX-r.left-r.width/2)*.18).toFixed(1)+'px,'+((e.clientY-r.top-r.height/2)*.28).toFixed(1)+'px)'});
       b.addEventListener('mouseleave',function(){b.style.transform=''})});
