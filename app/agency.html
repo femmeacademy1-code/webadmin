@@ -848,6 +848,14 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 @keyframes baseShine{0%{background-position:150% 0}70%,100%{background-position:-60% 0}}
 .lip .l3{display:none}
 @media(prefers-reduced-motion:reduce){.lip i::after{animation:none}}
+/* testimonials: larger text */
+.quote.qc{width:min(380px,84vw)!important;padding:30px 26px 24px}
+.qc .qt{font-size:20px!important;line-height:1.6!important}
+.qc .qt.clamp{-webkit-line-clamp:6!important}
+.qc cite{font-size:28px!important}
+.qc .more{font-size:18px!important}
+.quote.qc.open{width:min(480px,88vw)!important}
+.qc .qa{width:78px!important;height:78px!important}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
