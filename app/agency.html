@@ -809,9 +809,9 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .coll{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);align-items:center;gap:clamp(24px,4vw,64px);width:min(1180px,100%)}
 .coll .ctext{text-align:start;justify-items:start}
 .coll .ctext p{margin-inline:0!important}
-.hug{position:relative;aspect-ratio:1/1.02;width:min(100%,400px);justify-self:center}
+.hug{position:relative;aspect-ratio:1/1.2;width:min(100%,400px);justify-self:center}
 .hbg{position:absolute;inset:0;pointer-events:none}
-.hbg .blobx{position:absolute;inset:8% 6% 4%;background:linear-gradient(135deg,#ffd6c1,#b8ebe3);border-radius:58% 42% 52% 48%/48% 56% 44% 52%;animation:blobMorph 9s ease-in-out infinite}
+.hbg .blobx{position:absolute;inset:22% 6% 8%;background:linear-gradient(135deg,#ffd6c1,#b8ebe3);border-radius:58% 42% 52% 48%/48% 56% 44% 52%;animation:blobMorph 9s ease-in-out infinite}
 .hbg .r1,.hbg .r2{position:absolute;border-radius:50%;border:3px dashed rgba(192,80,77,.45);animation:spinSlow 40s linear infinite}
 .hbg .r1{inset:-2% 2% 0}.hbg .r2{inset:12% 12% 8%;border-color:rgba(47,154,144,.5);border-style:solid;border-width:2px;animation:ringPulse 3.6s ease-in-out infinite}
 .hbg img{position:absolute;width:15%;filter:drop-shadow(0 6px 8px rgba(60,40,40,.15))}
@@ -826,6 +826,19 @@ dialog#qbox::backdrop{background:rgba(40,28,30,.55)}
 .scene#s6 .logoband{padding-top:6px}
 @media(max-width:900px){.coll{grid-template-columns:1fr}.coll .ctext{text-align:center;justify-items:center}.coll .ctext p{margin-inline:auto!important}.hug{width:min(86%,420px)}.hbg .o3,.hbg .o4{display:none}.hbg .r1,.hbg .blobx{animation:none}}
 @media(prefers-reduced-motion:reduce){.hbg *{animation:none!important}}
+/* the duo rises out of a soft mound with little flowers, so they never look cut off */
+.hug{margin-bottom:6%}
+.duoh{bottom:7%!important}
+.lip{position:absolute;left:-12%;right:-12%;bottom:-7%;height:30%;z-index:3;pointer-events:none}
+.lip i{position:absolute;inset:0;border-radius:50%;background:radial-gradient(120% 140% at 50% 0%,#c8f1e9 0%,#9fe0d3 55%,#7fcfc2 100%);box-shadow:0 -6px 0 -2px rgba(255,255,255,.6) inset,0 24px 40px -22px rgba(30,90,80,.5);border-top:3px solid rgba(255,255,255,.7);animation:moundBreath 5s ease-in-out infinite;transform-origin:50% 100%}
+.lip img{position:absolute;z-index:2;filter:drop-shadow(0 4px 6px rgba(60,40,40,.18))}
+.lip .l1{left:16%;top:-4%;width:15%;animation:sway 5s ease-in-out infinite;transform-origin:50% 100%}
+.lip .l2{right:18%;top:2%;width:11%;animation:sway 4.2s ease-in-out -1s infinite;transform-origin:50% 100%}
+.lip .l3{left:48%;top:30%;width:7%;animation:twinkle 3s ease-in-out infinite}
+@keyframes moundBreath{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.05)}}
+@keyframes sway{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+@media(max-width:900px){.lip{left:-8%;right:-8%}}
+@media(prefers-reduced-motion:reduce){.lip i,.lip img{animation:none!important}}
 /* smoother scrolling: no snap, no live blur layers, no per-frame text repaints */
 .scene h2,.sp .scene h2 .wi{animation:none!important;background-size:100% 100%!important}
 .hero-logo,.logo img,header .logo img{animation:logoFloat 4s ease-in-out infinite!important}
@@ -980,7 +993,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
       <p style="margin-inline:auto">בניגוד לחברות שמקבלות ממך חומרים ותוכן, עובדות חודש שלם על מצב שקט ובסוף החודש מפילות עליך את התוצר הגמור, אנחנו משתפות וחולקות בכל שלב ביצירה החדשה שלנו יחד.</p>
       <p style="margin-inline:auto">כך אנחנו מוודאות שאין מצב שהיצירה רחוקה מהוויז׳ן שלך, אלא הכי הכי הכי קרובה שיש.</p>
     </div>
-    <div class="hug" aria-hidden="false"><div class="hbg"><i class="r1"></i><i class="r2"></i><i class="blobx"></i><img class="o1" src="brand/dd/hearts.png" alt=""><img class="o2" src="brand/dd/sparkles.png" alt=""><img class="o3" src="brand/dd/bfly-s.png" alt=""><img class="o4" src="brand/dd/star.png" alt=""></div><img class="duoh" src="team/duo-hug.webp" alt="רוני ואורין מתחבקות וצוחקות" width="900" height="1030" loading="lazy"></div></div>
+    <div class="hug" aria-hidden="false"><div class="hbg"><i class="r1"></i><i class="r2"></i><i class="blobx"></i><img class="o1" src="brand/dd/hearts.png" alt=""><img class="o2" src="brand/dd/sparkles.png" alt=""><img class="o3" src="brand/dd/bfly-s.png" alt=""><img class="o4" src="brand/dd/star.png" alt=""></div><img class="duoh" src="team/duo-hug.webp" alt="רוני ואורין מתחבקות וצוחקות" width="900" height="1030" loading="lazy"><div class="lip" aria-hidden="true"><img class="l1" src="brand/dd/daisy.png" alt=""><img class="l2" src="brand/dd/flower-s.png" alt=""><img class="l3" src="brand/dd/star.png" alt=""><i></i></div></div></div>
     <div class="sep rv" aria-hidden="true"><i></i><svg viewBox="0 0 120 14"><path d="M2 7 C12 1 22 13 32 7 S52 1 62 7 S82 13 92 7 S112 1 118 7" fill="none" stroke="#2f9a90" stroke-width="3" stroke-linecap="round"/></svg><i></i></div>
     <div class="logoband rv"><p class="lab">פלטפורמות שאנחנו תותחיות בהן</p>
       <div class="logos plat" role="group" aria-label="פלטפורמות שאנחנו עובדות איתן">
