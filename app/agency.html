@@ -522,7 +522,7 @@ html.ed .ph .bars{display:none}
 dialog#vbox{border:0;padding:0;background:transparent;max-width:min(94vw,960px);width:100%;overflow:visible}
 dialog#vbox::backdrop{background:rgba(24,22,34,.78);backdrop-filter:blur(6px)}
 .vframe{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:#000;box-shadow:0 40px 80px -20px rgba(0,0,0,.6)}
-.vframe.tall{aspect-ratio:9/16;max-height:86vh;width:auto;margin:0 auto}
+.vframe.tall{aspect-ratio:var(--ar,.5625);width:min(100%,calc(86vh*var(--ar,.5625)));max-height:none;margin:0 auto}
 .vframe iframe,.vframe video{position:absolute;inset:0;width:100%;height:100%;border:0}
 .vframe .vmsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#fff;padding:24px;font:700 18px/1.6 var(--f-body)}
 .vclose{position:absolute;top:-46px;inset-inline-end:0;all:unset;cursor:pointer;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--paper);font:800 16px var(--f-body);display:grid;place-items:center;position:absolute;top:-48px;left:0}
@@ -868,6 +868,7 @@ html.wandon,html.wandon *{cursor:none!important}
 html.wandon input,html.wandon textarea,html.wandon select{cursor:text!important}
 html.wandon .cur{width:auto!important;height:auto!important;border:0!important;border-radius:0!important;background:none!important;margin:0!important;left:0;top:0;opacity:0;transition:opacity .2s}
 html.wandon .cur.on{opacity:1}
+.cur{will-change:transform}
 .cur img{display:block;width:80px;height:auto;margin:-15px 0 0 -17px;transform-origin:17px 15px;transition:transform .2s;filter:drop-shadow(0 6px 8px rgba(60,40,40,.25));pointer-events:none}
 .cur.big img{transform:scale(1.25) rotate(-12deg)}
 .wandfx{position:fixed;left:0;top:0;z-index:399;pointer-events:none}
@@ -1048,7 +1049,7 @@ header .logo img{height:54px;display:block;animation:logo-float 4s ease-in-out i
   <section class="scene center" id="s7" data-pc="192,80,77" data-label="המלצות" data-next="נעים להכיר" data-bg="205,232,245|255,230,218">
     <div class="stack" style="width:100%">
       <div class="rv" style="text-align:center"><p class="tag" style="text-align:center">ההמלצות שלכם על הסוכנות</p><h2>מי שעבדו איתנו מספרים</h2></div>
-      <div class="vwall rv" aria-label="סרטוני המלצה"><a class="vt on" href="#" data-video><img src="brand/vt-1.svg" alt="סרטון המלצה 1" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>אתר ומיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-2.svg" alt="סרטון המלצה 2" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>דף נחיתה לקורס</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-3.svg" alt="סרטון המלצה 3" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>קמפיין ולידים</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-4.svg" alt="סרטון המלצה 4" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>ערכת מיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="#" data-video><img src="brand/vt-5.svg" alt="סרטון המלצה 5" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>ליווי אישי</em><small>לחצו לצפייה בסרטון</small></span></a></div>
+      <div class="vwall rv" aria-label="סרטוני המלצה"><a class="vt on" href="brand/videos/testimonial-1.mp4" data-video><img src="brand/videos/testimonial-1.jpg" alt="סרטון המלצה 1" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>אתר ומיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="brand/videos/testimonial-2.mp4" data-video><img src="brand/videos/testimonial-2.jpg" alt="סרטון המלצה 2" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>דף נחיתה לקורס</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="brand/videos/testimonial-3.mp4" data-video><img src="brand/videos/testimonial-3.jpg" alt="סרטון המלצה 3" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>קמפיין ולידים</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="brand/videos/testimonial-4.mp4" data-video><img src="brand/videos/testimonial-4.jpg" alt="סרטון המלצה 4" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוח</span><span class="meta"><b>שם הלקוח</b><em>ערכת מיתוג</em><small>לחצו לצפייה בסרטון</small></span></a><a class="vt" href="brand/videos/testimonial-5.mp4" data-video><img src="brand/videos/testimonial-5.jpg" alt="סרטון המלצה 5" loading="lazy" draggable="false"><span class="play" aria-hidden="true"><i></i></span><span class="vname">שם הלקוחה</span><span class="meta"><b>שם הלקוחה</b><em>ליווי אישי</em><small>לחצו לצפייה בסרטון</small></span></a></div>
       <p class="vhint rv">הוסיפו קישור YouTube / Vimeo / mp4 לכל כרטיס (בעורך: לחיצה על הכרטיס ושדה הקישור) והסרטון ייפתח בחלון משלו.</p>
       <div class="wall"><div class="track" id="track"></div></div>
     </div>
@@ -1239,16 +1240,18 @@ document.documentElement.classList.add('no-js');
   var cur=null,cx=0,cy=0,tx=0,ty=0,raf=0;
   if(fine){
     cur=document.createElement('div');cur.className='cur';cur.setAttribute('aria-hidden','true');cur.innerHTML='<img src="brand/dd/wand.png" alt="" draggable="false">';document.body.appendChild(cur);if(!H.classList.contains('ed'))H.classList.add('wandon');
-    addEventListener('pointermove',function(e){
-      tx=e.clientX;ty=e.clientY;cur.classList.add('on');
+    // the wand sits exactly on the pointer (no easing, no lag); the heavier page effects run once per frame
+    var pe=null,pf=0;
+    function flush(){pf=0;var e=pe;if(!e)return;
       H.style.setProperty('--mx',((e.clientX/innerWidth-.5)*2).toFixed(3));H.style.setProperty('--my',((e.clientY/innerHeight-.5)*2).toFixed(3));
-      cur.classList.toggle('big',!!(e.target.closest&&e.target.closest('a,button,.panel,.quote,input,label,.rail button')));
-      if(!raf)raf=requestAnimationFrame(tick)},{passive:true});
+      cur.classList.toggle('big',!!(e.target&&e.target.closest&&e.target.closest('a,button,.panel,.quote,input,label,.rail button')))}
+    addEventListener('pointermove',function(e){
+      cur.style.transform='translate3d('+e.clientX+'px,'+e.clientY+'px,0)';cur.classList.add('on');
+      pe=e;if(!pf)pf=requestAnimationFrame(flush)},{passive:true});
     document.addEventListener('mouseleave',function(){cur.classList.remove('on')});
-    function tick(){cx+=(tx-cx)*.5;cy+=(ty-cy)*.5;cur.style.transform='translate('+cx.toFixed(1)+'px,'+cy.toFixed(1)+'px)';raf=(Math.abs(tx-cx)+Math.abs(ty-cy)>.4)?requestAnimationFrame(tick):0}
     // magic wand sparkles: a few little stars leave the tip as it moves, and burst on click
     if(!calm&&!H.classList.contains('ed')){
-      var cv=document.createElement('canvas');cv.className='wandfx';cv.setAttribute('aria-hidden','true');document.body.appendChild(cv);var g=cv.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),SP=[],run=0,lx=-99,ly=-99;
+      var cv=document.createElement('canvas');cv.className='wandfx';cv.setAttribute('aria-hidden','true');document.body.appendChild(cv);var g=cv.getContext('2d'),dpr=Math.min(1.5,devicePixelRatio||1),SP=[],run=0,lx=-99,ly=-99;
       function fit(){cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';g.setTransform(dpr,0,0,dpr,0,0)}fit();addEventListener('resize',fit);
       var COL=['#f4a27c','#5cc4b6','#ffd98a','#ffffff','#e58b7c'];
       function star(x,y,r,rot,c,a){g.save();g.translate(x,y);g.rotate(rot);g.globalAlpha=a;g.fillStyle=c;g.beginPath();for(var i=0;i<8;i++){var rr=i%2?r*.28:r,an=i*Math.PI/4;g.lineTo(Math.cos(an)*rr,Math.sin(an)*rr)}g.closePath();g.fill();g.restore()}
@@ -1257,7 +1260,7 @@ document.documentElement.classList.add('no-js');
       function loop(now){var dt=Math.min(40,now-last);last=now;g.clearRect(0,0,innerWidth,innerHeight);
         for(var i=SP.length-1;i>=0;i--){var q=SP[i];q.t+=dt;if(q.t>q.life){SP.splice(i,1);continue}q.x+=q.vx*dt*.06;q.y+=q.vy*dt*.06+dt*.006;q.vy+=dt*.0008;q.rot+=q.vr;var k=1-q.t/q.life;if(q.dot){g.globalAlpha=Math.min(1,k*1.4);g.fillStyle=q.c;g.beginPath();g.arc(q.x,q.y,q.r*(.4+k*.6),0,6.283);g.fill()}else star(q.x,q.y,q.r*(.35+k*.85),q.rot,q.c,Math.min(1,k*1.5))}
         if(SP.length)requestAnimationFrame(loop);else{run=0;g.clearRect(0,0,innerWidth,innerHeight)}}
-      function trail(x,y){if(lx<-50){lx=x;ly=y}var dx=x-lx,dy=y-ly,d=Math.sqrt(dx*dx+dy*dy);if(d<5)return;var n=Math.min(40,Math.floor(d/5));
+      function trail(x,y){if(lx<-50){lx=x;ly=y}var dx=x-lx,dy=y-ly,d=Math.sqrt(dx*dx+dy*dy);if(d<7)return;var n=Math.min(14,Math.floor(d/7));if(SP.length>150)return lx=x,ly=y,undefined;
         for(var i=1;i<=n;i++){var px=lx+dx*i/n+(Math.random()-.5)*6,py=ly+dy*i/n+(Math.random()-.5)*6;var dot=Math.random()<.35;
           SP.push({x:px,y:py,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35-.05,r:dot?Math.random()*2+1.4:Math.random()*5+3.5,rot:Math.random()*3,vr:(Math.random()-.5)*.12,c:COL[Math.random()*COL.length|0],t:0,life:900+Math.random()*800,dot:dot})}
         lx=x;ly=y;if(SP.length&&!run){run=1;last=performance.now();requestAnimationFrame(loop)}}
@@ -1425,10 +1428,10 @@ document.documentElement.classList.add('no-js');
     return null;
   }
   function open(href){
-    frame.className='vframe';frame.textContent='';
+    frame.className='vframe';frame.style.removeProperty('--ar');frame.textContent='';
     var p=parse(href);
     if(!p){var d=document.createElement('div');d.className='vmsg';d.textContent='כאן יופיע הסרטון. מוסיפים לכרטיס קישור YouTube, Vimeo או קובץ mp4.';frame.appendChild(d)}
-    else if(p.video){var v=document.createElement('video');v.src=p.video;v.controls=true;v.autoplay=true;v.playsInline=true;frame.appendChild(v)}
+    else if(p.video){var v=document.createElement('video');v.src=p.video;v.controls=true;v.autoplay=true;v.playsInline=true;v.preload='metadata';v.addEventListener('loadedmetadata',function(){if(v.videoHeight>v.videoWidth){frame.classList.add('tall');frame.style.setProperty('--ar',(v.videoWidth/v.videoHeight).toFixed(4))}});frame.className='vframe tall';frame.style.setProperty('--ar','.5625');frame.appendChild(v)}
     else{if(p.tall)frame.classList.add('tall');var f=document.createElement('iframe');f.src=p.src;f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;f.referrerPolicy='strict-origin-when-cross-origin';f.title='סרטון המלצה';frame.appendChild(f)}
     if(box.showModal)box.showModal();else box.setAttribute('open','')
   }
