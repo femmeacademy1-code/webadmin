@@ -105,6 +105,14 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: survives reload (stored on the server)`);
   ok(await pg.evaluate(() => document.documentElement.scrollWidth) <= w, `${tag}: no horizontal scroll`);
   await pg.screenshot({ path: `/tmp/crm-${tag}.png`, fullPage: true });
+  // potential profit of open leads (bottom of the open tab)
+  await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
+  await pg.fill('#f_name', 'פוטנציאל'); await pg.fill('#f_product', 'לוטוס 5M'); await pg.click('[data-stg="hot"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.click('[data-f="open"]');
+  ok((await pg.locator('#potBox').isVisible()) && /1,907/.test(await pg.innerText('#potBox')), `${tag}: potential profit from the catalog (7,500 -> 1,907) shown at the bottom of the open tab`);
+  await pg.click('[data-f="all"]');
+  ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
+  await pg.click('#list .card:has-text("פוטנציאל")'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' });
   // moving a lead to a stage outside the open tab must not make it vanish
   await pg.click('[data-f="hot"]'); await pg.click('.card'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא התקדם/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);

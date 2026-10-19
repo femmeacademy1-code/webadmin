@@ -169,6 +169,7 @@ legend{font-weight:800;padding:0 6px}
 
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
   <div class="list" id="list" aria-live="polite"></div>
+  <section class="sum" id="potBox" hidden aria-label="רווח פוטנציאלי"></section>
 </div>
 
 <div id="sheetHost"></div>
@@ -185,6 +186,7 @@ var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
 var DEAL=['delivered','done'];
 
+var catalog=[];
 var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',period='all',editing=null,lastFocus=null;
 
 function $(id){return document.getElementById(id)}
@@ -310,7 +312,41 @@ function applySelDate(){
   ids.forEach(function(id){p=p.then(function(){var l=leads[id],b=pick(l);b.qty=qtyOf(l);b.closedDate=d;return save(id,b).then(function(){done++;busy('מעדכנת '+done+' מתוך '+ids.length)})})});
   p.then(function(){unbusy();SEL.ids={};render();toast('תאריך הסגירה עודכן ל-'+done+' עסקאות'+(skipped?' ('+skipped+' דולגו כי לא נסגרו)':''))}).catch(function(){unbusy();toast('עודכנו '+done+' מתוך '+ids.length+'. נסי שוב על השאר.')});
 }
-function render(){renderPeriod();renderKpis();renderTabs();renderList();renderSelBar()}
+/* potential profit of the open leads: what each would give if it closes. Our commission when written; otherwise the price (or the catalog price of the model named in the lead) before VAT, minus cost, minus the supplier's share (the supplier amount, or the configured % when empty). */
+function catMatch(t){
+  t=String(t||'');var fam=['לוטוס','פעמון'].filter(function(f){return t.indexOf(f)>-1})[0],m=t.match(/(\d{1,2})/);
+  if(!fam||!m)return null;
+  return catalog.filter(function(c){return c.family===fam&&c.m===+m[1]})[0]||null;
+}
+function potProfit(l){
+  var q=qtyOf(l),vat=n(cfg.vat)/100,pct=n(cfg.supplierPct)/100,xp=extrasProfit(l);
+  if(l.commission!==''&&l.commission!=null&&isFinite(parseFloat(l.commission)))return {v:n(l.commission)+xp,est:false};
+  var price=n(l.price),est=false,incl=l.vatIncl!==false;
+  if(!(price>0)){var c=catMatch(l.product);if(!c)return null;price=c.price;est=true;incl=true}
+  var net=(incl?price/(1+vat):price)*q;
+  var sup=n(l.supplier)>0?n(l.supplier):net*pct;
+  return {v:net-n(l.cost)*q-(cfg.supplierInCost?0:sup)+xp,est:est};
+}
+var POT_STAGES=['talked','hot','viewing','closing'];
+function renderPot(){
+  var b=$('potBox');if(!b)return;
+  if(filter!=='open'){b.hidden=true;return}
+  var rows=POT_STAGES.map(function(id){
+    var ls=allLeads().filter(function(l){return l.stage===id}),sum=0,withP=0,est=0;
+    ls.forEach(function(l){var p=potProfit(l);if(p){sum+=p.v;withP++;if(p.est)est++}});
+    return {id:id,count:ls.length,withP:withP,est:est,sum:sum};
+  });
+  var total=rows.reduce(function(s,r){return s+r.sum},0),cnt=rows.reduce(function(s,r){return s+r.count},0),withP=rows.reduce(function(s,r){return s+r.withP},0);
+  if(!cnt){b.hidden=true;return}
+  b.hidden=false;
+  b.innerHTML='<div class="sumhead"><h2>רווח פוטנציאלי מהלידים הפתוחים</h2></div>'+
+    '<div class="kpis"><div class="kpi big"><span>אם כולם ייסגרו</span><b class="num">'+fmt(total)+'</b><small>'+withP+' מתוך '+cnt+' לידים עם מחיר או דגם</small></div></div>'+
+    '<div>'+rows.filter(function(r){return r.count}).map(function(r){
+      return '<div class="drow"><span style="color:'+stageColor(r.id)+'">●</span><span>'+SM[r.id].name+' · '+r.count+' לידים'+(r.count>r.withP?' <span class="note">('+(r.count-r.withP)+' בלי מחיר/דגם)</span>':'')+(r.est?' <span class="note">('+r.est+' לפי קטלוג)</span>':'')+'</span><b class="num">'+fmt(r.sum)+'</b></div>';
+    }).join('')+'</div>'+
+    '<p class="note">לפי העמלה שנרשמה, או מחיר הליד או מחיר הקטלוג של הדגם, לפני מע״מ, פחות עלות וחלק הספק ('+n(cfg.supplierPct)+'% כשלא נרשם). לידים בלי מחיר ובלי דגם מהקטלוג לא נספרים.</p>';
+}
+function render(){renderPot();renderPeriod();renderKpis();renderTabs();renderList();renderSelBar()}
 
 /* ---------- writes ---------- */
 function api(method,path,body){
@@ -335,6 +371,7 @@ function load(){
     var now=Date.now();
     Object.keys(recent).forEach(function(id){var r=recent[id];if(now-r.at>180000){delete recent[id];return}var sv=m[id];if(!sv||(sv.updatedAt||'')<(r.lead.updatedAt||''))m[id]=r.lead;else delete recent[id]});
     Object.keys(gone).forEach(function(id){if(now-gone[id]>180000)delete gone[id];else delete m[id]});
+    catalog=d.catalog||catalog;
     leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
