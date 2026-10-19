@@ -51,9 +51,15 @@ export async function saveLead(env, id, input) {
     stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
     createdAt: (old && old.createdAt) || now, updatedAt: now, log,
   };
+  const closed = text(input.closedDate, 10);
+  if (closed && !/^\d{4}-\d{2}-\d{2}$/.test(closed)) throw new HttpError(400, 'תאריך סגירה לא תקין');
   const dealAt = old && old.dealAt;
   if (dealAt) lead.dealAt = dealAt;
-  else if (DEAL.includes(stage)) lead.dealAt = now;
+  if (DEAL.includes(stage)) {
+    if (closed) lead.dealAt = new Date(closed + 'T12:00:00Z').toISOString();       // the closing date she picks (noon UTC: the same calendar day in Israel)
+    else if (!lead.dealAt) lead.dealAt = now;
+    lead.follow = '';                                                                // a closed deal is not followed up
+  } else if (stage === 'lost') lead.follow = '';
   await env.CMS.put(LEAD + id, JSON.stringify(lead));
   return { id, ...lead };
 }

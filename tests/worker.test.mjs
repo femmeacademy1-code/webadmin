@@ -1139,6 +1139,9 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal(c.data.lead.log.length, 2);                      // same stage: no new log entry
   assert.equal(c.data.lead.dealAt, b.data.lead.dealAt);
 
+  const cl = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', follow: '2026-12-01', closedDate: '2026-10-05' } });
+  assert.equal(cl.data.lead.dealAt.slice(0, 10), '2026-10-05'); assert.equal(cl.data.lead.follow, '');            // closing date kept, no follow-up on a closed deal
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', closedDate: '5/10' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { stage: 'hot' } })).status, 400);          // no name / phone
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', price: 'abc' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', follow: '12/10/2026' } })).status, 400);

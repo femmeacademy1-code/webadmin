@@ -247,7 +247,8 @@ function renderList(){
   $('list').innerHTML=ls.map(function(l){
     var s=SM[l.stage]||SM.talked,c=calc(l),next=STAGES[s.i+1];
     var nextBtn=(s.id!=='lost'&&s.id!=='done'&&next&&next.id!=='lost')?'<button class="btn sm" type="button" data-adv="'+l.id+'">→ '+next.name+'</button>':'';
-    var due=l.follow&&s.id!=='done'&&s.id!=='lost'?'<span class="due'+(l.follow<td?' late':'')+'">'+(l.follow<td?'לחזור היה ':'לחזור ב')+dstr(l.follow)+'</span>':'';
+    var closed=DEAL.indexOf(s.id)>-1&&l.dealAt?'<span class="due">נסגר ב-'+dstr(l.dealAt)+'</span>':'';
+    var due=closed||(l.follow&&s.id!=='done'&&s.id!=='lost'&&DEAL.indexOf(s.id)<0?'<span class="due'+(l.follow<td?' late':'')+'">'+(l.follow<td?'לחזור היה ':'לחזור ב')+dstr(l.follow)+'</span>':'');
     var money=c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'';
     var wa=waLink(l.phone);
     return '<div class="card" role="button" tabindex="0" data-open="'+l.id+'" style="--c:'+stageColor(s.id)+'">'+
@@ -317,6 +318,8 @@ function applyProposal(l,f,summary){
   });
   return {lead:out,changed:changed,summary:summary};
 }
+/* a closed deal needs a closing date, not a follow-up */
+function syncStage(stg){var d=DEAL.indexOf(stg)>-1;var f=$('row_follow'),c=$('row_closed');if(f)f.hidden=d;if(c)c.hidden=!d}
 function openEditor(id,hint){
   lastFocus=document.activeElement;
   editing=id;
@@ -331,7 +334,7 @@ function openEditor(id,hint){
    '<div class="grid2">'+
      field('f_name','שם',l.name,'text',{})+field('f_phone','טלפון',l.phone,'tel',{})+
      field('f_product','מה הוא מחפש / איזה מוצר',l.product,'text',{full:true})+
-     field('f_source','מאיפה הגיע',l.source,'text',{})+field('f_follow','לחזור אליו ב',l.follow,'date',{})+
+     field('f_source','מאיפה הגיע',l.source,'text',{})+'<div class="f" id="row_follow">'+field('f_follow','לחזור אליו ב',l.follow,'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_closed" hidden>'+field('f_closed','תאריך סגירה',l.dealAt?l.dealAt.slice(0,10):today(),'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+
      '<div class="f full"><label for="f_notes">הערות</label><textarea id="f_notes" rows="3">'+esc(l.notes)+'</textarea></div>'+
    '</div>'+
    '<fieldset><legend>הכסף</legend><div class="grid2">'+
@@ -347,6 +350,7 @@ function openEditor(id,hint){
   '</form></div>';
   $('sheetHost').innerHTML=h;
   $('sheet').dataset.stage=stg;
+  syncStage(stg);
   updCalc();
   setTimeout(function(){var f=$(id?'f_price':'f_name');f&&f.focus()},30);
 }
@@ -366,7 +370,7 @@ function updCalc(){
 }
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
-  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:val('f_follow'),notes:$('f_notes').value.trim(),
+  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',notes:$('f_notes').value.trim(),
     price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   save(editing||newId(),d).then(function(){closeEditor();toast('נשמר')}).catch(function(){});
@@ -450,7 +454,7 @@ document.addEventListener('click',function(e){
   var a=t.closest('[data-stop]');if(a)return;
   var tab=t.closest('[data-f]');if(tab){filter=tab.dataset.f;try{localStorage.setItem('crmFilter',filter)}catch(x){}render();return}
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
-  var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
+  var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
   if(t.id==='tgLink'){tgConnect('');return}
