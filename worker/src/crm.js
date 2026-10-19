@@ -47,10 +47,13 @@ export async function saveLead(env, id, input) {
   const log = (old && Array.isArray(old.log) ? old.log : []).slice(-(MAX_LOG - 1));
   if (!old || old.stage !== stage) log.push({ s: stage, t: now });
   const lead = {
-    name, phone, product: text(input.product, 200), source: text(input.source, 120), notes: text(input.notes, 2000), suppName: text(input.suppName, 120), follow,
+    name, phone, product: text(input.product, 200), source: text(input.source, 120), notes: text(input.notes, 2000), suppName: text(input.suppName, 120), receiptNo: text(input.receiptNo, 40), follow,
     stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
     createdAt: (old && old.createdAt) || now, updatedAt: now, log,
   };
+  const delivery = text(input.deliveryDate, 10);
+  if (delivery && !/^\d{4}-\d{2}-\d{2}$/.test(delivery)) throw new HttpError(400, 'תאריך אספקה לא תקין');
+  lead.deliveryDate = delivery;
   const closed = text(input.closedDate, 10);
   if (closed && !/^\d{4}-\d{2}-\d{2}$/.test(closed)) throw new HttpError(400, 'תאריך סגירה לא תקין');
   const dealAt = old && old.dealAt;
@@ -97,6 +100,7 @@ Rules:
 - Fill only what is visible or clearly implied. Leave a field empty ("" or omit) when unknown. Never invent phone numbers, names or amounts. Amounts are numbers in ILS without the currency sign.
 - commission_receipt: a receipt / invoice for the owner's COMMISSION on a tent sale (it mentions עמלה, e.g. "לוטוס 5 עמלה"). Put the tent model in "model" exactly as written (e.g. "לוטוס 5M", "פעמון 4"). Do NOT fill price, cost or supplier for it: the server computes them from the catalog.
 - receiptAmount: the total amount written on the receipt. For commission_receipt this is the owner's commission and profit, exactly as written (it may be slightly discounted); never change or recompute it. For customer_payment it is what the customer paid.
+- receiptNo: the receipt / invoice number printed on the document (digits and letters as written), or "".
 - model: the tent model named anywhere in the screenshot or message (לוטוס / פעמון plus the size in meters), or "".
 - docType: "chat" (conversation with a customer), "customer_payment" (receipt / invoice / payment proof FROM the customer), "supplier_invoice" (invoice or order from a supplier for the goods), "supplier_payment" (proof that we paid a supplier), or "other".
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
@@ -110,7 +114,7 @@ const PROPOSE = {
   name: 'propose_lead', description: 'Propose lead data extracted from the screenshots.',
   input_schema: { type: 'object', properties: {
     docType: { type: 'string', enum: ['chat', 'customer_payment', 'supplier_invoice', 'supplier_payment', 'commission_receipt', 'other'] },
-    model: { type: 'string' }, receiptAmount: { type: 'number' },
+    model: { type: 'string' }, receiptAmount: { type: 'number' }, receiptNo: { type: 'string' },
     matchId: { type: 'string' }, summary: { type: 'string' },
     name: { type: 'string' }, phone: { type: 'string' }, product: { type: 'string' }, source: { type: 'string' }, notes: { type: 'string' },
     suppName: { type: 'string' }, follow: { type: 'string' }, stage: { type: 'string', enum: STAGES },
@@ -162,7 +166,7 @@ export async function extractFromImages(env, input) {
   const fields = {};
   const put = (k, v) => { if (v !== '' && v != null) fields[k] = v; };
   put('name', text(p.name, 120)); put('phone', text(p.phone, 40)); put('product', text(p.product, 200)); put('source', text(p.source, 120));
-  put('notes', text(p.notes, 2000)); put('suppName', text(p.suppName, 120));
+  put('notes', text(p.notes, 2000)); put('suppName', text(p.suppName, 120)); put('receiptNo', text(p.receiptNo, 40));
   if (/^\d{4}-\d{2}-\d{2}$/.test(text(p.follow, 10))) fields.follow = p.follow;
   if (STAGES.includes(p.stage)) fields.stage = p.stage;
   put('price', amount(p.price)); put('cost', amount(p.cost)); put('supplier', amount(p.supplier));
@@ -193,7 +197,7 @@ export function applyProposal(lead, f) {
     const cur = lead[k];
     if (k === 'stage') { if (!lead.stage || !lead.name || (idx(v) > idx(lead.stage) && lead.stage !== 'lost')) { out.stage = v; changed.push(k); } continue; }
     if (k === 'notes') { if (cur && String(cur).includes(v)) continue; out.notes = cur ? cur + '\n' + v : v; changed.push(k); continue; }
-    if (['name', 'phone', 'product', 'source', 'suppName', 'follow'].includes(k) && cur) continue;
+    if (['name', 'phone', 'product', 'source', 'suppName', 'follow', 'receiptNo'].includes(k) && cur) continue;
     if (cur !== v) { out[k] = v; changed.push(k); }
   }
   return { lead: out, changed };

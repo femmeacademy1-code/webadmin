@@ -1142,6 +1142,9 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   const cl = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', follow: '2026-12-01', closedDate: '2026-10-05' } });
   assert.equal(cl.data.lead.dealAt.slice(0, 10), '2026-10-05'); assert.equal(cl.data.lead.follow, '');            // closing date kept, no follow-up on a closed deal
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', closedDate: '5/10' } })).status, 400);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: 'מחר' } })).status, 400);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { stage: 'hot' } })).status, 400);          // no name / phone
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', price: 'abc' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', follow: '12/10/2026' } })).status, 400);
@@ -1253,13 +1256,14 @@ test('alternative: when Claude refuses the request the reason is shown (bad key 
 test('alternative: a commission receipt is priced from the catalog, supplier gets the configured share of the pre-VAT price', async () => {
   const alt = await altCookieFor();
   const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
-  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', receiptAmount: 1800, price: 123, cost: 99, supplier: 5 } }];
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', receiptAmount: 1800, receiptNo: 'A-4411', price: 123, cost: 99, supplier: 5 } }];
   let r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.fields.price, 7500); assert.equal(r.data.fields.vatIncl, true);
   assert.equal(r.data.fields.supplier, 4449);                      // 7500 / 1.18 * 70%
   assert.equal(r.data.fields.cost, undefined); assert.equal(r.data.fields.product, 'לוטוס 5M');
   assert.match(r.data.summary, /לפי הקטלוג/);
+  assert.equal(r.data.fields.receiptNo, 'A-4411');
   assert.equal(r.data.fields.commission, 1800);                    // our profit is exactly the commission written on the receipt, never recomputed
   assert.equal(r.data.fields.notes, undefined);
   assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 60 } })).data.cfg.supplierPct, 60);
