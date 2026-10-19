@@ -1246,3 +1246,24 @@ test('alternative: when Claude refuses the request the reason is shown (bad key 
   aiStatus = 200; aiReply = [{ type: 'text', text: 'hi' }];
   assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).status, 502);
 });
+
+test('alternative: a commission receipt is priced from the catalog, supplier gets the configured share of the pre-VAT price', async () => {
+  const alt = await altCookieFor();
+  const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', price: 123, cost: 99, supplier: 5 } }];
+  let r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.fields.price, 7500); assert.equal(r.data.fields.vatIncl, true);
+  assert.equal(r.data.fields.supplier, 4449);                      // 7500 / 1.18 * 70%
+  assert.equal(r.data.fields.cost, undefined); assert.equal(r.data.fields.product, 'לוטוס 5M');
+  assert.match(r.data.summary, /לפי הקטלוג/);
+  assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 60 } })).data.cfg.supplierPct, 60);
+  r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
+  assert.equal(r.data.fields.supplier, Math.round(7500 / 1.18 * 0.6));
+  assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 150 } })).status, 400);
+  aiReply = [{ type: 'tool_use', id: 'y', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'אוהל לא ידוע', summary: 's', name: 'x' } }];
+  r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
+  assert.equal(r.data.fields.price, undefined);                    // unknown model: nothing invented
+  aiReply = [{ type: 'tool_use', id: 'z', name: 'propose_lead', input: { docType: 'customer_payment', model: 'פעמון 4', summary: 's', price: 4100 } }];
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).data.fields.price, 4100);   // an explicit customer payment keeps its amount
+});

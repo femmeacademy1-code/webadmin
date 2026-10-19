@@ -168,7 +168,7 @@ var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
 var DEAL=['delivered','done'];
 
-var leads={},cfg={vat:18,supplierInCost:false},filter='open',period='all',editing=null,lastFocus=null;
+var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',period='all',editing=null,lastFocus=null;
 
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -270,7 +270,7 @@ function pick(l){var o={};['name','phone','product','source','follow','notes','p
 function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;render();return d.lead})}
 function load(){
   return api('GET','/alt/leads').then(function(d){
-    var m={};d.leads.forEach(function(l){m[l.id]=l});leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost};
+    var m={};d.leads.forEach(function(l){m[l.id]=l});leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
     if(e.status===401)showLogin();
@@ -404,7 +404,8 @@ function readShots(files){
 function openSettings(){
   lastFocus=document.activeElement;
   $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="setForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">הגדרות</h2>'+
-   '<div class="grid2">'+field('s_vat','אחוז מע״מ',cfg.vat,'number',{})+'</div>'+
+   '<div class="grid2">'+field('s_vat','אחוז מע״מ',cfg.vat,'number',{})+field('s_pct','הספק מקבל (% מהמחיר לפני מע״מ)',cfg.supplierPct,'number',{})+'</div>'+
+   '<p class="note">קבלה של "לוטוס 5 עם עמלה" ממלאת לבד את מחיר הקטלוג (כולל מע״מ) ואת חלק הספק. השאר הוא העמלה שלך.</p>'+
    '<label class="chk"><input type="checkbox" id="s_sup"'+(cfg.supplierInCost?' checked':'')+'> "מה שהספק קיבל" כבר כלול ב"עלות המוצר" (לא מנכים אותו פעמיים)</label>'+
    '<p class="note">ברירת המחדל: רווח = מחיר לפני מע״מ פחות עלות המוצר פחות מה שהספק קיבל.</p>'+
    '<fieldset id="tgBox"><legend>בוט טלגרם</legend><p class="note">טוענת…</p></fieldset>'+
@@ -480,7 +481,7 @@ document.addEventListener('submit',function(e){
   if(e.target.id==='sheet')saveEditor();
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}
-    guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});
+    guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked,supplierPct:val('s_pct')})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});
   }
 });
 

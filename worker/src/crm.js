@@ -31,7 +31,7 @@ export async function crmState(env) {
     const rows = await Promise.all(keys.slice(i, i + 50).map((k) => getKV(env, k)));
     rows.forEach((l, j) => { if (l) leads.push({ id: keys[i + j].slice(LEAD.length), ...l }); });
   }
-  return { leads, cfg: (await getKV(env, CFG)) || { vat: 18, supplierInCost: false } };
+  return { leads, cfg: { vat: 18, supplierInCost: false, supplierPct: 70, ...((await getKV(env, CFG)) || {}) } };
 }
 
 export async function saveLead(env, id, input) {
@@ -65,9 +65,23 @@ export async function deleteLead(env, id) {
 export async function saveCfg(env, input) {
   const vat = Number(input && input.vat);
   if (!Number.isFinite(vat) || vat < 0 || vat > 100) throw new HttpError(400, 'אחוז מע״מ לא תקין');
-  const cfg = { vat, supplierInCost: !!(input && input.supplierInCost) };
+  const pct = input && input.supplierPct != null && input.supplierPct !== '' ? Number(input.supplierPct) : 70;
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new HttpError(400, 'אחוז הספק לא תקין');
+  const cfg = { vat, supplierInCost: !!(input && input.supplierInCost), supplierPct: pct };
   await env.CMS.put(CFG, JSON.stringify(cfg));
   return cfg;
+}
+
+/* Catalog prices (ILS, VAT included) copied from the Alternative site (lotus.html / bell.html). Update here when the site's prices change. */
+export const CATALOG = [
+  { family: 'לוטוס', m: 4, price: 6800 }, { family: 'לוטוס', m: 5, price: 7500 }, { family: 'לוטוס', m: 6, price: 9100 }, { family: 'לוטוס', m: 8, price: 11700 }, { family: 'לוטוס', m: 9, price: 14500 },
+  { family: 'פעמון', m: 3, price: 3600 }, { family: 'פעמון', m: 4, price: 4000 }, { family: 'פעמון', m: 5, price: 5000 }, { family: 'פעמון', m: 7, price: 7500 },
+];
+export function catalogMatch(name) {
+  const t = String(name || '');
+  const fam = ['לוטוס', 'פעמון'].find((f) => t.includes(f));
+  const m = t.match(/(\d{1,2})/);
+  return fam && m ? CATALOG.find((c) => c.family === fam && c.m === Number(m[1])) || null : null;
 }
 
 /* ---------- "add from a screenshot": Claude reads chat / receipt images and PROPOSES lead fields; nothing is saved until she confirms in the page ---------- */
@@ -75,6 +89,8 @@ const SHOT_SYSTEM = `You read screenshots for a small Israeli business that sell
 
 Rules:
 - Fill only what is visible or clearly implied. Leave a field empty ("" or omit) when unknown. Never invent phone numbers, names or amounts. Amounts are numbers in ILS without the currency sign.
+- commission_receipt: a receipt / invoice for the owner's COMMISSION on a tent sale (it mentions עמלה, e.g. "לוטוס 5 עמלה"). Put the tent model in "model" exactly as written (e.g. "לוטוס 5M", "פעמון 4"). Do NOT fill price, cost or supplier for it: the server computes them from the catalog.
+- model: the tent model named anywhere in the screenshot or message (לוטוס / פעמון plus the size in meters), or "".
 - docType: "chat" (conversation with a customer), "customer_payment" (receipt / invoice / payment proof FROM the customer), "supplier_invoice" (invoice or order from a supplier for the goods), "supplier_payment" (proof that we paid a supplier), or "other".
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
 - supplier_invoice: cost = what the product cost us (before VAT if the document separates it); suppName = the supplier.
@@ -86,7 +102,8 @@ Rules:
 const PROPOSE = {
   name: 'propose_lead', description: 'Propose lead data extracted from the screenshots.',
   input_schema: { type: 'object', properties: {
-    docType: { type: 'string', enum: ['chat', 'customer_payment', 'supplier_invoice', 'supplier_payment', 'other'] },
+    docType: { type: 'string', enum: ['chat', 'customer_payment', 'supplier_invoice', 'supplier_payment', 'commission_receipt', 'other'] },
+    model: { type: 'string' },
     matchId: { type: 'string' }, summary: { type: 'string' },
     name: { type: 'string' }, phone: { type: 'string' }, product: { type: 'string' }, source: { type: 'string' }, notes: { type: 'string' },
     suppName: { type: 'string' }, follow: { type: 'string' }, stage: { type: 'string', enum: STAGES },
@@ -143,8 +160,19 @@ export async function extractFromImages(env, input) {
   if (STAGES.includes(p.stage)) fields.stage = p.stage;
   put('price', amount(p.price)); put('cost', amount(p.cost)); put('supplier', amount(p.supplier));
   if (fields.price !== undefined && typeof p.vatIncl === 'boolean') fields.vatIncl = p.vatIncl;
+  /* Commission rule: the catalog price includes VAT; the supplier gets supplierPct % of the price before VAT and the rest is the owner's. */
+  const cat = catalogMatch(p.model);
+  const cfg = (await crmState(env)).cfg;
+  let note = '';
+  if (cat && (p.docType === 'commission_receipt' || (p.docType === 'customer_payment' && fields.price === undefined))) {
+    const net = cat.price / (1 + Number(cfg.vat) / 100);
+    fields.price = cat.price; fields.vatIncl = true; fields.supplier = Math.round(net * Number(cfg.supplierPct) / 100);
+    delete fields.cost;
+    if (!fields.product) fields.product = `${cat.family} ${cat.m}M`;
+    note = ` (לפי הקטלוג: ${cat.family} ${cat.m}M ₪${cat.price.toLocaleString('en-US')}, הספק ${cfg.supplierPct}% לפני מע״מ)`;
+  }
   const matchId = leads.some((l) => l.id === p.matchId) ? p.matchId : '';
-  return { fields, matchId, docType: text(p.docType, 30), summary: text(p.summary, 300) || 'לא זיהיתי פרטים בצילום' };
+  return { fields, matchId, docType: text(p.docType, 30), summary: (text(p.summary, 300) || 'לא זיהיתי פרטים בצילום') + note };
 }
 
 /* Merge a proposal into a lead without overwriting what is already written (same rules as the page). */
