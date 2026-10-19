@@ -187,12 +187,13 @@ function toast(t){var el=document.createElement('div');el.className='toast';el.s
 function waLink(p){var d=String(p||'').replace(/\D/g,'');if(!d)return '';if(d[0]==='0')d='972'+d.slice(1);return 'https://wa.me/'+d}
 
 /* money for one lead */
+function qtyOf(l){var q=Math.round(n(l&&l.qty));return q>=1?Math.min(q,999):1}
 function calc(l){
-  var price=n(l.price),vat=n(cfg.vat)/100;
+  var q=qtyOf(l),price=n(l.price)*q,vat=n(cfg.vat)/100;                  // price and cost are per tent; the supplier's share and the commission are totals
   var incl=l.vatIncl!==false;
   var gross=incl?price:price*(1+vat);
   var net=incl?price/(1+vat):price;
-  var cost=n(l.cost),sup=n(l.supplier);
+  var cost=n(l.cost)*q,sup=n(l.supplier);
   var hasCom=l.commission!==''&&l.commission!=null&&isFinite(parseFloat(l.commission));      // our commission, exactly as written on the receipt, is the profit
   var profit=hasCom?n(l.commission):net-cost-(cfg.supplierInCost?0:sup);
   var xp=extrasProfit(l);                                                  // each extra has its own cost and profit; it adds to the lead's profit
@@ -262,7 +263,7 @@ function renderList(){
     var wa=waLink(l.phone);
     return '<div class="card" role="button" tabindex="0" data-open="'+l.id+'" style="--c:'+stageColor(s.id)+'">'+
       '<div class="row"><h3>'+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
-      (l.product?'<div class="prod">'+esc(l.product)+'</div>':'')+
+      (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
       '<div class="acts">'+nextBtn+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
@@ -326,7 +327,7 @@ function advance(id){
 function field(id,label,val,type,extra){
   return '<div class="f'+(extra&&extra.full?' full':'')+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(type==='number'?'text':(type||'text'))+'" value="'+esc(val)+'"'+(type==='number'?' inputmode="decimal" dir="ltr" autocomplete="off"':'')+(extra&&extra.ph?' placeholder="'+extra.ph+'"':'')+'></div>';
 }
-var LABEL={receiptNo:'מספר קבלה',deliveryDate:'תאריך אספקה',commission:'העמלה (רווח)',name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
+var LABEL={qty:'כמות',receiptNo:'מספר קבלה',deliveryDate:'תאריך אספקה',commission:'העמלה (רווח)',name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
 /* merge a screenshot proposal into a lead (new or existing) without saving it */
 function applyProposal(l,f,summary){
   var out=Object.assign({},l),changed=[];
@@ -396,7 +397,7 @@ function openEditor(id,hint){
      '<div class="f full"><label for="f_notes">הערות</label><textarea id="f_notes" rows="3">'+esc(l.notes)+'</textarea></div>'+
    '</div>'+
    '<fieldset><legend>הכסף</legend><div class="grid2">'+
-     field('f_price','מחיר ללקוח (₪)',l.price,'number',{})+field('f_cost','כמה עלה המוצר (₪)',l.cost,'number',{})+
+     field('f_price','מחיר לאוהל אחד (₪)',l.price,'number',{})+field('f_qty','כמות אוהלים',l.qty||1,'number',{})+field('f_cost','עלות לאוהל אחד (₪)',l.cost,'number',{})+
      field('f_supplier','כמה הספק קיבל (₪) · '+n(cfg.supplierPct)+'% לפני מע״מ',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
      field('f_commission','העמלה שלנו = הרווח (₪). אם ריק, מחושב',l.commission,'number',{full:true})+
      '<div class="f full"><button type="button" class="btn sm" id="supReset" style="align-self:flex-start">↻ חישוב הספק לפי '+n(cfg.supplierPct)+'%</button></div>'+
@@ -418,12 +419,12 @@ function openEditor(id,hint){
 function closeEditor(){editing=null;$('sheetHost').innerHTML='';if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}}
 function val(id){var e=$(id);return e?e.value.trim():''}
 function formLead(){
-  return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked,extras:$('row_extras')&&!$('row_extras').hidden?(function(){try{return readExtras()}catch(e){return []}})():[]};
+  return {price:val('f_price'),qty:val('f_qty'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked,extras:$('row_extras')&&!$('row_extras').hidden?(function(){try{return readExtras()}catch(e){return []}})():[]};
 }
 /* supplier share: filled from the price (supplierPct % of the price before VAT) until she types her own number */
 function autoSupplier(){
   var f=$('f_supplier');if(!f||f.dataset.manual)return;
-  var price=n(val('f_price'));
+  var price=n(val('f_price'))*qtyOf({qty:val('f_qty')});
   if(!(price>0)){f.value='';return}
   var net=$('f_vatIncl').checked?price/(1+n(cfg.vat)/100):price;
   f.value=String(Math.round(net*n(cfg.supplierPct)/100));
@@ -432,7 +433,7 @@ function updCalc(){
   var el=$('calc');if(!el)return;
   var c=calc(formLead());
   if(!c.has&&!c.xp){el.innerHTML='<span class="note">רשמי מחיר וראי כאן כמה הרווחנו.</span>';return}
-  el.innerHTML='<div><span>לפני מע״מ</span><b class="num">'+fmt(c.net)+'</b></div>'+
+  el.innerHTML=(qtyOf(formLead())>1?'<div><span>סה״כ ל-'+qtyOf(formLead())+' אוהלים</span><b class="num">'+fmt(c.gross)+'</b></div>':'')+'<div><span>לפני מע״מ</span><b class="num">'+fmt(c.net)+'</b></div>'+
    '<div><span>מע״מ</span><b class="num">'+fmt(c.vat)+'</b></div>'+
    '<div><span>עלות + ספק</span><b class="num">'+fmt(c.cost+(cfg.supplierInCost?0:c.sup))+'</b></div>'+
    (c.xp?'<div><span>רווח תוספות</span><b class="num">'+fmt(c.xp)+'</b></div>':'')+
@@ -443,7 +444,7 @@ function saveEditor(){
   var stg=$('sheet').dataset.stage;
   var mp,mc,ms,mm;try{mp=moneyVal('f_price','מחיר ללקוח');mc=moneyVal('f_cost','עלות');ms=moneyVal('f_supplier','הספק קיבל');mm=moneyVal('f_commission','העמלה');var ex=DEAL.indexOf(stg)>-1?readExtras():undefined}catch(e){toast(e.message);return}
   var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:ex,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
-    price:mp,cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
+    price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   save(editing||newId(),d).then(function(l){closeEditor();reveal(l);toast('נשמר')}).catch(function(){});
 }
@@ -514,8 +515,8 @@ function tgConnect(token){
 /* csv */
 function csvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  var rows=[['שם','טלפון','מוצר','שלב','מקור','מחיר ללקוח','כולל מעמ','לפני מעמ','מעמ','עלות מוצר','ספק','ספק קיבל','רווח','תאריך סגירה','תאריך אספקה','מספר קבלה','תוספות','סכום תוספות','רווח תוספות']];
-  allLeads().forEach(function(l){var c=calc(l);rows.push([l.name,l.phone,l.product,(SM[l.stage]||{}).name,l.source,l.price,l.vatIncl===false?'לא':'כן',Math.round(c.net),Math.round(c.vat),l.cost,l.suppName,l.supplier,Math.round(c.profit),l.dealAt?l.dealAt.slice(0,10):'',l.deliveryDate||'',l.receiptNo||'',(l.extras||[]).map(function(x){return (x.label||x.k)+(x.amount!==''?' '+x.amount:'')}).join(' + '),Math.round(extrasTotal(l)),Math.round(extrasProfit(l))]);});
+  var rows=[['שם','טלפון','מוצר','שלב','מקור','מחיר לאוהל','כמות','כולל מעמ','לפני מעמ','מעמ','עלות מוצר','ספק','ספק קיבל','רווח','תאריך סגירה','תאריך אספקה','מספר קבלה','תוספות','סכום תוספות','רווח תוספות']];
+  allLeads().forEach(function(l){var c=calc(l);rows.push([l.name,l.phone,l.product,(SM[l.stage]||{}).name,l.source,l.price,qtyOf(l),l.vatIncl===false?'לא':'כן',Math.round(c.net),Math.round(c.vat),l.cost,l.suppName,l.supplier,Math.round(c.profit),l.dealAt?l.dealAt.slice(0,10):'',l.deliveryDate||'',l.receiptNo||'',(l.extras||[]).map(function(x){return (x.label||x.k)+(x.amount!==''?' '+x.amount:'')}).join(' + '),Math.round(extrasTotal(l)),Math.round(extrasProfit(l))]);});
   var csv='\ufeff'+rows.map(function(r){return r.map(csvCell).join(',')}).join('\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='leads-'+today()+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
 }
@@ -548,7 +549,7 @@ document.addEventListener('keydown',function(e){
 });
 document.addEventListener('input',function(e){
   if(e.target.id==='f_supplier')e.target.dataset.manual='1';
-  if(e.target.id==='f_price')autoSupplier();
+  if(e.target.id==='f_price'||e.target.id==='f_qty')autoSupplier();
   var xr=e.target.closest&&e.target.closest('.xo');
   if(xr){if(e.target.classList.contains('xp'))e.target.dataset.manual='1';else if(e.target.classList.contains('xa')||e.target.classList.contains('xc'))autoXProfit(xr)}
   if(e.target.closest&&e.target.closest('fieldset'))updCalc()});

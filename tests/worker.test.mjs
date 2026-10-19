@@ -1146,6 +1146,10 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
   const typed = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: '₪7,500', cost: ' 1,200.50 ', supplier: '   ' } })).data.lead;
+  const q3 = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: 7500, qty: '3' } })).data.lead;
+  assert.equal(q3.qty, 3);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: 7500 } })).data.lead.qty, 3);   // not sent: kept
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', qty: 0 } })).data.lead.qty, 1);       // never below one
   assert.equal(typed.price, 7500); assert.equal(typed.cost, 1200.5); assert.equal(typed.supplier, '');      // amounts typed with a comma, shekel sign or spaces are understood
   const ex = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', price: 7500, commission: 1800, extras: [{ k: 'insulation', label: 'x', amount: '1180', cost: 700 }, { k: 'setup', amount: 800, cost: 300, profit: 450 }, { k: 'other', label: 'שטיח', amount: 300 }, { k: 'other', label: '', amount: '' }, { k: 'bogus', label: 'מעקה', amount: 50 }] } });
   assert.deepEqual(ex.data.lead.extras, [{ k: 'insulation', label: 'x', amount: 1180, cost: 700, profit: 300 }, { k: 'setup', label: '', amount: 800, cost: 300, profit: 450 }, { k: 'other', label: 'שטיח', amount: 300, cost: '', profit: 254.24 }, { k: 'other', label: 'מעקה', amount: 50, cost: '', profit: 42.37 }]);   // profit = amount before VAT - cost, unless typed
@@ -1274,6 +1278,10 @@ test('alternative: a commission receipt is priced from the catalog, supplier get
   assert.equal(r.data.fields.commission, 1800);                    // our profit is exactly the commission written on the receipt, never recomputed
   assert.equal(r.data.fields.notes, undefined);
   assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 60 } })).data.cfg.supplierPct, 60);
+  aiReply = [{ type: 'tool_use', id: 'q', name: 'propose_lead', input: { docType: 'customer_payment', model: 'לוטוס 5M', quantity: 3, summary: 's', name: 'x' } }];
+  const q = (await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).data.fields;
+  assert.equal(q.qty, 3); assert.equal(q.price, 7500); assert.equal(q.supplier, Math.round(7500 / 1.18 * 3 * 0.6));   // price per tent, supplier share for all
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', receiptAmount: 1800, receiptNo: 'A-4411', price: 123, cost: 99, supplier: 5 } }];
   r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.data.fields.supplier, Math.round(7500 / 1.18 * 0.6));
   assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 150 } })).status, 400);

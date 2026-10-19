@@ -2,14 +2,14 @@
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
-import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit } from './crm.js';
+import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit, leadProfit } from './crm.js';
 import { secretEquals } from './auth.js';
 
 const KEY = 'alt:tg';
 const api = (env) => env.TELEGRAM_API || 'https://api.telegram.org';
 const getKV = async (env, k) => { const v = await env.CMS.get(k); return v ? JSON.parse(v) : null; };
 const rand = (n, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') => { const r = crypto.getRandomValues(new Uint8Array(n)); return [...r].map((x) => alphabet[x % alphabet.length]).join(''); };
-const LABEL = { name: 'שם', phone: 'טלפון', product: 'מוצר', source: 'מקור', follow: 'לחזור ב', notes: 'הערות', suppName: 'ספק', commission: 'העמלה (רווח)', receiptNo: 'מספר קבלה', deliveryDate: 'תאריך אספקה', price: 'מחיר', cost: 'עלות מוצר', supplier: 'הספק קיבל', stage: 'שלב', vatIncl: 'המחיר כולל מע״מ' };
+const LABEL = { name: 'שם', phone: 'טלפון', product: 'מוצר', source: 'מקור', follow: 'לחזור ב', notes: 'הערות', suppName: 'ספק', qty: 'כמות', commission: 'העמלה (רווח)', receiptNo: 'מספר קבלה', deliveryDate: 'תאריך אספקה', price: 'מחיר', cost: 'עלות מוצר', supplier: 'הספק קיבל', stage: 'שלב', vatIncl: 'המחיר כולל מע״מ' };
 const STAGE = { talked: 'דיברנו', hot: 'ליד חם', viewing: 'הלך לראות', closing: 'סוגר', delivered: 'קיבל סחורה', done: 'נסגר', lost: 'לא התקדם' };
 const money = (v) => '₪' + Math.round(v).toLocaleString('en-US');
 
@@ -128,13 +128,8 @@ async function callback(env, c, id, cq) {
   const merged = applyProposal(old || { stage: 'talked', vatIncl: true }, pend.fields).lead;
   const lead = await saveLead(env, old ? old.id : rand(12), merged);
   await strip(); await done('נשמר');
-  const price = Number(lead.price) || 0;
-  let extra = '';
-  if (price > 0) {
-    const cfg = (await getKV(env, 'alt:cfg')) || { vat: 18, supplierInCost: false };
-    const net = lead.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    extra = `\nרווח כרגע: ${money((lead.commission !== '' && lead.commission != null ? Number(lead.commission) : net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0)) + extrasProfit(lead))}`;
-  }
+  const cfg = { vat: 18, supplierInCost: false, ...((await getKV(env, 'alt:cfg')) || {}) };
+  const extra = (Number(lead.price) > 0 || lead.commission !== '') ? `\nרווח כרגע: ${money(leadProfit(lead, cfg))}` : '';
   await reply(env, c, id, `נשמר ✅ ${lead.name || lead.phone} · ${STAGE[lead.stage]}${extra}`);
 }
 
@@ -146,8 +141,7 @@ async function summary(env, c, id) {
   let profit = 0, deals = 0;
   for (const l of leads) {
     if (!['delivered', 'done'].includes(l.stage) || !(l.dealAt || '').startsWith(ym)) continue;
-    const price = Number(l.price) || 0; const net = l.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    profit += (l.commission !== '' && l.commission != null ? Number(l.commission) : net - (Number(l.cost) || 0) - (cfg.supplierInCost ? 0 : Number(l.supplier) || 0)) + extrasProfit(l); deals++;
+    profit += leadProfit(l, cfg); deals++;
   }
   const today = now.toISOString().slice(0, 10);
   const late = open.filter((l) => l.follow && l.follow < today).map((l) => l.name || l.phone);

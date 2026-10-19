@@ -56,6 +56,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#newBtn'); await pg.waitForSelector('#f_price'); await pg.waitForTimeout(150); await pg.fill('#f_price', '₪7,500');
   ok(await pg.inputValue('#f_supplier') === '4449', `${tag}: supplier fills itself at 70% of the pre-VAT price`);
   ok((await pg.innerText('#calc .pf')).includes('1,907'), `${tag}: so the profit is the 30% commission`);
+  await pg.fill('#f_qty', '3');
+  ok(await pg.inputValue('#f_supplier') === String(Math.round(7500 * 3 / 1.18 * 0.7)), `${tag}: quantity 3 multiplies the price: supplier share for all three`);
+  ok((await pg.innerText('#calc')).includes('5,721'), `${tag}: profit for three tents`);
+  await pg.fill('#f_qty', '1');
   await pg.fill('#f_supplier', '4000'); await pg.fill('#f_price', '8000');
   ok(await pg.inputValue('#f_supplier') === '4000', `${tag}: a typed supplier amount is not overwritten`);
   await pg.click('#supReset');
