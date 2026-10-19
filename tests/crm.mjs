@@ -53,7 +53,15 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.fill('#l_pass', 'alt-pass-1234'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
   ok(await pg.locator('.empty').count() === 1, `${tag}: logged in, empty state`);
 
-  await pg.click('#newBtn'); await pg.fill('#f_name', 'דנה כהן'); await pg.fill('#f_phone', '0501234567'); await pg.fill('#f_product', 'אוהל לוטוס');
+  await pg.click('#newBtn'); await pg.fill('#f_price', '7500');
+  ok(await pg.inputValue('#f_supplier') === '4449', `${tag}: supplier fills itself at 70% of the pre-VAT price`);
+  ok((await pg.innerText('#calc .pf')).includes('1,907'), `${tag}: so the profit is the 30% commission`);
+  await pg.fill('#f_supplier', '4000'); await pg.fill('#f_price', '8000');
+  ok(await pg.inputValue('#f_supplier') === '4000', `${tag}: a typed supplier amount is not overwritten`);
+  await pg.click('#supReset');
+  ok(await pg.inputValue('#f_supplier') === String(Math.round(8000 / 1.18 * 0.7)), `${tag}: reset recalculates`);
+  await pg.fill('#f_price', ''); await pg.fill('#f_supplier', ''); await pg.click('#cancelBtn'); await pg.click('#newBtn');
+  await pg.fill('#f_name', 'דנה כהן'); await pg.fill('#f_phone', '0501234567'); await pg.fill('#f_product', 'אוהל לוטוס');
   await pg.click('[data-stg="closing"]');
   await pg.fill('#f_price', '11800'); await pg.fill('#f_cost', '5000'); await pg.fill('#f_supplier', '2000');
   ok((await pg.innerText('#calc')).includes('3,000'), `${tag}: editor shows profit 3,000`);

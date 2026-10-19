@@ -359,8 +359,9 @@ function openEditor(id,hint){
    '</div>'+
    '<fieldset><legend>הכסף</legend><div class="grid2">'+
      field('f_price','מחיר ללקוח (₪)',l.price,'number',{})+field('f_cost','כמה עלה המוצר (₪)',l.cost,'number',{})+
-     field('f_supplier','כמה הספק קיבל (₪)',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
+     field('f_supplier','כמה הספק קיבל (₪) · '+n(cfg.supplierPct)+'% לפני מע״מ',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
      field('f_commission','העמלה שלנו = הרווח (₪). אם ריק, מחושב',l.commission,'number',{full:true})+
+     '<div class="f full"><button type="button" class="btn sm" id="supReset" style="align-self:flex-start">↻ חישוב הספק לפי '+n(cfg.supplierPct)+'%</button></div>'+
      '<label class="chk"><input type="checkbox" id="f_vatIncl"'+(l.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
      '<div class="calc" id="calc"></div>'+
    '</div></fieldset>'+
@@ -372,6 +373,7 @@ function openEditor(id,hint){
   $('sheetHost').innerHTML=h;
   $('sheet').dataset.stage=stg;
   syncStage(stg);
+  if(l.supplier!==''&&l.supplier!=null)$('f_supplier').dataset.manual='1';      // a saved supplier amount is never overwritten
   updCalc();
   setTimeout(function(){var f=$(id?'f_price':'f_name');f&&f.focus()},30);
 }
@@ -379,6 +381,14 @@ function closeEditor(){editing=null;$('sheetHost').innerHTML='';if(lastFocus&&la
 function val(id){var e=$(id);return e?e.value.trim():''}
 function formLead(){
   return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked};
+}
+/* supplier share: filled from the price (supplierPct % of the price before VAT) until she types her own number */
+function autoSupplier(){
+  var f=$('f_supplier');if(!f||f.dataset.manual)return;
+  var price=n(val('f_price'));
+  if(!(price>0)){f.value='';return}
+  var net=$('f_vatIncl').checked?price/(1+n(cfg.vat)/100):price;
+  f.value=String(Math.round(net*n(cfg.supplierPct)/100));
 }
 function updCalc(){
   var el=$('calc');if(!el)return;
@@ -481,6 +491,7 @@ document.addEventListener('click',function(e){
   if(t.id==='tgLink'){tgConnect('');return}
   if(t.id==='tgOff'){if(t.dataset.arm){guard(api('DELETE','/alt/telegram')).then(function(){tgLoad();toast('הבוט נותק')}).catch(function(){})}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
   if(t.id==='outBtn'){api('POST','/alt/logout').then(function(){leads={};showLogin()});return}
+  if(t.id==='supReset'){delete $('f_supplier').dataset.manual;autoSupplier();updCalc();return}
   if(t.id==='xAdd'){$('x_other').insertAdjacentHTML('beforeend',xRow('',''));return}
   if(t.closest('[data-xdel]')){t.closest('.xo').remove();return}
   if(t.id==='newBtn'){openEditor(null);return}
@@ -494,11 +505,14 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'&&$('veil'))closeEditor();
   if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.card')){e.preventDefault();openEditor(e.target.dataset.open)}
 });
-document.addEventListener('input',function(e){if(e.target.closest&&e.target.closest('fieldset'))updCalc()});
+document.addEventListener('input',function(e){
+  if(e.target.id==='f_supplier')e.target.dataset.manual='1';
+  if(e.target.id==='f_price')autoSupplier();
+  if(e.target.closest&&e.target.closest('fieldset'))updCalc()});
 document.addEventListener('change',function(e){
   if(e.target.id==='shotIn'){readShots(e.target.files);e.target.value='';return}
   if(e.target.id==='period'){period=e.target.value;renderKpis()}
-  if(e.target.id==='f_vatIncl')updCalc();
+  if(e.target.id==='f_vatIncl'){autoSupplier();updCalc()}
 });
 document.addEventListener('submit',function(e){
   e.preventDefault();
