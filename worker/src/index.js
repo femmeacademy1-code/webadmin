@@ -15,7 +15,7 @@ import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
 import { chat } from './chat.js';
 import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
-import { crmState, saveLead, deleteLead, saveCfg } from './crm.js';
+import { crmState, saveLead, deleteLead, saveCfg, extractFromImages } from './crm.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
 const SESSION_DAYS = 14;
@@ -150,6 +150,7 @@ async function route(req, env, url) {
     await requireOwner(req, env);
     if (pathname === '/api/admin/state' && method === 'GET') return adminState(env);
     if (pathname === '/api/admin/crm' && method === 'GET') return json(await crmState(env));
+    if (pathname === '/api/admin/crm/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
     if (pathname === '/api/admin/crm/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
     if ((m = pathname.match(/^\/api\/admin\/crm\/leads\/([a-z0-9]{8,32})$/))) {
       if (method === 'PUT') return json({ lead: await saveLead(env, m[1], await body(req)) });

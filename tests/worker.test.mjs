@@ -1122,3 +1122,25 @@ test('crm: owner-only, server owns the timeline, validates input, deletes', asyn
   assert.equal((await call('DELETE', `/api/admin/crm/leads/${id}`, { cookie: owner })).status, 200);
   assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 1);
 });
+
+test('crm: screenshot extraction proposes fields, validates images and never saves', async () => {
+  const { owner, client } = await setup();
+  const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
+  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: client, body: { images: [JPG] } })).status, 403);
+  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [] } })).status, 400);
+  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [Buffer.from('<?php evil ?>padding-padding').toString('base64')] } })).status, 400);
+  await call('PUT', '/api/admin/crm/leads/lead0001abcd', { cookie: owner, body: { name: 'דנה כהן', phone: '0501234567' } });
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'customer_payment', matchId: 'lead0001abcd', summary: 'קבלה מדנה', price: 11800, vatIncl: true, stage: 'closing', name: '<b>דנה</b>', follow: 'מחר', cost: -5, supplier: 'abc', phone: '050-123' } }];
+  const r = await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.matchId, 'lead0001abcd');
+  assert.deepEqual(r.data.fields, { name: '<b>דנה</b>', phone: '050-123', stage: 'closing', price: 11800, vatIncl: true });   // bad date / negative / non-numeric amounts dropped; text is escaped by the page
+  const sent = aiCalls[aiCalls.length - 1].body;
+  assert.equal(sent.tool_choice.name, 'propose_lead');
+  assert.match(JSON.stringify(sent.messages), /lead0001abcd/);
+  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads[0].stage, 'talked');   // nothing was saved
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'chat', matchId: 'nonexistent', summary: 's' } }];
+  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).data.matchId, '');
+  env.ANTHROPIC_API_KEY = '';
+  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).status, 503);
+});

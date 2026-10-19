@@ -112,6 +112,10 @@ legend{font-weight:800;padding:0 6px}
 .login{max-width:380px;margin:12vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px}
 .login h1{font-size:28px}
 .err{color:var(--bad);font-size:15px;min-height:1.4em}
+.hint{border:1.5px solid var(--good);background:color-mix(in srgb,var(--good) 12%,var(--surface));border-radius:10px;padding:10px 12px;font-size:15px}
+.hint b{display:block}
+.busy{position:fixed;inset:0;background:rgba(20,12,10,.45);z-index:30;display:grid;place-items:center}
+.busy div{background:var(--surface);padding:18px 26px;border-radius:12px;font-weight:600}
 .note{color:var(--muted);font-size:14px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}h1{font-size:26px}.kpi b{font-size:22px}.kpi.big b{font-size:28px}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
@@ -133,7 +137,9 @@ legend{font-weight:800;padding:0 6px}
     <div class="hbtns">
       <button class="btn" id="settingsBtn" type="button">הגדרות</button>
       <button class="btn" id="csvBtn" type="button">ייצוא לאקסל</button>
+      <button class="btn" id="shotBtn" type="button">📷 הוספה מצילום</button>
       <button class="btn pri" id="newBtn" type="button">＋ ליד חדש</button>
+      <input type="file" id="shotIn" accept="image/*" multiple hidden>
     </div>
   </header>
 
@@ -288,13 +294,29 @@ function advance(id){
 function field(id,label,val,type,extra){
   return '<div class="f'+(extra&&extra.full?' full':'')+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val)+'"'+(type==='number'?' inputmode="decimal" step="any" dir="ltr"':'')+(extra&&extra.ph?' placeholder="'+extra.ph+'"':'')+'></div>';
 }
-function openEditor(id){
+var LABEL={name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
+/* merge a screenshot proposal into a lead (new or existing) without saving it */
+function applyProposal(l,f,summary){
+  var out=Object.assign({},l),changed=[];
+  Object.keys(f).forEach(function(k){
+    var v=f[k],cur=l[k];
+    if(k==='stage'){if(!l.stage||(SM[v]&&SM[l.stage]&&SM[v].i>SM[l.stage].i&&l.stage!=='lost')||!l.name){out.stage=v;changed.push(k)}return}
+    if(k==='notes'){if(cur&&String(cur).indexOf(v)>-1)return;out.notes=cur?cur+'\n'+v:v;changed.push(k);return}
+    if(['name','phone','product','source','suppName','follow'].indexOf(k)>-1&&cur)return;      // never overwrite what is already written
+    if(cur!==v){out[k]=v;changed.push(k)}
+  });
+  return {lead:out,changed:changed,summary:summary};
+}
+function openEditor(id,hint){
   lastFocus=document.activeElement;
   editing=id;
   var l=id?Object.assign({},leads[id]):{stage:'talked',vatIncl:true};
+  var proposal=null;
+  if(hint){proposal=applyProposal(l,hint.fields,hint.summary);l=proposal.lead}
   var stg=l.stage||'talked';
   var h='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh">'+
    '<h2 id="sh">'+(id?esc(l.name||'ליד'):'ליד חדש')+'</h2>'+
+   (proposal?'<div class="hint"><b>הצעה מהצילום. בדקי ותקני לפני שמירה</b>'+esc(proposal.summary)+(proposal.changed.length?'<br>מולא: '+proposal.changed.map(function(k){return LABEL[k]||k}).join(', '):'<br>לא נמצא מידע חדש לשמירה.')+'</div>':'')+
    '<div class="stages" id="stages">'+STAGES.map(function(s){return '<button type="button" class="stg" data-stg="'+s.id+'" style="--c:'+stageColor(s.id)+'" aria-pressed="'+(s.id===stg)+'">'+s.name+'</button>'}).join('')+'</div>'+
    '<div class="grid2">'+
      field('f_name','שם',l.name,'text',{})+field('f_phone','טלפון',l.phone,'tel',{})+
@@ -344,6 +366,31 @@ function armDelete(btn){
   }else{btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000)}
 }
 
+/* screenshots -> proposal */
+function shrink(file){
+  return new Promise(function(res,rej){
+    var img=new Image(),u=URL.createObjectURL(file);
+    img.onload=function(){
+      var sc=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');
+      c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+      var g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.82).split(',')[1]);
+    };
+    img.onerror=function(){URL.revokeObjectURL(u);rej(new Error('אי אפשר לפתוח את הקובץ כתמונה'))};
+    img.src=u;
+  });
+}
+function readShots(files){
+  files=[].slice.call(files).slice(0,4);if(!files.length)return;
+  var b=document.createElement('div');b.className='busy';b.innerHTML='<div role="status">קוראת את הצילומים…</div>';document.body.appendChild(b);
+  Promise.all(files.map(shrink)).then(function(imgs){return guard(api('POST','/admin/crm/extract',{images:imgs}))}).then(function(r){
+    b.remove();
+    var f=r.fields||{};
+    if(!r.matchId&&!f.name&&!f.phone&&!Object.keys(f).length){toast(r.summary||'לא זיהיתי פרטים בצילום');return}
+    openEditor(r.matchId||null,{fields:f,summary:r.summary});
+  }).catch(function(e){b.remove();if(!e.status)toast(e.message||'הקריאה נכשלה')});
+}
+
 /* settings */
 function openSettings(){
   lastFocus=document.activeElement;
@@ -372,6 +419,7 @@ document.addEventListener('click',function(e){
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='newBtn'){openEditor(null);return}
+  if(t.id==='shotBtn'){$('shotIn').click();return}
   if(t.id==='settingsBtn'){openSettings();return}
   if(t.id==='csvBtn'){exportCsv();return}
   if(t.id==='cancelBtn'||t.id==='veil'){closeEditor();return}
@@ -383,6 +431,7 @@ document.addEventListener('keydown',function(e){
 });
 document.addEventListener('input',function(e){if(e.target.closest&&e.target.closest('fieldset'))updCalc()});
 document.addEventListener('change',function(e){
+  if(e.target.id==='shotIn'){readShots(e.target.files);e.target.value='';return}
   if(e.target.id==='period'){period=e.target.value;renderKpis()}
   if(e.target.id==='f_vatIncl')updCalc();
 });
