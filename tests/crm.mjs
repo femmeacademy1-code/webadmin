@@ -116,8 +116,21 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#impSheet .card.imp').count()) === 2, `${tag}: import preview lists both rows`);
   ok(/עדכון ליד קיים/.test(await pg.innerText('#impSheet')) && /ליד חדש/.test(await pg.innerText('#impSheet')), `${tag}: same phone is an update, the other a new lead`);
   ok((await pg.locator('#list .card').count()) === 2, `${tag}: nothing saved before confirming the import`);
+  await pg.fill('#impDate', '2026-07-31'); await pg.click('#impApplyDate');
+  ok(/נסגר 31\.7\.26/.test(await pg.innerText('#impSheet')), `${tag}: one closing date can be applied to all imported rows`);
   await pg.click('#impGo'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok((await pg.locator('.card').count()) === 3 && /משה בדיקה/.test(await pg.innerText('#list')) && /נסגר ב/.test(await pg.innerText('#list')), `${tag}: imported lead added with its closing date`);
+  // profits by a month of her choice
+  const opts = await pg.locator('#period option').allInnerTexts();
+  ok(opts.some((t) => /יולי 2026 \(1\)/.test(t)) && opts.some((t) => /אוקטובר 2026 \(1\)/.test(t)), `${tag}: months with deals are listed (${opts.join(' | ')})`);
+  await pg.selectOption('#period', 'm:2026-07');
+  ok(/1,800/.test(await pg.innerText('.kpi.big')) && /משה/.test(await pg.textContent('#dealList')), `${tag}: July shows only July's profit and its deals`);
+  // bulk change of closing date (select mode)
+  await pg.click('#selBtn'); await pg.click('#list .card:has-text("דנה")'); await pg.fill('#selDate', '2026-07-20'); await pg.click('#selApply');
+  await pg.waitForFunction(() => /20\.7\.26/.test(document.querySelector('#list').innerText));
+  await pg.click('#selOff');
+  ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
+  await pg.selectOption('#period', 'all');
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
   await pg.click('.card'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {

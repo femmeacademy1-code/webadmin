@@ -118,6 +118,14 @@ legend{font-weight:800;padding:0 6px}
 .xo:first-of-type{border-top:0;padding-top:0}
 .xh{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .x3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.drow{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line);font-size:15px}
+.drow span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
+#dealList summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.selbar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1.5px solid var(--line);padding:10px max(16px,env(safe-area-inset-left,0px)) max(10px,env(safe-area-inset-bottom,0px));display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+.selbar input{width:auto}
+.card.sel{outline:3px solid var(--accent)}
+.card.pick::before{content:'☐';font-size:22px}
+.card.pick.sel::before{content:'☑'}
 .note{color:var(--muted);font-size:14px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}h1{font-size:26px}.kpi b{font-size:22px}.kpi.big b{font-size:28px}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
@@ -143,6 +151,7 @@ legend{font-weight:800;padding:0 6px}
       <button class="btn" id="csvBtn" type="button">ייצוא לאקסל</button>
       <button class="btn" id="shotBtn" type="button">📷 הוספה מצילום</button>
       <button class="btn" id="impBtn" type="button">📥 ייבוא מקובץ</button>
+      <button class="btn" id="selBtn" type="button">☑ בחירה מרובה</button>
       <button class="btn pri" id="newBtn" type="button">＋ ליד חדש</button>
       <input type="file" id="shotIn" accept="image/*" multiple hidden>
       <input type="file" id="impIn" accept=".xlsx,.xls,.csv,image/*" multiple hidden>
@@ -155,6 +164,7 @@ legend{font-weight:800;padding:0 6px}
       <select id="period" aria-label="תקופה"></select>
     </div>
     <div class="kpis" id="kpis"></div>
+    <details id="dealList" hidden></details>
   </section>
 
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
@@ -207,14 +217,19 @@ function allLeads(){return Object.keys(leads).map(function(k){return Object.assi
 function inPeriod(l){
   if(period==='all')return true;
   var t=l.dealAt||l.updatedAt;if(!t)return false;
+  if(period.indexOf('m:')===0)return String(t).slice(0,7)===period.slice(2);       // a month chosen from the list, by closing date
   var d=new Date(t),now=new Date();
   if(period==='month')return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
   if(period==='last'){var p=new Date(now.getFullYear(),now.getMonth()-1,1);return d.getFullYear()===p.getFullYear()&&d.getMonth()===p.getMonth()}
   if(period==='year')return d.getFullYear()===now.getFullYear();
   return true;
 }
+function monthName(ym){var p=ym.split('-');return new Date(Date.UTC(+p[0],+p[1]-1,15)).toLocaleDateString('he-IL',{month:'long',year:'numeric',timeZone:'UTC'})}
 function renderPeriod(){
-  var o=[['all','כל הזמן'],['month','החודש'],['last','חודש שעבר'],['year','השנה']];
+  var o=[['all','כל הזמן'],['month','החודש'],['last','חודש שעבר'],['year','השנה']],cnt={};
+  allLeads().forEach(function(l){if(DEAL.indexOf(l.stage)>-1&&l.dealAt){var k=String(l.dealAt).slice(0,7);cnt[k]=(cnt[k]||0)+1}});
+  Object.keys(cnt).sort().reverse().forEach(function(k){o.push(['m:'+k,monthName(k)+' ('+cnt[k]+')'])});
+  if(period.indexOf('m:')===0&&!cnt[period.slice(2)])o.push([period,monthName(period.slice(2))+' (0)']);
   $('period').innerHTML=o.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===period?' selected':'')+'>'+x[1]+'</option>'}).join('');
 }
 function renderKpis(){
@@ -230,6 +245,9 @@ function renderKpis(){
     '<div class="kpi"><span>הספקים קיבלו</span><b class="num">'+fmt(t.sup)+'</b></div>'+
     '<div class="kpi"><span>מע״מ לתשלום</span><b class="num">'+fmt(t.vat)+'</b></div>'+
     '<div class="kpi"><span>רווח צפוי מ"סוגר"</span><b class="num">'+fmt(exp)+'</b><small>'+expN+' לידים בשלב סגירה</small></div>';
+  all.sort(function(a,b){return String(a.dealAt||'').localeCompare(String(b.dealAt||''))});
+  $('dealList').hidden=!all.length;
+  $('dealList').innerHTML=all.length?'<summary>פירוט העסקאות בתקופה ('+all.length+')</summary>'+all.map(function(l){var c=calc(l);return '<div class="drow"><span class="num">'+(l.dealAt?dstr(l.dealAt):'')+'</span><span>'+esc(l.name||l.phone||'')+(l.product?' · '+esc(l.product):'')+(qtyOf(l)>1?' × '+qtyOf(l):'')+'</span><b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></div>'}).join(''):'';
 }
 function renderTabs(){
   var ls=allLeads(),cnt={};STAGES.forEach(function(s){cnt[s.id]=0});ls.forEach(function(l){if(cnt[l.stage]!=null)cnt[l.stage]++});
@@ -263,7 +281,7 @@ function renderList(){
     var due=closed||(l.follow&&s.id!=='done'&&s.id!=='lost'&&DEAL.indexOf(s.id)<0?'<span class="due'+(l.follow<td?' late':'')+'">'+(l.follow<td?'לחזור היה ':'לחזור ב')+dstr(l.follow)+'</span>':'');
     var money=c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'';
     var wa=waLink(l.phone);
-    return '<div class="card" role="button" tabindex="0" data-open="'+l.id+'" style="--c:'+stageColor(s.id)+'">'+
+    return '<div class="card'+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
       '<div class="row"><h3>'+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
@@ -271,7 +289,28 @@ function renderList(){
       '<div class="acts">'+nextBtn+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
-function render(){renderKpis();renderTabs();renderList()}
+function renderSelBar(){
+  var b=$('selBar');
+  if(!SEL.on){if(b)b.remove();return}
+  var n0=Object.keys(SEL.ids).length;
+  if(!b){b=document.createElement('div');b.id='selBar';b.className='selbar';b.dir='rtl';document.body.appendChild(b)}
+  if(!$('selDate')){
+    b.innerHTML='<b id="selCnt"></b><label for="selDate">תאריך סגירה</label><input id="selDate" type="date" value="'+today()+'"><button class="btn pri sm" type="button" id="selApply">עדכון תאריך סגירה</button><button class="btn sm" type="button" id="selAll">סימון הכל בתצוגה</button><button class="btn sm" type="button" id="selOff">סיום</button>';
+  }
+  $('selCnt').textContent=n0+' נבחרו';
+  $('selApply').disabled=!n0;
+}
+function applySelDate(){
+  var d=$('selDate').value;if(!d){toast('בחרי תאריך');return}
+  var ids=Object.keys(SEL.ids).filter(function(id){return leads[id]&&DEAL.indexOf(leads[id].stage)>-1});
+  var skipped=Object.keys(SEL.ids).length-ids.length;
+  if(!ids.length){toast('נבחרו רק לידים שלא נסגרו. תאריך סגירה נקבע רק לעסקאות ב"קיבל סחורה" או "נסגר".');return}
+  var done=0;busy('מעדכנת 0 מתוך '+ids.length);
+  var p=Promise.resolve();
+  ids.forEach(function(id){p=p.then(function(){var l=leads[id],b=pick(l);b.qty=qtyOf(l);b.closedDate=d;return save(id,b).then(function(){done++;busy('מעדכנת '+done+' מתוך '+ids.length)})})});
+  p.then(function(){unbusy();SEL.ids={};render();toast('תאריך הסגירה עודכן ל-'+done+' עסקאות'+(skipped?' ('+skipped+' דולגו כי לא נסגרו)':''))}).catch(function(){unbusy();toast('עודכנו '+done+' מתוך '+ids.length+'. נסי שוב על השאר.')});
+}
+function render(){renderPeriod();renderKpis();renderTabs();renderList();renderSelBar()}
 
 /* ---------- writes ---------- */
 function api(method,path,body){
@@ -282,6 +321,7 @@ function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();el
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
 function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 /* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
+var SEL={on:false,ids:{}};
 var recent={},gone={};
 /* after an update the lead must stay visible: if its new stage is not in the current tab, switch to the tab it moved to */
 function reveal(l){
@@ -482,7 +522,7 @@ function readShots(files){
 }
 
 /* bulk import: a spreadsheet (xlsx / csv) or screenshots of it -> Claude proposes every row -> she reviews the list -> all are saved */
-var IMP=[];
+var IMP=[],impDateVal='';
 function loadSheetJs(){
   return new Promise(function(res,rej){
     if(window.XLSX)return res(window.XLSX);
@@ -533,6 +573,7 @@ function importFiles(files){
 }
 function openImport(items){
   lastFocus=document.activeElement;
+  impDateVal='';
   IMP=items.map(function(it){
     var old=it.matchId?leads[it.matchId]:null;
     var m=applyProposal(old?Object.assign({},old):{stage:'talked',vatIncl:true},it.fields,it.summary);
@@ -543,12 +584,13 @@ function openImport(items){
 function paintImport(){
   var old=$('impSheet'),top=old?old.scrollTop:0;
   var on=IMP.filter(function(r){return r.on}).length;
-  var h='<div class="veil" id="veil" dir="rtl" lang="he"><div class="sheet" id="impSheet" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+IMP.length+' לידים בקובץ</h2><p class="note">בדקי, בטלי סימון למה שלא רוצה, ותקני שלב. כלום לא נשמר עד שתלחצי על ההוספה.</p>';
+  var h='<div class="veil" id="veil" dir="rtl" lang="he"><div class="sheet" id="impSheet" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+IMP.length+' לידים בקובץ</h2><p class="note">בדקי, בטלי סימון למה שלא רוצה, ותקני שלב. כלום לא נשמר עד שתלחצי על ההוספה.</p>'+
+    '<div class="hint"><b>תאריך סגירה לכל העסקאות שנסגרו</b>שורה בלי תאריך תירשם כסגורה היום. בחרי תאריך (למשל סוף יולי) והוא יוחל על כולן.<div class="row" style="margin-top:8px"><input id="impDate" type="date" aria-label="תאריך סגירה" value="'+impDateVal+'" style="width:auto"><button class="btn sm" type="button" id="impApplyDate">החל על כולן</button></div></div>';
   IMP.forEach(function(r,i){
     var l=r.lead,c=calc(l),s=SM[l.stage]||SM.talked;
     h+='<div class="card imp" style="--c:'+stageColor(s.id)+'"><label class="chk"><input type="checkbox" data-imp="'+i+'"'+(r.on?' checked':'')+'> <b>'+esc(l.name||l.phone||'ללא שם')+'</b></label>'+
       '<div class="row"><span class="pill">'+(r.old?'עדכון ליד קיים':'ליד חדש')+'</span><select data-impstage="'+i+'" aria-label="שלב">'+STAGES.map(function(x){return '<option value="'+x.id+'"'+(x.id===l.stage?' selected':'')+'>'+x.name+'</option>'}).join('')+'</select></div>'+
-      '<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+(r.closed?' · נסגר '+dstr(r.closed):'')+'</div>'+
+      '<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+(DEAL.indexOf(l.stage)>-1?(r.closed?' · נסגר '+dstr(r.closed):' · <span style="color:var(--warn)">אין תאריך סגירה, יירשם היום</span>'):'')+'</div>'+
       (c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>ספק <span class="num">'+fmt(c.sup)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'')+
       (r.changed.length?'':'<div class="note">אין מידע חדש לשמירה</div>')+'</div>';
   });
@@ -618,6 +660,11 @@ document.addEventListener('click',function(e){
   var tab=t.closest('[data-f]');if(tab){filter=tab.dataset.f;try{localStorage.setItem('crmFilter',filter)}catch(x){}render();return}
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
+  var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
+  if(t.id==='selBtn'){SEL.on=!SEL.on;SEL.ids={};render();return}
+  if(t.id==='selOff'){SEL.on=false;SEL.ids={};render();return}
+  if(t.id==='selAll'){var vis=[].map.call(document.querySelectorAll('#list [data-pickid]'),function(e){return e.dataset.pickid});var allOn=vis.every(function(i){return SEL.ids[i]});vis.forEach(function(i){if(allOn)delete SEL.ids[i];else SEL.ids[i]=1});render();return}
+  if(t.id==='selApply'){applySelDate();return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
   if(t.id==='tgLink'){tgConnect('');return}
@@ -630,6 +677,7 @@ document.addEventListener('click',function(e){
   if(t.id==='shotBtn'){$('shotIn').click();return}
   if(t.id==='impBtn'){$('impIn').click();return}
   if(t.id==='impGo'){runImport();return}
+  if(t.id==='impApplyDate'){impDateVal=$('impDate').value;IMP.forEach(function(r){if(DEAL.indexOf(r.lead.stage)>-1)r.closed=impDateVal});paintImport();return}
   if(t.id==='impAll'){var allOn=IMP.every(function(r){return r.on});IMP.forEach(function(r){r.on=!allOn&&r.changed.length>0});paintImport();return}
   if(t.id==='settingsBtn'){openSettings();return}
   if(t.id==='csvBtn'){exportCsv();return}
@@ -650,7 +698,7 @@ document.addEventListener('change',function(e){
   if(e.target.id==='shotIn'){readShots(e.target.files);e.target.value='';return}
   if(e.target.id==='impIn'){importFiles(e.target.files);e.target.value='';return}
   if(e.target.dataset&&e.target.dataset.imp!=null){IMP[+e.target.dataset.imp].on=e.target.checked;var on=IMP.filter(function(r){return r.on}).length,g=$('impGo');if(g){g.textContent='הוספה / עדכון של '+on;g.disabled=!on}return}
-  if(e.target.dataset&&e.target.dataset.impstage!=null){IMP[+e.target.dataset.impstage].lead.stage=e.target.value;paintImport();return}
+  if(e.target.dataset&&e.target.dataset.impstage!=null){var rr=IMP[+e.target.dataset.impstage];rr.lead.stage=e.target.value;if(DEAL.indexOf(rr.lead.stage)>-1&&!rr.closed&&impDateVal)rr.closed=impDateVal;paintImport();return}
   if(e.target.id==='period'){period=e.target.value;renderKpis()}
   if(e.target.id==='f_vatIncl'){autoSupplier();[].forEach.call(document.querySelectorAll('#row_extras .xo'),autoXProfit);updCalc()}
   if(e.target.classList&&e.target.classList.contains('xk'))updCalc();
