@@ -1168,7 +1168,8 @@ test('alternative: screenshot extraction proposes fields, validates images and n
   assert.equal(r.data.matchId, 'lead0001abcd');
   assert.deepEqual(r.data.fields, { name: '<b>דנה</b>', phone: '050-123', stage: 'closing', price: 11800, vatIncl: true });   // bad date / negative / non-numeric amounts dropped; text is escaped by the page
   const sent = aiCalls[aiCalls.length - 1].body;
-  assert.equal(sent.tool_choice.name, 'propose_lead');
+  assert.equal(sent.tool_choice.type, 'auto');                                              // forced tool_choice is rejected by the model
+  assert.deepEqual(sent.tools.map((t) => t.name), ['propose_lead']);
   assert.match(JSON.stringify(sent.messages), /lead0001abcd/);
   assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads[0].stage, 'talked');   // nothing was saved
   aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'chat', matchId: 'nonexistent', summary: 's' } }];
