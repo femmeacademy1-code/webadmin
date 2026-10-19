@@ -90,6 +90,7 @@ const SHOT_SYSTEM = `You read screenshots for a small Israeli business that sell
 Rules:
 - Fill only what is visible or clearly implied. Leave a field empty ("" or omit) when unknown. Never invent phone numbers, names or amounts. Amounts are numbers in ILS without the currency sign.
 - commission_receipt: a receipt / invoice for the owner's COMMISSION on a tent sale (it mentions עמלה, e.g. "לוטוס 5 עמלה"). Put the tent model in "model" exactly as written (e.g. "לוטוס 5M", "פעמון 4"). Do NOT fill price, cost or supplier for it: the server computes them from the catalog.
+- receiptAmount: for customer_payment and commission_receipt, the total amount written on the receipt (it may differ from the catalog price, e.g. a small discount on the commission). The server always completes the sale to the full catalog price.
 - model: the tent model named anywhere in the screenshot or message (לוטוס / פעמון plus the size in meters), or "".
 - docType: "chat" (conversation with a customer), "customer_payment" (receipt / invoice / payment proof FROM the customer), "supplier_invoice" (invoice or order from a supplier for the goods), "supplier_payment" (proof that we paid a supplier), or "other".
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
@@ -103,7 +104,7 @@ const PROPOSE = {
   name: 'propose_lead', description: 'Propose lead data extracted from the screenshots.',
   input_schema: { type: 'object', properties: {
     docType: { type: 'string', enum: ['chat', 'customer_payment', 'supplier_invoice', 'supplier_payment', 'commission_receipt', 'other'] },
-    model: { type: 'string' },
+    model: { type: 'string' }, receiptAmount: { type: 'number' },
     matchId: { type: 'string' }, summary: { type: 'string' },
     name: { type: 'string' }, phone: { type: 'string' }, product: { type: 'string' }, source: { type: 'string' }, notes: { type: 'string' },
     suppName: { type: 'string' }, follow: { type: 'string' }, stage: { type: 'string', enum: STAGES },
@@ -164,11 +165,13 @@ export async function extractFromImages(env, input) {
   const cat = catalogMatch(p.model);
   const cfg = (await crmState(env)).cfg;
   let note = '';
-  if (cat && (p.docType === 'commission_receipt' || (p.docType === 'customer_payment' && fields.price === undefined))) {
+  if (cat && (p.docType === 'commission_receipt' || p.docType === 'customer_payment')) {   // the receipt amount may be lower (a discount on the commission): the sale is always recorded at the full catalog price
     const net = cat.price / (1 + Number(cfg.vat) / 100);
     fields.price = cat.price; fields.vatIncl = true; fields.supplier = Math.round(net * Number(cfg.supplierPct) / 100);
     delete fields.cost;
     if (!fields.product) fields.product = `${cat.family} ${cat.m}M`;
+    const ra = amount(p.receiptAmount) || amount(p.price);
+    if (ra && Math.round(ra) !== cat.price) fields.notes = [fields.notes, `בקבלה: ₪${Math.round(ra).toLocaleString('en-US')} (מחיר קטלוג ₪${cat.price.toLocaleString('en-US')})`].filter(Boolean).join('\n');
     note = ` (לפי הקטלוג: ${cat.family} ${cat.m}M ₪${cat.price.toLocaleString('en-US')}, הספק ${cfg.supplierPct}% לפני מע״מ)`;
   }
   const matchId = leads.some((l) => l.id === p.matchId) ? p.matchId : '';

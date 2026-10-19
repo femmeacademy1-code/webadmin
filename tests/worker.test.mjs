@@ -1265,5 +1265,8 @@ test('alternative: a commission receipt is priced from the catalog, supplier get
   r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.data.fields.price, undefined);                    // unknown model: nothing invented
   aiReply = [{ type: 'tool_use', id: 'z', name: 'propose_lead', input: { docType: 'customer_payment', model: 'פעמון 4', summary: 's', price: 4100 } }];
-  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).data.fields.price, 4100);   // an explicit customer payment keeps its amount
+  const d = (await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).data;
+  assert.equal(d.fields.price, 4000);                              // the receipt shows a bit less (discount): the sale is still recorded at the full catalog price
+  assert.equal(d.fields.supplier, Math.round(4000 / 1.18 * 0.6));  // (supplier share is 60% here, set above)
+  assert.match(d.fields.notes, /בקבלה: ₪4,100/);
 });
