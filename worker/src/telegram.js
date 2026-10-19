@@ -2,7 +2,7 @@
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
-import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy } from './crm.js';
+import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit } from './crm.js';
 import { secretEquals } from './auth.js';
 
 const KEY = 'alt:tg';
@@ -133,7 +133,7 @@ async function callback(env, c, id, cq) {
   if (price > 0) {
     const cfg = (await getKV(env, 'alt:cfg')) || { vat: 18, supplierInCost: false };
     const net = lead.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    extra = `\nרווח כרגע: ${money(lead.commission !== '' && lead.commission != null ? Number(lead.commission) : net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0))}`;
+    extra = `\nרווח כרגע: ${money((lead.commission !== '' && lead.commission != null ? Number(lead.commission) : net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0)) + extrasProfit(lead))}`;
   }
   await reply(env, c, id, `נשמר ✅ ${lead.name || lead.phone} · ${STAGE[lead.stage]}${extra}`);
 }
@@ -147,7 +147,7 @@ async function summary(env, c, id) {
   for (const l of leads) {
     if (!['delivered', 'done'].includes(l.stage) || !(l.dealAt || '').startsWith(ym)) continue;
     const price = Number(l.price) || 0; const net = l.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    profit += l.commission !== '' && l.commission != null ? Number(l.commission) : net - (Number(l.cost) || 0) - (cfg.supplierInCost ? 0 : Number(l.supplier) || 0); deals++;
+    profit += (l.commission !== '' && l.commission != null ? Number(l.commission) : net - (Number(l.cost) || 0) - (cfg.supplierInCost ? 0 : Number(l.supplier) || 0)) + extrasProfit(l); deals++;
   }
   const today = now.toISOString().slice(0, 10);
   const late = open.filter((l) => l.follow && l.follow < today).map((l) => l.name || l.phone);

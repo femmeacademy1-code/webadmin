@@ -53,11 +53,17 @@ export async function crmState(env) {
 }
 
 const EXTRA_KINDS = ['insulation', 'setup', 'other'];
-function cleanExtras(v) {
+/* Each extra has what the customer pays, what it cost us and our profit (price before VAT minus cost, unless she typed her own). */
+function cleanExtras(v, vat, vatIncl) {
   if (!Array.isArray(v)) return [];
-  return v.slice(0, 12).map((x) => ({ k: EXTRA_KINDS.includes(x && x.k) ? x.k : 'other', label: text(x && x.label, 60), amount: money(x && x.amount, 'תוספת') }))
-    .filter((x) => x.k !== 'other' || x.label || x.amount !== '');
+  return v.slice(0, 12).map((x) => {
+    const amount = money(x && x.amount, 'סכום התוספת'), cost = money(x && x.cost, 'עלות התוספת');
+    let profit = money(x && x.profit, 'רווח התוספת');
+    if (profit === '' && amount !== '') profit = Math.round(((vatIncl ? amount / (1 + vat / 100) : amount) - (cost || 0)) * 100) / 100;
+    return { k: EXTRA_KINDS.includes(x && x.k) ? x.k : 'other', label: text(x && x.label, 60), amount, cost, profit };
+  }).filter((x) => x.k !== 'other' || x.label || x.amount !== '' || x.cost !== '' || x.profit !== '');
 }
+export const extrasProfit = (l) => (Array.isArray(l.extras) ? l.extras : []).reduce((s, x) => s + (Number(x.profit) || 0), 0);
 
 export async function saveLead(env, id, input) {
   if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
@@ -79,7 +85,8 @@ export async function saveLead(env, id, input) {
   const delivery = text(input.deliveryDate, 10);
   if (delivery && !/^\d{4}-\d{2}-\d{2}$/.test(delivery)) throw new HttpError(400, 'תאריך אספקה לא תקין');
   lead.deliveryDate = delivery;
-  lead.extras = input.extras === undefined ? ((old && old.extras) || []) : cleanExtras(input.extras);     // extras (insulation, setup, others) are recorded; they never change the profit
+  const cfg0 = { vat: 18, ...((await getKV(env, CFG)) || {}) };
+  lead.extras = input.extras === undefined ? ((old && old.extras) || []) : cleanExtras(input.extras, Number(cfg0.vat), lead.vatIncl);
   const closed = text(input.closedDate, 10);
   if (closed && !/^\d{4}-\d{2}-\d{2}$/.test(closed)) throw new HttpError(400, 'תאריך סגירה לא תקין');
   const dealAt = old && old.dealAt;
