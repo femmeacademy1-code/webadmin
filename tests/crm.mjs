@@ -137,15 +137,28 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   // marketing expenses lower the month's profit
   await pg.selectOption('#period', 'm:2026-07');
   await pg.click('#expAdd'); await pg.waitForSelector('#e_amount'); await pg.waitForTimeout(150);
-  await pg.fill('#e_date', '2026-07-10'); await pg.fill('#e_amount', '₪1,000'); await pg.fill('#e_label', 'פייסבוק'); await pg.click('#expForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(await pg.inputValue('#e_date') === '2026-07-31', `${tag}: a new expense is dated in the month being viewed`);
+  await pg.fill('#e_amount', '₪1,000'); await pg.fill('#e_label', 'פייסבוק'); await pg.click('#expForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/אחרי שיווק/.test(await pg.innerText('#kpis')) && /1,000/.test(await pg.innerText('#kpis')) && /800/.test(await pg.innerText('.kpi.big')), `${tag}: July profit 1,800 - marketing 1,000 = 800 (${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')})`);
   ok(/פייסבוק/.test(await pg.textContent('#expList')), `${tag}: the expense is listed`);
   await pg.click('#expList summary'); await pg.click('#expList [data-exp]'); await pg.waitForSelector('#expDel'); await pg.waitForTimeout(150);
   await pg.fill('#e_date', '2026-08-02'); await pg.click('#expForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(!/אחרי שיווק/.test(await pg.innerText('#kpis')) && /1,800/.test(await pg.innerText('.kpi.big')), `${tag}: moving it to August removes it from July`);
   await pg.selectOption('#period', 'all');
-  await pg.evaluate(() => { document.getElementById('expList').open = true; }); await pg.click('#expList [data-exp]'); await pg.waitForSelector('#expDel'); await pg.waitForTimeout(150); await pg.click('#expDel'); await pg.click('#expDel'); await pg.waitForSelector('#veil', { state: 'detached' });
-  ok(await pg.locator('#expList').isHidden(), `${tag}: deleted`);
+  // the manager: see everything, select, move to another date, delete
+  await pg.selectOption('#period', 'all');
+  await pg.click('#expMgr'); await pg.waitForSelector('#xmSheet'); await pg.waitForTimeout(150);
+  ok((await pg.locator('#xmSheet [data-xm]').count()) === 1 && /אוגוסט 2026/.test(await pg.innerText('#xmSheet')), `${tag}: the manager lists the August expense`);
+  await pg.click('#xmAll'); await pg.fill('#xm_date', '2026-07-12'); await pg.click('#xmApply');
+  await pg.waitForFunction(() => /יולי 2026/.test(document.querySelector('#xmSheet').innerText));
+  ok(/יולי 2026/.test(await pg.innerText('#xmSheet')) && !/אוגוסט 2026/.test(await pg.innerText('#xmSheet')), `${tag}: moved to July in one go`);
+  await pg.click('#cancelBtn');
+  await pg.selectOption('#period', 'm:2026-07');
+  ok(/אחרי שיווק/.test(await pg.innerText('#kpis')), `${tag}: July profit is after marketing again`);
+  await pg.click('#expMgr'); await pg.waitForSelector('#xmSheet'); await pg.click('#xmAll'); await pg.click('#xmDel'); await pg.click('#xmDel');
+  await pg.waitForFunction(() => /עוד אין הוצאות/.test(document.querySelector('#xmSheet').innerText));
+  await pg.click('#cancelBtn');
+  ok(await pg.locator('#expList').isHidden(), `${tag}: deleted from the manager`);
   await pg.selectOption('#period', 'm:2026-07');
   // the closed tabs follow the chosen month
   await pg.click('[data-f="delivered"]');

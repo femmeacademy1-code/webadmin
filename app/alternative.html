@@ -162,7 +162,7 @@ legend{font-weight:800;padding:0 6px}
   <section class="sum" aria-label="סיכום">
     <div class="sumhead">
       <h2>הכסף שנכנס</h2>
-      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="expAdd">＋ הוצאת שיווק</button><select id="period" aria-label="תקופה"></select></span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="expAdd">＋ הוצאת שיווק</button><button class="btn sm" type="button" id="expMgr">✎ עריכת הוצאות</button><select id="period" aria-label="תקופה"></select></span>
     </div>
     <div class="kpis" id="kpis"></div>
     <details id="dealList" hidden></details>
@@ -687,11 +687,51 @@ function runImport(){
 }
 
 /* marketing expenses */
+/* a new expense is dated in the month being viewed (the last day of it), otherwise today */
+function defaultExpDate(){
+  if(period.indexOf('m:')===0){var p=period.slice(2).split('-');return new Date(Date.UTC(+p[0],+p[1],0)).toISOString().slice(0,10)}
+  if(period==='last'){var nw=new Date();return new Date(Date.UTC(nw.getFullYear(),nw.getMonth(),0)).toISOString().slice(0,10)}
+  return today();
+}
+/* one place to see all expenses, select several and move them to another date or delete them */
+var XSEL={};
+function openExpMgr(){lastFocus=document.activeElement;XSEL={};paintExpMgr()}
+function paintExpMgr(){
+  var old=$('xmSheet'),top=old?old.scrollTop:0;
+  var list=expenses.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date))}),groups={},order=[];
+  list.forEach(function(x){var k=String(x.date).slice(0,7);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(x)});
+  var cnt=Object.keys(XSEL).length;
+  var h='<div class="veil" id="veil" dir="rtl" lang="he"><div class="sheet" id="xmSheet" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">הוצאות שיווק</h2>'+
+    '<p class="note">סמני הוצאות, בחרי תאריך ולחצי עדכון כדי להעביר אותן לחודש הנכון. ✎ לעריכת הוצאה אחת.</p>'+
+    '<div class="hint"><div class="row"><input id="xm_date" type="date" aria-label="תאריך חדש" value="'+defaultExpDate()+'" style="width:auto"><button class="btn pri sm" type="button" id="xmApply"'+(cnt?'':' disabled')+'>עדכון תאריך ל-'+cnt+' נבחרות</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="btn sm" type="button" id="xmAll">סימון הכל</button><button class="btn sm danger" type="button" id="xmDel"'+(cnt?'':' disabled')+'>מחיקת '+cnt+' נבחרות</button></div></div>';
+  if(!list.length)h+='<div class="empty">עוד אין הוצאות שיווק</div>';
+  order.forEach(function(k){
+    var tot=groups[k].reduce(function(s,x){return s+n(x.amount)},0);
+    h+='<div class="row" style="margin-top:10px"><b>'+monthName(k)+'</b><span class="note">'+groups[k].length+' · '+fmt(tot)+'</span><button type="button" class="btn sm" data-xmgrp="'+k+'">סימון החודש</button></div>';
+    groups[k].forEach(function(x){h+='<div class="drow"><label style="display:flex;gap:8px;align-items:baseline;flex:1;min-width:0"><input type="checkbox" data-xm="'+x.id+'"'+(XSEL[x.id]?' checked':'')+' style="width:auto"><span class="num">'+dstr(x.date)+'</span><span style="flex:1;min-width:0;overflow-wrap:anywhere">'+esc(x.label||'שיווק')+'</span></label><b class="num">'+fmt(n(x.amount))+'</b><button type="button" class="btn sm" data-exp="'+x.id+'" aria-label="עריכה">✎</button></div>'});
+  });
+  h+='<div class="sbar"><button class="btn" type="button" id="cancelBtn">סגירה</button></div></div></div>';
+  $('sheetHost').innerHTML=h;
+  if($('xmSheet'))$('xmSheet').scrollTop=top;
+}
+function xmRun(kind,date){
+  var ids=Object.keys(XSEL);if(!ids.length)return;
+  if(kind==='date'&&!date){toast('בחרי תאריך');return}
+  var done=0;busy((kind==='date'?'מעדכנת ':'מוחקת ')+'0 מתוך '+ids.length);
+  var p=Promise.resolve();
+  ids.forEach(function(id){p=p.then(function(){
+    var x=expenses.filter(function(e){return e.id===id})[0];if(!x)return;
+    if(kind==='date')return guard(api('PUT','/alt/expenses/'+id,{date:date,amount:x.amount,label:x.label})).then(function(r){expenses=expenses.filter(function(e){return e.id!==id}).concat([r.expense]);expRecent[id]={item:r.expense,at:Date.now()};done++;busy('מעדכנת '+done+' מתוך '+ids.length)});
+    return guard(api('DELETE','/alt/expenses/'+id)).then(function(){expenses=expenses.filter(function(e){return e.id!==id});expGone[id]=Date.now();delete expRecent[id];done++;busy('מוחקת '+done+' מתוך '+ids.length)});
+  })});
+  p.then(function(){unbusy();XSEL={};render();paintExpMgr();toast(kind==='date'?'התאריך עודכן ל-'+done+' הוצאות':'נמחקו '+done+' הוצאות')}).catch(function(){unbusy();render();paintExpMgr();toast('בוצעו '+done+' מתוך '+ids.length)});
+}
 function openExpense(id){
   lastFocus=document.activeElement;editingExp=id||null;
   var x=id?expenses.filter(function(e){return e.id===id})[0]:null;
   $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="expForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(x?'עריכת הוצאת שיווק':'הוצאת שיווק')+'</h2>'+
-   '<div class="grid2">'+field('e_date','תאריך',x?x.date:today(),'date',{})+field('e_amount','סכום (₪)',x?x.amount:'','number',{})+
+   '<div class="grid2">'+field('e_date','תאריך',x?x.date:defaultExpDate(),'date',{})+field('e_amount','סכום (₪)',x?x.amount:'','number',{})+
    '<div class="f full"><label for="e_label">על מה (פייסבוק, גוגל, אינסטגרם, מעצבת…)</label><input id="e_label" list="e_list" value="'+esc(x?x.label:'')+'" autocomplete="off"><datalist id="e_list"><option value="פייסבוק"><option value="אינסטגרם"><option value="גוגל"><option value="טיקטוק"><option value="יוצרת תוכן"><option value="צילום"><option value="עיצוב"></datalist></div></div>'+
    '<p class="note">הסכום יורד מהרווח של החודש לפי התאריך, כפי שהקלדת (כולל מע״מ אם שילמת עם מע״מ).</p>'+
    '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(x?'<button class="btn danger" type="button" id="expDel">מחיקה</button>':'')+'</div></form></div>';
@@ -764,6 +804,11 @@ document.addEventListener('click',function(e){
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
   if(t.id==='expAdd'){openExpense(null);return}
+  if(t.id==='expMgr'){openExpMgr();return}
+  if(t.id==='xmAll'){var allx=expenses.every(function(x){return XSEL[x.id]});XSEL={};if(!allx)expenses.forEach(function(x){XSEL[x.id]=1});paintExpMgr();return}
+  var xg=t.closest('[data-xmgrp]');if(xg){var gk=xg.dataset.xmgrp,gl=expenses.filter(function(x){return String(x.date).slice(0,7)===gk}),gall=gl.every(function(x){return XSEL[x.id]});gl.forEach(function(x){if(gall)delete XSEL[x.id];else XSEL[x.id]=1});paintExpMgr();return}
+  if(t.id==='xmApply'){xmRun('date',$('xm_date').value);return}
+  if(t.id==='xmDel'){if(t.dataset.arm){xmRun('del')}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
   var ex=t.closest('[data-exp]');if(ex){openExpense(ex.dataset.exp);return}
   if(t.id==='expDel'){delExpense(t);return}
   if(t.id==='selBtn'){SEL.on=!SEL.on;SEL.ids={};render();return}
@@ -802,6 +847,7 @@ document.addEventListener('input',function(e){
 document.addEventListener('change',function(e){
   if(e.target.id==='shotIn'){readShots(e.target.files);e.target.value='';return}
   if(e.target.id==='impIn'){importFiles(e.target.files);e.target.value='';return}
+  if(e.target.dataset&&e.target.dataset.xm!=null){if(e.target.checked)XSEL[e.target.dataset.xm]=1;else delete XSEL[e.target.dataset.xm];paintExpMgr();return}
   if(e.target.dataset&&e.target.dataset.imp!=null){IMP[+e.target.dataset.imp].on=e.target.checked;var on=IMP.filter(function(r){return r.on}).length,g=$('impGo');if(g){g.textContent='הוספה / עדכון של '+on;g.disabled=!on}return}
   if(e.target.dataset&&e.target.dataset.impstage!=null){var rr=IMP[+e.target.dataset.impstage];rr.lead.stage=e.target.value;if(DEAL.indexOf(rr.lead.stage)>-1&&!rr.closed&&impDateVal)rr.closed=impDateVal;paintImport();return}
   if(e.target.id==='period'){period=e.target.value;render()}
