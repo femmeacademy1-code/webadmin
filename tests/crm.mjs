@@ -53,7 +53,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.fill('#l_pass', 'alt-pass-1234'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
   ok(await pg.locator('.empty').count() === 1, `${tag}: logged in, empty state`);
 
-  await pg.click('#newBtn'); await pg.waitForSelector('#f_price'); await pg.waitForTimeout(150); await pg.fill('#f_price', '7500');
+  await pg.click('#newBtn'); await pg.waitForSelector('#f_price'); await pg.waitForTimeout(150); await pg.fill('#f_price', '₪7,500');
   ok(await pg.inputValue('#f_supplier') === '4449', `${tag}: supplier fills itself at 70% of the pre-VAT price`);
   ok((await pg.innerText('#calc .pf')).includes('1,907'), `${tag}: so the profit is the 30% commission`);
   await pg.fill('#f_supplier', '4000'); await pg.fill('#f_price', '8000');
@@ -101,6 +101,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: survives reload (stored on the server)`);
   ok(await pg.evaluate(() => document.documentElement.scrollWidth) <= w, `${tag}: no horizontal scroll`);
   await pg.screenshot({ path: `/tmp/crm-${tag}.png`, fullPage: true });
+  // moving a lead to a stage outside the open tab must not make it vanish
+  await pg.click('[data-f="hot"]'); await pg.click('.card'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא התקדם/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);
+  await pg.click('[data-f="all"]');
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
   await pg.click('.card'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {

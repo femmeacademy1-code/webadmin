@@ -13,7 +13,9 @@ const getKV = async (env, key) => { const v = await env.CMS.get(key); return v ?
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 function money(v, label) {
   if (v === '' || v == null) return '';
-  const x = Number(v);
+  const t = typeof v === 'string' ? v.replace(/[₪,\s]/g, '') : v;
+  if (t === '') return '';
+  const x = Number(t);
   if (!Number.isFinite(x) || Math.abs(x) > 1e9) throw new HttpError(400, `${label}: סכום לא תקין`);
   return Math.round(x * 100) / 100;
 }

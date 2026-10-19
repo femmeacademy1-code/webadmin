@@ -177,7 +177,9 @@ var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',peri
 
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function n(v){var x=parseFloat(v);return isFinite(x)?x:0}
+/* amounts are typed as text so "7,500" or "₪7500" works on every phone keyboard (a number input silently turns those into an empty value) */
+function clean(v){return String(v==null?'':v).replace(/[₪,\s]/g,'')}
+function n(v){var x=parseFloat(clean(v));return isFinite(x)?x:0}
 function fmt(v){var r=Math.round(v);return (r<0?'-':'')+'₪'+Math.abs(r).toLocaleString('he-IL')}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function dstr(iso){if(!iso)return '';var d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString('he-IL',{day:'numeric',month:'numeric',year:'2-digit'})}
@@ -278,6 +280,11 @@ function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.
 function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 /* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
 var recent={},gone={};
+/* after an update the lead must stay visible: if its new stage is not in the current tab, switch to the tab it moved to */
+function reveal(l){
+  var st=l.stage,inTab=filter==='all'||(filter==='open'?(st!=='done'&&st!=='lost'):filter===st);
+  if(!inTab){filter=st;try{localStorage.setItem('crmFilter',filter)}catch(x){}render()}
+}
 function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;recent[id]={lead:d.lead,at:Date.now()};delete gone[id];render();return d.lead})}
 function load(){
   return api('GET','/alt/leads').then(function(d){
@@ -308,7 +315,8 @@ function advance(id){
   var l=leads[id];if(!l)return;
   var i=(SM[l.stage]||SM.talked).i,nx=STAGES[i+1];if(!nx||nx.id==='lost')return;
   var body=pick(l);body.stage=nx.id;
-  save(id,body).then(function(){
+  save(id,body).then(function(sv){
+    reveal(sv);
     toast((l.name||'הליד')+' עבר ל"'+nx.name+'"');
     if(nx.id==='closing'||nx.id==='delivered')openEditor(id);
   }).catch(function(){});
@@ -316,7 +324,7 @@ function advance(id){
 
 /* ---------- editor ---------- */
 function field(id,label,val,type,extra){
-  return '<div class="f'+(extra&&extra.full?' full':'')+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val)+'"'+(type==='number'?' inputmode="decimal" step="any" dir="ltr"':'')+(extra&&extra.ph?' placeholder="'+extra.ph+'"':'')+'></div>';
+  return '<div class="f'+(extra&&extra.full?' full':'')+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(type==='number'?'text':(type||'text'))+'" value="'+esc(val)+'"'+(type==='number'?' inputmode="decimal" dir="ltr" autocomplete="off"':'')+(extra&&extra.ph?' placeholder="'+extra.ph+'"':'')+'></div>';
 }
 var LABEL={receiptNo:'מספר קבלה',deliveryDate:'תאריך אספקה',commission:'העמלה (רווח)',name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
 /* merge a screenshot proposal into a lead (new or existing) without saving it */
@@ -332,7 +340,7 @@ function applyProposal(l,f,summary){
   return {lead:out,changed:changed,summary:summary};
 }
 /* a closed deal needs a closing date, not a follow-up */
-function xf(c,label,v){return '<div class="f"><label>'+label+'</label><input class="'+c+'" type="number" inputmode="decimal" step="any" dir="ltr" value="'+esc(v==null?'':v)+'"></div>'}
+function xf(c,label,v){return '<div class="f"><label>'+label+'</label><input class="'+c+'" type="text" inputmode="decimal" autocomplete="off" dir="ltr" value="'+esc(v==null?'':v)+'"></div>'}
 function xRow(k,x){
   x=x||{};
   var fixed=k!=='other',name=k==='insulation'?'בידוד':'הקמה';
@@ -353,7 +361,8 @@ function readExtras(){
     var k=r.dataset.k,fixed=k!=='other';
     if(fixed&&!r.querySelector('.xk').checked)return;
     var label=fixed?(k==='insulation'?'בידוד':'הקמה'):r.querySelector('.xl').value.trim();
-    var a=r.querySelector('.xa').value.trim(),c=r.querySelector('.xc').value.trim(),p=r.querySelector('.xp').value.trim();
+    var a=clean(r.querySelector('.xa').value),c=clean(r.querySelector('.xc').value),p=clean(r.querySelector('.xp').value);
+    [a,c,p].forEach(function(v){if(v!==''&&!isFinite(Number(v)))throw new Error('סכום לא תקין בתוספות')});
     if(!fixed&&!label&&!a&&!c&&!p)return;
     out.push({k:k,label:label,amount:a,cost:c,profit:p});
   });
@@ -409,7 +418,7 @@ function openEditor(id,hint){
 function closeEditor(){editing=null;$('sheetHost').innerHTML='';if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}}
 function val(id){var e=$(id);return e?e.value.trim():''}
 function formLead(){
-  return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked,extras:$('row_extras')&&!$('row_extras').hidden?readExtras():[]};
+  return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked,extras:$('row_extras')&&!$('row_extras').hidden?(function(){try{return readExtras()}catch(e){return []}})():[]};
 }
 /* supplier share: filled from the price (supplierPct % of the price before VAT) until she types her own number */
 function autoSupplier(){
@@ -429,12 +438,14 @@ function updCalc(){
    (c.xp?'<div><span>רווח תוספות</span><b class="num">'+fmt(c.xp)+'</b></div>':'')+
    '<div class="pf'+(c.profit<0?' neg':'')+'"><span>'+(c.xp?'רווח כולל':'רווח')+'</span><b class="num">'+fmt(c.profit)+'</b></div>';
 }
+function moneyVal(id,label){var v=clean(val(id));if(v!==''&&!isFinite(Number(v)))throw new Error('הסכום ב"'+label+'" לא תקין');return v}
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
-  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:DEAL.indexOf(stg)>-1?readExtras():undefined,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
-    price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
+  var mp,mc,ms,mm;try{mp=moneyVal('f_price','מחיר ללקוח');mc=moneyVal('f_cost','עלות');ms=moneyVal('f_supplier','הספק קיבל');mm=moneyVal('f_commission','העמלה');var ex=DEAL.indexOf(stg)>-1?readExtras():undefined}catch(e){toast(e.message);return}
+  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:ex,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
+    price:mp,cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
-  save(editing||newId(),d).then(function(){closeEditor();toast('נשמר')}).catch(function(){});
+  save(editing||newId(),d).then(function(l){closeEditor();reveal(l);toast('נשמר')}).catch(function(){});
 }
 function armDelete(btn){
   if(btn.dataset.arm){
