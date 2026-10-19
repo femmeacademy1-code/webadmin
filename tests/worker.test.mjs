@@ -1235,3 +1235,13 @@ test('alternative telegram bot: connect, pair with a code, propose from a messag
   assert.equal((await send({ message: { chat: { id: 5, type: 'private' }, text: 'x' } })).status, 401);
   assert.ok(tgCalls.some((c) => c.method === 'deleteWebhook'));
 });
+
+test('alternative: when Claude refuses the request the reason is shown (bad key / model), and an answer without a proposal is an error', async () => {
+  const alt = await altCookieFor();
+  const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
+  aiStatus = 404;
+  const r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
+  assert.equal(r.status, 502); assert.match(r.data.error, /קוד 404/);
+  aiStatus = 200; aiReply = [{ type: 'text', text: 'hi' }];
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).status, 502);
+});

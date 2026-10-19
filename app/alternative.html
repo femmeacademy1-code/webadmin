@@ -176,7 +176,7 @@ function n(v){var x=parseFloat(v);return isFinite(x)?x:0}
 function fmt(v){var r=Math.round(v);return (r<0?'-':'')+'₪'+Math.abs(r).toLocaleString('he-IL')}
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function dstr(iso){if(!iso)return '';var d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString('he-IL',{day:'numeric',month:'numeric',year:'2-digit'})}
-function toast(t){var el=document.createElement('div');el.className='toast';el.setAttribute('role','status');el.textContent=t;$('toastHost').appendChild(el);setTimeout(function(){el.remove()},3200)}
+function toast(t){var el=document.createElement('div');el.className='toast';el.setAttribute('role','status');el.textContent=t;$('toastHost').appendChild(el);setTimeout(function(){el.remove()},Math.min(9000,2500+t.length*70))}
 function waLink(p){var d=String(p||'').replace(/\D/g,'');if(!d)return '';if(d[0]==='0')d='972'+d.slice(1);return 'https://wa.me/'+d}
 
 /* money for one lead */

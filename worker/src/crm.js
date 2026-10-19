@@ -127,9 +127,12 @@ export async function extractFromImages(env, input) {
   if (!r.ok || !j || !Array.isArray(j.content)) {
     if (r.status === 429 || r.status === 529) throw new HttpError(503, 'העוזר עמוס כרגע. נסי שוב בעוד רגע');
     if (r.status === 401 || r.status === 403) throw new HttpError(503, 'מפתח Claude בשרת לא תקין');
-    throw new HttpError(502, 'לא הצלחתי לקרוא את הצילום. נסי שוב');
+    console.error('alt extract', r.status, JSON.stringify(j).slice(0, 300));
+    const why = (j && j.error && j.error.message) ? String(j.error.message).slice(0, 160) : '';
+    throw new HttpError(502, `לא הצלחתי לקרוא את הצילום (קוד ${r.status}${why ? ': ' + why : ''})`);   // the reason is shown so a wrong key / model name is visible at once
   }
   const tu = j.content.find((b) => b.type === 'tool_use' && b.name === 'propose_lead');
+  if (!tu) throw new HttpError(502, 'Claude לא החזיר תשובה שאפשר לקרוא. נסי שוב או צלמי מסך ברור יותר');
   const p = (tu && tu.input) || {};
   const amount = (v) => { const x = Number(v); return Number.isFinite(x) && x >= 0 && x < 1e9 ? Math.round(x * 100) / 100 : ''; };
   const fields = {};
