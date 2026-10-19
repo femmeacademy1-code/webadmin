@@ -111,9 +111,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="all"]');
   // bulk import from a CSV: review the proposed rows, then save them all
   await pg.click('[data-f="all"]');
-  await pg.setInputFiles('#impIn', { name: 'july.csv', mimeType: 'text/csv', buffer: Buffer.from('שם,טלפון\nמשה,0531111111\nדנה,0501234567\n', 'utf8') });
+  await pg.setInputFiles('#impIn', { name: 'מכירות גלאמפינג 2026 יולי.csv', mimeType: 'text/csv', buffer: Buffer.from('שם,טלפון\nמשה,0531111111\nדנה,0501234567\n', 'utf8') });
   await pg.waitForSelector('#impSheet');
   ok((await pg.locator('#impSheet .card.imp').count()) === 2, `${tag}: import preview lists both rows`);
+  ok(/זיהיתי יולי 2026/.test(await pg.innerText('#impSheet')) && /נסגר 31\.7\.26/.test(await pg.innerText('#impSheet')), `${tag}: the month is read from the file name and set as the closing date`);
   ok(/עדכון ליד קיים/.test(await pg.innerText('#impSheet')) && /ליד חדש/.test(await pg.innerText('#impSheet')), `${tag}: same phone is an update, the other a new lead`);
   ok((await pg.locator('#list .card').count()) === 2, `${tag}: nothing saved before confirming the import`);
   await pg.fill('#impDate', '2026-07-31'); await pg.click('#impApplyDate');

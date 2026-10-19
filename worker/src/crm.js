@@ -211,7 +211,7 @@ const digits = (v) => String(v || '').replace(/\D/g, '').replace(/^972/, '0');
 
 /* Turn what Claude returned for one lead into clean fields. Commission rule: the catalog price includes VAT; the supplier gets supplierPct % of the
  * price before VAT (for all tents) and the commission written on the receipt is our profit exactly. */
-function shapeProposal(p, leads, cfg) {
+function shapeProposal(p, leads, cfg, opts = {}) {
   const fields = {};
   const put = (k, v) => { if (v !== '' && v != null) fields[k] = v; };
   put('name', text(p.name, 120)); put('phone', text(p.phone, 40)); put('product', text(p.product, 200)); put('source', text(p.source, 120));
@@ -227,7 +227,13 @@ function shapeProposal(p, leads, cfg) {
   }
   const cat = catalogMatch(p.model);
   let note = '';
-  if (cat && (p.docType === 'commission_receipt' || p.docType === 'customer_payment')) {   // the receipt amount may be lower (a discount on the commission): the sale is always recorded at the full catalog price
+  if (cat && opts.sheet) {                                  // a spreadsheet row: the numbers written there win, the catalog only fills what is missing
+    const qty = qtyOf({ qty: p.quantity });
+    if (qty > 1) fields.qty = qty;
+    if (fields.price === undefined) { fields.price = cat.price; fields.vatIncl = true; }
+    if (fields.supplier === undefined) fields.supplier = Math.round(((fields.vatIncl === false ? fields.price : fields.price / (1 + Number(cfg.vat) / 100)) * qty) * Number(cfg.supplierPct) / 100);
+    if (!fields.product) fields.product = `${cat.family} ${cat.m}M`;
+  } else if (cat && (p.docType === 'commission_receipt' || p.docType === 'customer_payment')) {   // the receipt amount may be lower (a discount on the commission): the sale is always recorded at the full catalog price
     const net = cat.price / (1 + Number(cfg.vat) / 100);
     const qty = qtyOf({ qty: p.quantity });
     if (qty > 1) fields.qty = qty;
@@ -264,7 +270,7 @@ const IMPORT_SYSTEM = `You read a spreadsheet (as CSV text) or screenshots of a 
 
 Rules:
 - One item per customer row (or per distinct customer in a screenshot). Skip header, total, empty and decoration rows. Never merge two customers and never invent rows, names, phones or amounts. Leave unknown fields empty. Amounts are numbers in ILS without the currency sign.
-- Map columns by their headers (Hebrew): שם/לקוח -> name, טלפון/נייד -> phone, מוצר/דגם/אוהל -> product and model, כמות -> quantity, מחיר -> price, עלות -> cost, ספק -> suppName, מה הספק קיבל -> supplier, עמלה/רווח -> commission, מספר קבלה/חשבונית -> receiptNo, תאריך -> closedDate for a completed sale, תאריך אספקה -> deliveryDate, בידוד/הקמה/תוספת -> extras (label, amount, cost), הערות -> notes. Dates are day/month/year (Israeli order); output YYYY-MM-DD.
+- Map columns by their headers (Hebrew). The sheet's own numbers are exact: copy them, never recompute them. Known headers of the owner's monthly sheet: לקוחות -> name; סוג אוהל -> product and model ("לוטוס 8 +בידוד" means model לוטוס 8 and an insulation extra); כמות -> quantity; מחיר ללקוח -> the TOTAL the customer pays for all tents, so price = total / quantity; מקדמה (advance paid) -> note "מקדמה ₪X"; תשלום לספק -> supplier (total paid to the supplier); מכס (customs) -> note "מכס ₪X"; רווח אוהלים -> commission (our profit on the tents, exactly as written); הקמה -> an extra labelled הקמה with that amount and cost = עובד הקמה; מוצרים נלווים -> an extra with that label and amount, cost = עלויות חומרים; דלק or other cost columns -> note. A row that only sells a setup (e.g. "הקמה לוטוס 5 שדרות") has no tent price: put only the extras. Other headers: שם/לקוח -> name, טלפון/נייד -> phone, מוצר/דגם/אוהל -> product and model, כמות -> quantity, מחיר -> price, עלות -> cost, ספק -> suppName, מה הספק קיבל -> supplier, עמלה/רווח -> commission, מספר קבלה/חשבונית -> receiptNo, תאריך -> closedDate for a completed sale, תאריך אספקה -> deliveryDate, בידוד/הקמה/תוספת -> extras (label, amount, cost), הערות -> notes. Dates are day/month/year (Israeli order); output YYYY-MM-DD.
 - price is per ONE tent. If a quantity above 1 is given with a total, divide to get the per-tent price. quantity: a whole number, omit when 1 or unknown.
 - model: the tent model named (לוטוס / פעמון plus the size in meters), or "". docType: "commission_receipt" when the row's amount is the owner's COMMISSION (עמלה), "customer_payment" when it is what the customer paid, otherwise "other". For a commission row put the commission in "commission" and do NOT compute price or supplier: the server completes them from the catalog.
 - stage: talked (first contact), hot, viewing, closing, delivered (received the goods), done (a completed, paid and closed sale), lost. A row of a completed sale with a price / commission / receipt number is "done" unless the sheet says otherwise; with no information use "talked".
@@ -285,7 +291,7 @@ export async function importMany(env, input) {
   const { leads, cfg } = await crmState(env);
   content.push({ type: 'text', text: `Today is ${new Date().toISOString().slice(0, 10)}.\n<existing_leads>\n${JSON.stringify(knownLeads(leads))}\n</existing_leads>${msg ? `\n<spreadsheet>\n${msg}\n</spreadsheet>` : ''}\nExtract every customer from the content above.` });
   const out = await askClaude(env, { system: IMPORT_SYSTEM, tool: PROPOSE_MANY, content, maxTokens: 12000 });
-  const items = (Array.isArray(out.leads) ? out.leads : []).slice(0, 80).map((p) => shapeProposal(p, leads, cfg)).filter((it) => it.matchId || it.fields.name || it.fields.phone);
+  const items = (Array.isArray(out.leads) ? out.leads : []).slice(0, 80).map((p) => shapeProposal(p, leads, cfg, { sheet: true })).filter((it) => it.matchId || it.fields.name || it.fields.phone);
   return { items };
 }
 

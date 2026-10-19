@@ -547,8 +547,20 @@ function chunkCsv(name,csv){
 }
 function busy(t){var b=$('busyBox');if(!b){b=document.createElement('div');b.id='busyBox';b.className='busy';b.innerHTML='<div role="status"></div>';document.body.appendChild(b)}b.firstChild.textContent=t}
 function unbusy(){var b=$('busyBox');if(b)b.remove()}
+/* the month the file is about, from its name or its tab names ("מכירות יולי 2026", tab "יולי"): the last day of that month becomes the default closing date */
+var HMONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+function guessMonth(names){
+  var t=names.join(' '),mi=-1;
+  HMONTHS.forEach(function(m,i){if(mi<0&&t.indexOf(m)>-1)mi=i});
+  if(mi<0)return '';
+  var y=(t.match(/20\d\d/)||[])[0],now=new Date();
+  y=y?+y:(mi<=now.getMonth()?now.getFullYear():now.getFullYear()-1);
+  return new Date(Date.UTC(y,mi+1,0)).toISOString().slice(0,10);
+}
+var impHint='';
 function importFiles(files){
   files=[].slice.call(files);if(!files.length)return;
+  impHint=guessMonth(files.map(function(f){return f.name}));
   var sheets=files.filter(function(f){return /\.(xlsx|xls|csv)$/i.test(f.name)}),imgs=files.filter(function(f){return /^image\//.test(f.type)}).slice(0,4);
   if(!sheets.length&&!imgs.length){toast('בחרי קובץ אקסל, CSV או צילום');return}
   busy('קוראת את הקובץ…');
@@ -558,6 +570,7 @@ function importFiles(files){
       if(/\.csv$/i.test(f.name))return readText(f).then(function(t){chunkCsv(f.name,t).forEach(function(c){jobs.push({text:c})})});
       return Promise.all([loadSheetJs(),f.arrayBuffer()]).then(function(r){
         var wb=r[0].read(r[1],{type:'array',cellDates:true});
+        if(!impHint)impHint=guessMonth(wb.SheetNames);
         wb.SheetNames.forEach(function(sn){var csv=r[0].utils.sheet_to_csv(wb.Sheets[sn],{blankrows:false,dateNF:'dd/mm/yyyy'});chunkCsv(f.name+' / '+sn,csv).forEach(function(c){jobs.push({text:c})})});
       });
     });
@@ -573,11 +586,11 @@ function importFiles(files){
 }
 function openImport(items){
   lastFocus=document.activeElement;
-  impDateVal='';
+  impDateVal=impHint||'';
   IMP=items.map(function(it){
     var old=it.matchId?leads[it.matchId]:null;
     var m=applyProposal(old?Object.assign({},old):{stage:'talked',vatIncl:true},it.fields,it.summary);
-    return {id:old?old.id:newId(),old:old,lead:m.lead,changed:m.changed,on:m.changed.length>0,closed:it.fields.closedDate||''};
+    return {id:old?old.id:newId(),old:old,lead:m.lead,changed:m.changed,on:m.changed.length>0,closed:it.fields.closedDate||(DEAL.indexOf(m.lead.stage)>-1?impDateVal:'')};
   });
   paintImport();
 }
@@ -585,7 +598,7 @@ function paintImport(){
   var old=$('impSheet'),top=old?old.scrollTop:0;
   var on=IMP.filter(function(r){return r.on}).length;
   var h='<div class="veil" id="veil" dir="rtl" lang="he"><div class="sheet" id="impSheet" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+IMP.length+' לידים בקובץ</h2><p class="note">בדקי, בטלי סימון למה שלא רוצה, ותקני שלב. כלום לא נשמר עד שתלחצי על ההוספה.</p>'+
-    '<div class="hint"><b>תאריך סגירה לכל העסקאות שנסגרו</b>שורה בלי תאריך תירשם כסגורה היום. בחרי תאריך (למשל סוף יולי) והוא יוחל על כולן.<div class="row" style="margin-top:8px"><input id="impDate" type="date" aria-label="תאריך סגירה" value="'+impDateVal+'" style="width:auto"><button class="btn sm" type="button" id="impApplyDate">החל על כולן</button></div></div>';
+    '<div class="hint"><b>תאריך סגירה לכל העסקאות שנסגרו'+(impHint?' · זיהיתי '+monthName(impHint.slice(0,7)):'')+'</b>שורה בלי תאריך תירשם כסגורה היום. בחרי תאריך (למשל סוף יולי) והוא יוחל על כולן.<div class="row" style="margin-top:8px"><input id="impDate" type="date" aria-label="תאריך סגירה" value="'+impDateVal+'" style="width:auto"><button class="btn sm" type="button" id="impApplyDate">החל על כולן</button></div></div>';
   IMP.forEach(function(r,i){
     var l=r.lead,c=calc(l),s=SM[l.stage]||SM.talked;
     h+='<div class="card imp" style="--c:'+stageColor(s.id)+'"><label class="chk"><input type="checkbox" data-imp="'+i+'"'+(r.on?' checked':'')+'> <b>'+esc(l.name||l.phone||'ללא שם')+'</b></label>'+

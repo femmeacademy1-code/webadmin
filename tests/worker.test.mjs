@@ -1339,3 +1339,17 @@ test('alternative: bulk import returns many proposals (catalog, quantity, extras
   assert.equal(sv.status, 200, JSON.stringify(sv.data));
   assert.equal(sv.data.lead.extras[0].profit, 300);
 });
+
+test('alternative import of the owner sheet: the sheet numbers win, the catalog only fills what is missing', async () => {
+  const alt = await altCookieFor();
+  aiReply = [{ type: 'tool_use', id: 'm', name: 'propose_leads', input: { leads: [
+    { docType: 'other', model: 'לוטוס 8M', quantity: 4, price: 11740, supplier: 23480, commission: 11500, stage: 'done', name: 'חוה רון', summary: 'חוה', extras: [{ label: 'הקמה', amount: 8000, cost: 4500 }, { label: 'מוצרים נלווים', amount: 15000, cost: 5000 }] },
+    { docType: 'other', model: 'לוטוס 6M', stage: 'done', name: 'תמי לי', summary: 'תמי' },
+  ] } }];
+  const r = await call('POST', '/api/alt/import', { cookie: alt, body: { text: 'x' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const [a, b] = r.data.items;
+  assert.equal(a.fields.price, 11740); assert.equal(a.fields.supplier, 23480); assert.equal(a.fields.commission, 11500); assert.equal(a.fields.qty, 4);   // not replaced by the catalog
+  assert.deepEqual(a.fields.extras.map((x) => [x.k, x.amount, x.cost]), [['setup', 8000, 4500], ['other', 15000, 5000]]);
+  assert.equal(b.fields.price, 9100); assert.equal(b.fields.supplier, Math.round(9100 / 1.18 * 0.7));                                                   // missing: filled from the catalog
+});
