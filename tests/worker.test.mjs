@@ -18,7 +18,7 @@ let env, repo, commits, realFetch;
 const KIT = fs.readFileSync(new URL('../app/kit/cms-kit.js', import.meta.url));
 
 let regMode, regAsked, regCalls, regPrice;
-let aiReply, aiCalls, aiStatus;
+let aiReply, aiCalls, aiStatus, tgCalls = [];
 let dns, pages, pagesCalls, cf, cfCalls, zones, records, rid;
 function githubMock() {
   const blobs = {};
@@ -28,6 +28,13 @@ function githubMock() {
       const t = { A: 1, AAAA: 28, CNAME: 5 }[u.searchParams.get('type')];
       const list = (dns[u.searchParams.get('name') + '/' + u.searchParams.get('type')] || []).map((data) => ({ type: t, data }));
       return new Response(JSON.stringify({ Answer: list }));
+    }
+    if (u.host === 'tg.test') {
+      if (u.pathname.startsWith('/file/')) return new Response(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(60)]));
+      const method = u.pathname.split('/').pop();
+      tgCalls.push({ method, body: init.body ? JSON.parse(init.body) : null });
+      const result = method === 'getMe' ? { username: 'femme_leads_bot' } : method === 'getFile' ? { file_path: 'photos/1.jpg' } : method === 'sendMessage' ? { message_id: 7 } : true;
+      return new Response(JSON.stringify({ ok: true, result }));
     }
     if (u.host === 'anthropic.test') {
       aiCalls.push({ headers: init.headers, body: JSON.parse(init.body) });
@@ -1143,4 +1150,63 @@ test('crm: screenshot extraction proposes fields, validates images and never sav
   assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).data.matchId, '');
   env.ANTHROPIC_API_KEY = '';
   assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).status, 503);
+});
+
+test('telegram bot: connect, pair with a code, propose from a message, save only on confirm, strangers ignored', async () => {
+  const { owner, client } = await setup();
+  env.TELEGRAM_API = 'https://tg.test'; tgCalls = [];
+  const TOKEN = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: client, body: { token: TOKEN } })).status, 403);
+  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: { token: 'junk' } })).status, 400);
+  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: {} })).status, 400);
+  const con = await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: { token: TOKEN } });
+  assert.equal(con.status, 200, JSON.stringify(con.data));
+  const code = con.data.link.split('start=')[1];
+  const hook = tgCalls.find((c) => c.method === 'setWebhook').body;
+  assert.equal(hook.url, 'https://cms.test/api/telegram'); assert.ok(hook.secret_token.length >= 32);
+  assert.doesNotMatch(JSON.stringify((await call('GET', '/api/admin/crm/telegram', { cookie: owner })).data), /AAAA/);   // the token never comes back
+
+  const send = (update, secret = hook.secret_token) => worker.fetch(new Request('https://cms.test/api/telegram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret || '' }, body: JSON.stringify(update) }), env);
+  assert.equal((await send({ message: { chat: { id: 5, type: 'private' }, text: 'hi' } }, 'wrong')).status, 401);       // not from Telegram
+  tgCalls = [];
+  await send({ message: { chat: { id: 99, type: 'private' }, text: 'דנה כהן 0501234567 ספה' } });
+  assert.equal(tgCalls.length, 0);                                                                                     // unpaired chat: silence, nothing read
+  assert.equal(aiCalls.length, 0);
+  await send({ message: { chat: { id: 5, type: 'private' }, text: '/start WRONGCODE' } });
+  assert.match(tgCalls.pop().body.text, /פג תוקף/);
+  await send({ message: { chat: { id: 5, type: 'private' }, text: '/start ' + code } });
+  assert.match(tgCalls.pop().body.text, /חוברת/);
+  await send({ message: { chat: { id: 6, type: 'private' }, text: '/start ' + code } });                              // code is single use
+  assert.match(tgCalls.pop().body.text, /פג תוקף/);
+
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'chat', summary: 'שיחה עם דנה', name: 'דנה כהן', phone: '0501234567', product: 'ספה', stage: 'viewing' } }];
+  await send({ message: { chat: { id: 5, type: 'private' }, text: 'דנה כהן 0501234567 ספה הלכה לראות' } });
+  const prop = tgCalls.pop().body;
+  assert.match(prop.text, /ליד חדש/); assert.match(prop.text, /הלך לראות/);
+  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 0);                        // not saved yet
+  const cbd = prop.reply_markup.inline_keyboard[0][0].callback_data;
+  const cb = (data, chat = 5) => send({ callback_query: { id: 'q', data, message: { message_id: 7, chat: { id: chat, type: 'private' } } } });
+  await cb(cbd, 77);                                                                                                  // another chat cannot confirm it
+  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 0);
+  await cb(cbd); await cb(cbd);                                                                                       // double tap saves once
+  const saved = (await call('GET', '/api/admin/crm', { cookie: owner })).data.leads;
+  assert.equal(saved.length, 1); assert.equal(saved[0].name, 'דנה כהן'); assert.equal(saved[0].stage, 'viewing');
+
+  aiReply = [{ type: 'tool_use', id: 'y', name: 'propose_lead', input: { docType: 'customer_payment', summary: 'קבלה', matchId: saved[0].id, price: 11800, vatIncl: true, stage: 'closing' } }];
+  tgCalls = [];
+  await send({ message: { chat: { id: 5, type: 'private' }, caption: 'שילמה', photo: [{ file_id: 'a', file_size: 100 }, { file_id: 'b', file_size: 200 }] } });
+  assert.ok(tgCalls.some((c) => c.method === 'getFile' && c.body.file_id === 'b'));                                   // the largest size
+  assert.match(JSON.stringify(aiCalls[aiCalls.length - 1].body.messages), /"type":"image"/);
+  const prop2 = tgCalls.filter((c) => c.method === 'sendMessage').pop().body;
+  assert.match(prop2.text, /עדכון לליד: דנה כהן/);
+  await cb(prop2.reply_markup.inline_keyboard[0][0].callback_data);
+  const upd = (await call('GET', '/api/admin/crm', { cookie: owner })).data.leads;
+  assert.equal(upd.length, 1); assert.equal(upd[0].price, 11800); assert.equal(upd[0].stage, 'closing'); assert.equal(upd[0].name, 'דנה כהן');
+
+  tgCalls = [];
+  await send({ message: { chat: { id: 5, type: 'private' }, text: '/summary' } });
+  assert.match(tgCalls.pop().body.text, /לידים פתוחים: 1/);
+  assert.equal((await call('DELETE', '/api/admin/crm/telegram', { cookie: owner })).status, 200);
+  assert.equal((await send({ message: { chat: { id: 5, type: 'private' }, text: 'x' } })).status, 401);
+  assert.ok(tgCalls.some((c) => c.method === 'deleteWebhook'));
 });

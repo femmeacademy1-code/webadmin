@@ -8,11 +8,11 @@ import worker from '../worker/src/index.js';
 let aiInput = { docType: 'chat', matchId: '', summary: 'שיחה עם רונית: מעוניינת במיטה', name: 'רונית לוי', phone: '0541112222', product: 'מיטה זוגית', source: 'וואטסאפ', stage: 'hot' };
 function env0() {
   const real = globalThis.fetch;
-  globalThis.fetch = async (u, i) => (String(u).startsWith('https://anthropic.test') ? new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: aiInput }] })) : real(u, i));
+  globalThis.fetch = async (u, i) => (String(u).startsWith('https://tg.test') ? new Response(JSON.stringify({ ok: true, result: String(u).endsWith('getMe') ? { username: 'femme_leads_bot' } : true })) : String(u).startsWith('https://anthropic.test') ? new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: aiInput }] })) : real(u, i));
 }
 const kv = new Map();
 env0();
-const env = { ANTHROPIC_API_KEY: 'k', ANTHROPIC_API: 'https://anthropic.test', ADMIN_PASSWORD: 'pw-123456', SESSION_SECRET: 's', ASSETS: { fetch: async () => new Response('x') },
+const env = { TELEGRAM_API: 'https://tg.test', ANTHROPIC_API_KEY: 'k', ANTHROPIC_API: 'https://anthropic.test', ADMIN_PASSWORD: 'pw-123456', SESSION_SECRET: 's', ASSETS: { fetch: async () => new Response('x') },
   CMS: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); }, delete: async (k) => { kv.delete(k); },
     list: async ({ prefix = '' } = {}) => ({ keys: [...kv.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name })), list_complete: true }) } };
 const app = new URL('../app/', import.meta.url).pathname;
@@ -59,6 +59,11 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'קיבל סחורה', `${tag}: advanced to delivered`);
   await pg.click('#cancelBtn');
   ok(/1,600|3,000/.test(await pg.innerText('.kpi.big')), `${tag}: net profit after delivery: ${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')}`);
+  // telegram connect box
+  await pg.click('#settingsBtn'); await pg.waitForSelector('#tg_token');
+  await pg.fill('#tg_token', '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'); await pg.click('#tgConnect'); await pg.waitForSelector('#tgBox a');
+  ok((await pg.innerText('#tgBox')).includes('femme_leads_bot') && /t\.me\/femme_leads_bot\?start=/.test(await pg.locator('#tgBox a').getAttribute('href')), `${tag}: telegram connected, pairing link shown`);
+  await pg.click('#cancelBtn');
   // screenshot -> proposal -> confirm
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
   await pg.setInputFiles('#shotIn', { name: 's.png', mimeType: 'image/png', buffer: png });

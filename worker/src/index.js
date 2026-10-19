@@ -16,6 +16,7 @@ import { chat } from './chat.js';
 import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
 import { crmState, saveLead, deleteLead, saveCfg, extractFromImages } from './crm.js';
+import { tgStatus, tgConnect, tgDisconnect, tgWebhook } from './telegram.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
 const SESSION_DAYS = 14;
@@ -112,6 +113,8 @@ async function route(req, env, url) {
   const { pathname } = url;
   const method = req.method;
 
+  if (pathname === '/api/telegram' && method === 'POST') return tgWebhook(env, req);   // called by Telegram: authenticated by its secret header, not by a cookie
+
   if (method !== 'GET' && req.headers.get('x-requested-with') !== 'fd') throw new HttpError(403, 'בקשה לא מורשית');
 
   if (pathname === '/api/login' && method === 'POST') return login(req, env);
@@ -151,6 +154,11 @@ async function route(req, env, url) {
     if (pathname === '/api/admin/state' && method === 'GET') return adminState(env);
     if (pathname === '/api/admin/crm' && method === 'GET') return json(await crmState(env));
     if (pathname === '/api/admin/crm/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
+    if (pathname === '/api/admin/crm/telegram') {
+      if (method === 'GET') return json(await tgStatus(env));
+      if (method === 'POST') return json(await tgConnect(env, url.origin, await body(req).catch(() => ({}))));
+      if (method === 'DELETE') { await tgDisconnect(env); return json({ ok: true }); }
+    }
     if (pathname === '/api/admin/crm/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
     if ((m = pathname.match(/^\/api\/admin\/crm\/leads\/([a-z0-9]{8,32})$/))) {
       if (method === 'PUT') return json({ lead: await saveLead(env, m[1], await body(req)) });

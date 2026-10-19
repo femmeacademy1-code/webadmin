@@ -398,7 +398,29 @@ function openSettings(){
    '<div class="grid2">'+field('s_vat','אחוז מע״מ',cfg.vat,'number',{})+'</div>'+
    '<label class="chk"><input type="checkbox" id="s_sup"'+(cfg.supplierInCost?' checked':'')+'> "מה שהספק קיבל" כבר כלול ב"עלות המוצר" (לא מנכים אותו פעמיים)</label>'+
    '<p class="note">ברירת המחדל: רווח = מחיר לפני מע״מ פחות עלות המוצר פחות מה שהספק קיבל.</p>'+
+   '<fieldset id="tgBox"><legend>בוט טלגרם</legend><p class="note">טוענת…</p></fieldset>'+
    '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div></div></form></div>';
+  tgLoad();
+}
+
+/* telegram box */
+function tgPaint(st,link){
+  var b=$('tgBox');if(!b)return;
+  var h='';
+  if(!st.connected){
+    h='<p class="note">שולחת הודעות או צילומי מסך לבוט, והוא מציע ליד לאישור. הקמה חד-פעמית:<br>1. בטלגרם פתחי את <b dir="ltr">@BotFather</b> ושלחי <b dir="ltr">/newbot</b>, ובחרי שם.<br>2. הדביקי כאן את הטוקן שהוא נותן (שורה ארוכה עם נקודתיים).</p>'+
+       '<div class="f"><label for="tg_token">טוקן הבוט</label><input id="tg_token" dir="ltr" autocomplete="off" placeholder="123456789:AA..."></div>'+
+       '<div class="sbar" style="position:static;padding:10px 0 0"><button class="btn pri" type="button" id="tgConnect">חיבור</button></div>';
+  }else{
+    h='<p><b dir="ltr">@'+esc(st.username)+'</b> · '+st.devices+' מכשירים מחוברים</p>'+
+       (link?'<p class="hint"><b>פתחי את הקישור בטלפון ולחצי Start</b><a href="'+esc(link)+'" target="_blank" rel="noopener" dir="ltr">'+esc(link)+'</a><br><span class="note">תקף ל-10 דקות, לשימוש חד-פעמי.</span></p>':'')+
+       '<div class="sbar" style="position:static;padding:10px 0 0"><button class="btn" type="button" id="tgLink">חיבור מכשיר נוסף</button><button class="btn danger" type="button" id="tgOff">ניתוק הבוט</button></div>';
+  }
+  b.innerHTML='<legend>בוט טלגרם</legend>'+h;
+}
+function tgLoad(){api('GET','/admin/crm/telegram').then(function(st){tgPaint(st)}).catch(function(){var b=$('tgBox');if(b)b.innerHTML='<legend>בוט טלגרם</legend><p class="note">לא הצלחתי לטעון.</p>'})}
+function tgConnect(token){
+  guard(api('POST','/admin/crm/telegram',token?{token:token}:{})).then(function(r){tgPaint({connected:true,username:r.username,devices:r.devices},r.link)}).catch(function(){});
 }
 
 /* csv */
@@ -418,6 +440,9 @@ document.addEventListener('click',function(e){
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
+  if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
+  if(t.id==='tgLink'){tgConnect('');return}
+  if(t.id==='tgOff'){if(t.dataset.arm){guard(api('DELETE','/admin/crm/telegram')).then(function(){tgLoad();toast('הבוט נותק')}).catch(function(){})}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
   if(t.id==='newBtn'){openEditor(null);return}
   if(t.id==='shotBtn'){$('shotIn').click();return}
   if(t.id==='settingsBtn'){openSettings();return}
