@@ -27,7 +27,7 @@ const srv = http.createServer(async (rq, rs) => {
     rs.writeHead(r.status, h);
     return rs.end(Buffer.from(await r.arrayBuffer()));
   }
-  const f = path.join(app, u.pathname === '/crm' ? 'crm.html' : u.pathname);
+  const f = path.join(app, u.pathname === '/alternative' ? 'alternative.html' : u.pathname);
   if (!f.startsWith(app) || !fs.existsSync(f)) { rs.writeHead(404); return rs.end(); }
   rs.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); rs.end(fs.readFileSync(f));
 }).listen(0);
@@ -40,11 +40,17 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   kv.clear();
   const pg = await br.newPage({ viewport: { width: w, height: 900 } });
   const errs = []; pg.on('pageerror', (e) => errs.push(e.message));
-  await pg.goto(base + '/crm');
+  await pg.goto(base + '/alternative');
   await pg.waitForSelector('#login:not([hidden])');
-  await pg.fill('#l_pass', 'wrong'); await pg.click('#login button'); await pg.waitForFunction(() => document.querySelector('#l_err').textContent.length > 0);
-  ok(true, `${tag}: wrong password shows an error`);
-  await pg.fill('#l_pass', 'pw-123456'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
+  await pg.waitForSelector('#l_adminRow:not([hidden])');
+  ok(true, `${tag}: first visit asks to set a password`);
+  await pg.fill('#l_admin', 'wrong'); await pg.fill('#l_pass', 'alt-pass-1234'); await pg.click('#login button'); await pg.waitForFunction(() => document.querySelector('#l_err').textContent.length > 0);
+  ok(true, `${tag}: wrong admin password refused`);
+  await pg.fill('#l_admin', 'pw-123456'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
+  await pg.click('#outBtn'); await pg.waitForSelector('#login:not([hidden])');
+  ok((await pg.locator('#l_adminRow').isHidden()), `${tag}: after setup the login asks only for the password`);
+  await pg.fill('#l_pass', 'wrong-pass-1'); await pg.click('#login button'); await pg.waitForFunction(() => document.querySelector('#l_err').textContent.length > 0);
+  await pg.fill('#l_pass', 'alt-pass-1234'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
   ok(await pg.locator('.empty').count() === 1, `${tag}: logged in, empty state`);
 
   await pg.click('#newBtn'); await pg.fill('#f_name', 'דנה כהן'); await pg.fill('#f_phone', '0501234567'); await pg.fill('#f_product', 'אוהל לוטוס');

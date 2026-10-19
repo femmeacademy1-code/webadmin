@@ -1091,82 +1091,107 @@ test('chat: delete / insert image / insert video / replace image only work with 
   assert.doesNotMatch(sent, /evil\.sh/);                      // paths outside the upload allow-list never reach the model
 });
 
-/* ---------- lead tracking (owner only) ---------- */
-test('crm: owner-only, server owns the timeline, validates input, deletes', async () => {
+/* ---------- Alternative: separate lead system (own password / cookie / data) ---------- */
+async function altCookieFor(password = 'alt-pass-1234') {
+  const r = await call('POST', '/api/alt/setup', { body: { adminPassword: 'owner-pass-123', password } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.match(r.setCookie, /alt_session=/);
+  return cookieOf(r);
+}
+test('alternative: own password and cookie, not reachable with the CMS owner or client login, reset logs out old devices', async () => {
   const { owner, client } = await setup();
-  assert.equal((await call('GET', '/api/admin/crm')).status, 401);
-  assert.equal((await call('GET', '/api/admin/crm', { cookie: client })).status, 403);
-  assert.equal((await call('PUT', '/api/admin/crm/leads/abcd1234', { cookie: client, body: { name: 'x' } })).status, 403);
+  assert.deepEqual((await call('GET', '/api/alt/me')).data, { configured: false, authed: false });
+  assert.equal((await call('POST', '/api/alt/login', { body: { password: 'anything-123' } })).status, 401);             // nothing configured yet
+  assert.equal((await call('POST', '/api/alt/setup', { body: { adminPassword: 'wrong', password: 'alt-pass-1234' } })).status, 401);
+  assert.equal((await call('POST', '/api/alt/setup', { body: { adminPassword: 'owner-pass-123', password: 'short' } })).status, 400);
+  const alt = await altCookieFor();
+  assert.deepEqual((await call('GET', '/api/alt/me', { cookie: alt })).data, { configured: true, authed: true });
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).status, 200);
+  for (const c of [owner, client, '']) assert.equal((await call('GET', '/api/alt/leads', { cookie: c })).status, 401);   // CMS sessions do not open it
+  assert.equal((await call('GET', '/api/me', { cookie: alt })).data.user, null);                                           // and the Alternative cookie is nothing in the CMS
+  assert.equal((await call('GET', '/api/admin/state', { cookie: alt.replace('alt_session', 'fd_session') })).status, 401);
+  assert.equal((await call('POST', '/api/alt/login', { body: { password: 'nope-nope-1' } })).status, 401);
+  const again = cookieOf(await call('POST', '/api/alt/login', { body: { password: 'alt-pass-1234' } }));
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: again })).status, 200);
+  const fresh = await altCookieFor('new-pass-98765');                                                                    // reset
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).status, 401);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: fresh })).status, 200);
+});
 
-  const empty = await call('GET', '/api/admin/crm', { cookie: owner });
+test('alternative leads: server owns the timeline, validates input, deletes', async () => {
+  const alt = await altCookieFor();
+  assert.equal((await call('GET', '/api/alt/leads')).status, 401);
+  assert.equal((await call('PUT', '/api/alt/leads/abcd1234', { body: { name: 'x' } })).status, 401);
+
+  const empty = await call('GET', '/api/alt/leads', { cookie: alt });
   assert.deepEqual(empty.data.leads, []); assert.equal(empty.data.cfg.vat, 18);
 
   const id = 'lead0001abcd';
-  const a = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: ' דנה ', phone: '0501234567', stage: 'closing', price: '11800', cost: 5000, supplier: '2000', vatIncl: true, dealAt: '1999-01-01', createdAt: '1999-01-01' } });
+  const a = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: ' דנה ', phone: '0501234567', stage: 'closing', price: '11800', cost: 5000, supplier: '2000', vatIncl: true, dealAt: '1999-01-01', createdAt: '1999-01-01' } });
   assert.equal(a.status, 200, JSON.stringify(a.data));
   assert.equal(a.data.lead.name, 'דנה'); assert.equal(a.data.lead.price, 11800);
   assert.notEqual(a.data.lead.createdAt, '1999-01-01'); assert.equal(a.data.lead.dealAt, undefined);   // clients can't set the timeline
   assert.equal(a.data.lead.log.length, 1);
 
-  const b = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'דנה', stage: 'delivered', price: 11800 } });
+  const b = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', price: 11800 } });
   assert.equal(b.data.lead.log.length, 2); assert.ok(b.data.lead.dealAt); assert.equal(b.data.lead.createdAt, a.data.lead.createdAt);
-  const c = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'דנה', stage: 'delivered', notes: 'עודכן' } });
+  const c = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', notes: 'עודכן' } });
   assert.equal(c.data.lead.log.length, 2);                      // same stage: no new log entry
   assert.equal(c.data.lead.dealAt, b.data.lead.dealAt);
 
-  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { stage: 'hot' } })).status, 400);          // no name / phone
-  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'x', price: 'abc' } })).status, 400);
-  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'x', follow: '12/10/2026' } })).status, 400);
-  assert.equal((await call('PUT', '/api/admin/crm/leads/BAD', { cookie: owner, body: { name: 'x' } })).status, 404);
-  const odd = await call('PUT', '/api/admin/crm/leads/lead0002abcd', { cookie: owner, body: { name: 'x', stage: 'bogus' } });
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { stage: 'hot' } })).status, 400);          // no name / phone
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', price: 'abc' } })).status, 400);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', follow: '12/10/2026' } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/leads/BAD', { cookie: alt, body: { name: 'x' } })).status, 404);
+  const odd = await call('PUT', '/api/alt/leads/lead0002abcd', { cookie: alt, body: { name: 'x', stage: 'bogus' } });
   assert.equal(odd.data.lead.stage, 'talked');
 
-  assert.equal((await call('PUT', '/api/admin/crm/config', { cookie: owner, body: { vat: 500 } })).status, 400);
-  assert.equal((await call('PUT', '/api/admin/crm/config', { cookie: owner, body: { vat: 17, supplierInCost: true } })).data.cfg.vat, 17);
-  const all = await call('GET', '/api/admin/crm', { cookie: owner });
+  assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 500 } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 17, supplierInCost: true } })).data.cfg.vat, 17);
+  const all = await call('GET', '/api/alt/leads', { cookie: alt });
   assert.equal(all.data.leads.length, 2); assert.equal(all.data.cfg.supplierInCost, true);
 
-  assert.equal((await call('DELETE', `/api/admin/crm/leads/${id}`, { cookie: owner })).status, 200);
-  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 1);
+  assert.equal((await call('DELETE', `/api/alt/leads/${id}`, { cookie: alt })).status, 200);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.length, 1);
 });
 
-test('crm: screenshot extraction proposes fields, validates images and never saves', async () => {
-  const { owner, client } = await setup();
+test('alternative: screenshot extraction proposes fields, validates images and never saves', async () => {
+  const alt = await altCookieFor();
   const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
-  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: client, body: { images: [JPG] } })).status, 403);
-  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [] } })).status, 400);
-  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [Buffer.from('<?php evil ?>padding-padding').toString('base64')] } })).status, 400);
-  await call('PUT', '/api/admin/crm/leads/lead0001abcd', { cookie: owner, body: { name: 'דנה כהן', phone: '0501234567' } });
+  assert.equal((await call('POST', '/api/alt/extract', { body: { images: [JPG] } })).status, 401);
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [] } })).status, 400);
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [Buffer.from('<?php evil ?>padding-padding').toString('base64')] } })).status, 400);
+  await call('PUT', '/api/alt/leads/lead0001abcd', { cookie: alt, body: { name: 'דנה כהן', phone: '0501234567' } });
   aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'customer_payment', matchId: 'lead0001abcd', summary: 'קבלה מדנה', price: 11800, vatIncl: true, stage: 'closing', name: '<b>דנה</b>', follow: 'מחר', cost: -5, supplier: 'abc', phone: '050-123' } }];
-  const r = await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } });
+  const r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.matchId, 'lead0001abcd');
   assert.deepEqual(r.data.fields, { name: '<b>דנה</b>', phone: '050-123', stage: 'closing', price: 11800, vatIncl: true });   // bad date / negative / non-numeric amounts dropped; text is escaped by the page
   const sent = aiCalls[aiCalls.length - 1].body;
   assert.equal(sent.tool_choice.name, 'propose_lead');
   assert.match(JSON.stringify(sent.messages), /lead0001abcd/);
-  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads[0].stage, 'talked');   // nothing was saved
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads[0].stage, 'talked');   // nothing was saved
   aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'chat', matchId: 'nonexistent', summary: 's' } }];
-  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).data.matchId, '');
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).data.matchId, '');
   env.ANTHROPIC_API_KEY = '';
-  assert.equal((await call('POST', '/api/admin/crm/extract', { cookie: owner, body: { images: [JPG] } })).status, 503);
+  assert.equal((await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } })).status, 503);
 });
 
-test('telegram bot: connect, pair with a code, propose from a message, save only on confirm, strangers ignored', async () => {
-  const { owner, client } = await setup();
+test('alternative telegram bot: connect, pair with a code, propose from a message, save only on confirm, strangers ignored', async () => {
+  const alt = await altCookieFor();
   env.TELEGRAM_API = 'https://tg.test'; tgCalls = [];
   const TOKEN = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: client, body: { token: TOKEN } })).status, 403);
-  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: { token: 'junk' } })).status, 400);
-  assert.equal((await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: {} })).status, 400);
-  const con = await call('POST', '/api/admin/crm/telegram', { cookie: owner, body: { token: TOKEN } });
+  assert.equal((await call('POST', '/api/alt/telegram', { body: { token: TOKEN } })).status, 401);
+  assert.equal((await call('POST', '/api/alt/telegram', { cookie: alt, body: { token: 'junk' } })).status, 400);
+  assert.equal((await call('POST', '/api/alt/telegram', { cookie: alt, body: {} })).status, 400);
+  const con = await call('POST', '/api/alt/telegram', { cookie: alt, body: { token: TOKEN } });
   assert.equal(con.status, 200, JSON.stringify(con.data));
   const code = con.data.link.split('start=')[1];
   const hook = tgCalls.find((c) => c.method === 'setWebhook').body;
-  assert.equal(hook.url, 'https://cms.test/api/telegram'); assert.ok(hook.secret_token.length >= 32);
-  assert.doesNotMatch(JSON.stringify((await call('GET', '/api/admin/crm/telegram', { cookie: owner })).data), /AAAA/);   // the token never comes back
+  assert.equal(hook.url, 'https://cms.test/api/alt/tg-hook'); assert.ok(hook.secret_token.length >= 32);
+  assert.doesNotMatch(JSON.stringify((await call('GET', '/api/alt/telegram', { cookie: alt })).data), /AAAA/);   // the token never comes back
 
-  const send = (update, secret = hook.secret_token) => worker.fetch(new Request('https://cms.test/api/telegram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret || '' }, body: JSON.stringify(update) }), env);
+  const send = (update, secret = hook.secret_token) => worker.fetch(new Request('https://cms.test/api/alt/tg-hook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret || '' }, body: JSON.stringify(update) }), env);
   assert.equal((await send({ message: { chat: { id: 5, type: 'private' }, text: 'hi' } }, 'wrong')).status, 401);       // not from Telegram
   tgCalls = [];
   await send({ message: { chat: { id: 99, type: 'private' }, text: 'דנה כהן 0501234567 ספה' } });
@@ -1183,13 +1208,13 @@ test('telegram bot: connect, pair with a code, propose from a message, save only
   await send({ message: { chat: { id: 5, type: 'private' }, text: 'דנה כהן 0501234567 ספה הלכה לראות' } });
   const prop = tgCalls.pop().body;
   assert.match(prop.text, /ליד חדש/); assert.match(prop.text, /הלך לראות/);
-  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 0);                        // not saved yet
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.length, 0);                        // not saved yet
   const cbd = prop.reply_markup.inline_keyboard[0][0].callback_data;
   const cb = (data, chat = 5) => send({ callback_query: { id: 'q', data, message: { message_id: 7, chat: { id: chat, type: 'private' } } } });
   await cb(cbd, 77);                                                                                                  // another chat cannot confirm it
-  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 0);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.length, 0);
   await cb(cbd); await cb(cbd);                                                                                       // double tap saves once
-  const saved = (await call('GET', '/api/admin/crm', { cookie: owner })).data.leads;
+  const saved = (await call('GET', '/api/alt/leads', { cookie: alt })).data.leads;
   assert.equal(saved.length, 1); assert.equal(saved[0].name, 'דנה כהן'); assert.equal(saved[0].stage, 'viewing');
 
   aiReply = [{ type: 'tool_use', id: 'y', name: 'propose_lead', input: { docType: 'customer_payment', summary: 'קבלה', matchId: saved[0].id, price: 11800, vatIncl: true, stage: 'closing' } }];
@@ -1200,13 +1225,13 @@ test('telegram bot: connect, pair with a code, propose from a message, save only
   const prop2 = tgCalls.filter((c) => c.method === 'sendMessage').pop().body;
   assert.match(prop2.text, /עדכון לליד: דנה כהן/);
   await cb(prop2.reply_markup.inline_keyboard[0][0].callback_data);
-  const upd = (await call('GET', '/api/admin/crm', { cookie: owner })).data.leads;
+  const upd = (await call('GET', '/api/alt/leads', { cookie: alt })).data.leads;
   assert.equal(upd.length, 1); assert.equal(upd[0].price, 11800); assert.equal(upd[0].stage, 'closing'); assert.equal(upd[0].name, 'דנה כהן');
 
   tgCalls = [];
   await send({ message: { chat: { id: 5, type: 'private' }, text: '/summary' } });
   assert.match(tgCalls.pop().body.text, /לידים פתוחים: 1/);
-  assert.equal((await call('DELETE', '/api/admin/crm/telegram', { cookie: owner })).status, 200);
+  assert.equal((await call('DELETE', '/api/alt/telegram', { cookie: alt })).status, 200);
   assert.equal((await send({ message: { chat: { id: 5, type: 'private' }, text: 'x' } })).status, 401);
   assert.ok(tgCalls.some((c) => c.method === 'deleteWebhook'));
 });

@@ -6,12 +6,9 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#f7f3ef">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="לידים">
-<title>מעקב לידים</title>
-<link rel="icon" type="image/png" href="brand/butterfly.png">
-<link rel="apple-touch-icon" href="brand/butterfly.png">
+<meta name="apple-mobile-web-app-title" content="אלטרנייטיב">
+<title>אלטרנייטיב</title>
 <style>
-@font-face{font-family:"Ploni Yad";font-weight:400;font-display:swap;src:url(fonts/ploni-yad.woff2) format("woff2")}
 @font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-hebrew.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
 @font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /* Layout: one working column. Summary numbers on top, pipeline tabs as the filter, lead cards below, editor slides in over the list. */
@@ -19,7 +16,7 @@
   --bg:#f7f3ef; --surface:#ffffff; --ink:#2b2321; --muted:#766a65; --line:#e6dcd5;
   --accent:#b8473f; --accent-ink:#ffffff; --good:#1f7a6d; --warn:#9a6a14; --bad:#b3261e; --chip:#f1e8e1;
   --s-talked:#9a8f8a; --s-hot:#d9534f; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
-  --f-display:"Ploni Yad","Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-display:"Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
@@ -125,17 +122,19 @@ legend{font-weight:800;padding:0 6px}
 </head>
 <body>
 <form class="login" id="login" dir="rtl" hidden>
-  <h1>מעקב לידים</h1>
-  <div class="f"><label for="l_user">משתמש</label><input id="l_user" value="admin" autocomplete="username" dir="ltr"></div>
-  <div class="f"><label for="l_pass">סיסמה</label><input id="l_pass" type="password" autocomplete="current-password" dir="ltr"></div>
+  <h1>אלטרנייטיב</h1>
+  <p class="note" id="l_note">מעקב לידים ומכירות</p>
+  <div class="f" id="l_adminRow" hidden><label for="l_admin">סיסמת הניהול (פעם אחת, להגדרת הסיסמה)</label><input id="l_admin" type="password" autocomplete="off" dir="ltr"></div>
+  <div class="f"><label for="l_pass" id="l_passLbl">סיסמה</label><input id="l_pass" type="password" autocomplete="current-password" dir="ltr"></div>
   <div class="err" id="l_err" role="alert"></div>
-  <button class="btn pri" type="submit">כניסה</button>
+  <button class="btn pri" type="submit" id="l_btn">כניסה</button>
 </form>
 <div class="wrap" id="app" dir="rtl" lang="he" hidden>
   <header>
-    <h1>מעקב לידים</h1>
+    <h1>אלטרנייטיב</h1>
     <div class="hbtns">
       <button class="btn" id="settingsBtn" type="button">הגדרות</button>
+      <button class="btn" id="outBtn" type="button">יציאה</button>
       <button class="btn" id="csvBtn" type="button">ייצוא לאקסל</button>
       <button class="btn" id="shotBtn" type="button">📷 הוספה מצילום</button>
       <button class="btn pri" id="newBtn" type="button">＋ ליד חדש</button>
@@ -268,18 +267,28 @@ function api(method,path,body){
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
 function pick(l){var o={};['name','phone','product','source','follow','notes','price','cost','supplier','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
-function save(id,body){return guard(api('PUT','/admin/crm/leads/'+id,body)).then(function(d){leads[id]=d.lead;render();return d.lead})}
+function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;render();return d.lead})}
 function load(){
-  return api('GET','/admin/crm').then(function(d){
+  return api('GET','/alt/leads').then(function(d){
     var m={};d.leads.forEach(function(l){m[l.id]=l});leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
     if(e.status===401)showLogin();
-    else if(e.status===403){$('app').hidden=true;$('login').hidden=false;$('l_err').textContent='למשתמש הזה אין גישה. היכנסי עם משתמש הניהול.'}
     else if(!$('app').hidden)toast('אין חיבור, מנסה שוב בעוד רגע');
   });
 }
-function showLogin(){$('app').hidden=true;$('login').hidden=false;closeEditor()}
+var needSetup=false;
+function showLogin(){
+  $('app').hidden=true;$('login').hidden=false;closeEditor();
+  api('GET','/alt/me').then(function(m){
+    needSetup=!m.configured;
+    $('l_adminRow').hidden=!needSetup;
+    $('l_note').textContent=needSetup?'הגדרה ראשונה: בחרי סיסמה לאלטרנייטיב (לפחות 8 תווים).':'מעקב לידים ומכירות';
+    $('l_passLbl').textContent=needSetup?'סיסמה חדשה':'סיסמה';
+    $('l_btn').textContent=needSetup?'הגדרה וכניסה':'כניסה';
+    $('l_pass').autocomplete=needSetup?'new-password':'current-password';
+  }).catch(function(){});
+}
 function advance(id){
   var l=leads[id];if(!l)return;
   var i=(SM[l.stage]||SM.talked).i,nx=STAGES[i+1];if(!nx||nx.id==='lost')return;
@@ -362,7 +371,7 @@ function saveEditor(){
 }
 function armDelete(btn){
   if(btn.dataset.arm){
-    guard(api('DELETE','/admin/crm/leads/'+editing)).then(function(){delete leads[editing];closeEditor();render();toast('הליד נמחק')}).catch(function(){});
+    guard(api('DELETE','/alt/leads/'+editing)).then(function(){delete leads[editing];closeEditor();render();toast('הליד נמחק')}).catch(function(){});
   }else{btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000)}
 }
 
@@ -383,7 +392,7 @@ function shrink(file){
 function readShots(files){
   files=[].slice.call(files).slice(0,4);if(!files.length)return;
   var b=document.createElement('div');b.className='busy';b.innerHTML='<div role="status">קוראת את הצילומים…</div>';document.body.appendChild(b);
-  Promise.all(files.map(shrink)).then(function(imgs){return guard(api('POST','/admin/crm/extract',{images:imgs}))}).then(function(r){
+  Promise.all(files.map(shrink)).then(function(imgs){return guard(api('POST','/alt/extract',{images:imgs}))}).then(function(r){
     b.remove();
     var f=r.fields||{};
     if(!r.matchId&&!f.name&&!f.phone&&!Object.keys(f).length){toast(r.summary||'לא זיהיתי פרטים בצילום');return}
@@ -418,9 +427,9 @@ function tgPaint(st,link){
   }
   b.innerHTML='<legend>בוט טלגרם</legend>'+h;
 }
-function tgLoad(){api('GET','/admin/crm/telegram').then(function(st){tgPaint(st)}).catch(function(){var b=$('tgBox');if(b)b.innerHTML='<legend>בוט טלגרם</legend><p class="note">לא הצלחתי לטעון.</p>'})}
+function tgLoad(){api('GET','/alt/telegram').then(function(st){tgPaint(st)}).catch(function(){var b=$('tgBox');if(b)b.innerHTML='<legend>בוט טלגרם</legend><p class="note">לא הצלחתי לטעון.</p>'})}
 function tgConnect(token){
-  guard(api('POST','/admin/crm/telegram',token?{token:token}:{})).then(function(r){tgPaint({connected:true,username:r.username,devices:r.devices},r.link)}).catch(function(){});
+  guard(api('POST','/alt/telegram',token?{token:token}:{})).then(function(r){tgPaint({connected:true,username:r.username,devices:r.devices},r.link)}).catch(function(){});
 }
 
 /* csv */
@@ -442,7 +451,8 @@ document.addEventListener('click',function(e){
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
   if(t.id==='tgLink'){tgConnect('');return}
-  if(t.id==='tgOff'){if(t.dataset.arm){guard(api('DELETE','/admin/crm/telegram')).then(function(){tgLoad();toast('הבוט נותק')}).catch(function(){})}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
+  if(t.id==='tgOff'){if(t.dataset.arm){guard(api('DELETE','/alt/telegram')).then(function(){tgLoad();toast('הבוט נותק')}).catch(function(){})}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
+  if(t.id==='outBtn'){api('POST','/alt/logout').then(function(){leads={};showLogin()});return}
   if(t.id==='newBtn'){openEditor(null);return}
   if(t.id==='shotBtn'){$('shotIn').click();return}
   if(t.id==='settingsBtn'){openSettings();return}
@@ -464,13 +474,13 @@ document.addEventListener('submit',function(e){
   e.preventDefault();
   if(e.target.id==='login'){
     $('l_err').textContent='';
-    api('POST','/login',{username:$('l_user').value,password:$('l_pass').value}).then(function(){$('l_pass').value='';return load()}).catch(function(x){$('l_err').textContent=x.message});
+    (needSetup?api('POST','/alt/setup',{adminPassword:$('l_admin').value,password:$('l_pass').value}):api('POST','/alt/login',{password:$('l_pass').value})).then(function(){$('l_pass').value='';$('l_admin').value='';return load()}).catch(function(x){$('l_err').textContent=x.message});
     return;
   }
   if(e.target.id==='sheet')saveEditor();
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}
-    guard(api('PUT','/admin/crm/config',{vat:v,supplierInCost:$('s_sup').checked})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});
+    guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});
   }
 });
 

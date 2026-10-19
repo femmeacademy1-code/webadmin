@@ -1,11 +1,11 @@
-/* Telegram bot for the lead tracker. She sends a message or a screenshot, Claude reads it (crm.js), the bot replies with what it understood
+/* Telegram bot for Alternative's lead tracker. She sends a message or a screenshot, Claude reads it (crm.js), the bot replies with what it understood
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
 import { crmState, saveLead, extractFromImages, applyProposal } from './crm.js';
 import { secretEquals } from './auth.js';
 
-const KEY = 'crm:tg';
+const KEY = 'alt:tg';
 const api = (env) => env.TELEGRAM_API || 'https://api.telegram.org';
 const getKV = async (env, k) => { const v = await env.CMS.get(k); return v ? JSON.parse(v) : null; };
 const rand = (n, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') => { const r = crypto.getRandomValues(new Uint8Array(n)); return [...r].map((x) => alphabet[x % alphabet.length]).join(''); };
@@ -33,7 +33,7 @@ export async function tgConnect(env, origin, input) {
     if (!/^\d{5,12}:[A-Za-z0-9_-]{30,60}$/.test(token)) throw new HttpError(400, 'הטוקן לא נראה תקין. העתיקי אותו כמו שהוא מ-BotFather.');
     const me = await tg(env, token, 'getMe').catch(() => { throw new HttpError(400, 'טלגרם לא מכיר את הטוקן הזה'); });
     const secret = rand(40, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
-    await tg(env, token, 'setWebhook', { url: `${origin}/api/telegram`, secret_token: secret, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true });
+    await tg(env, token, 'setWebhook', { url: `${origin}/api/alt/tg-hook`, secret_token: secret, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true });
     c = { token, secret, username: me.username, chats: (c && c.username === me.username ? c.chats : []), codes: [] };
   }
   if (!c) throw new HttpError(400, 'הדביקי את הטוקן של הבוט');
@@ -70,7 +70,7 @@ async function handle(env, c, u) {
   if (m && typeof m.text === 'string' && /^\/start(\s|$)/.test(m.text)) {
     const code = m.text.split(/\s+/)[1] || '';
     const hit = (c.codes || []).find((x) => x.c === code && x.e > Date.now());
-    if (!hit) return reply(env, c, id, c.chats.includes(id) ? 'את כבר מחוברת. שלחי לי הודעה או צילום מסך של שיחה או קבלה.' : 'הקישור פג תוקף. צרי קישור חדש בהגדרות של דף הלידים.');
+    if (!hit) return reply(env, c, id, c.chats.includes(id) ? 'את כבר מחוברת. שלחי לי הודעה או צילום מסך של שיחה או קבלה.' : 'הקישור פג תוקף. צרי קישור חדש בהגדרות של אלטרנייטיב.');
     c.codes = c.codes.filter((x) => x !== hit);
     if (!c.chats.includes(id)) c.chats.push(id);
     await env.CMS.put(KEY, JSON.stringify(c));
@@ -106,7 +106,7 @@ async function handle(env, c, u) {
   const merged = applyProposal(old || { stage: 'talked', vatIncl: true }, f);
   if (!merged.changed.length) return reply(env, c, id, `${p.summary}\nאין מידע חדש לשמירה על ${old ? old.name || old.phone : 'הליד'}.`);
   const pid = rand(12);
-  await env.CMS.put('crm:tgp:' + pid, JSON.stringify({ chat: id, matchId: p.matchId, fields: f }), { expirationTtl: 3600 });
+  await env.CMS.put('alt:tgp:' + pid, JSON.stringify({ chat: id, matchId: p.matchId, fields: f }), { expirationTtl: 3600 });
   const lines = merged.changed.map((k) => `• ${LABEL[k] || k}: ${k === 'stage' ? STAGE[merged.lead.stage] : k === 'vatIncl' ? (merged.lead.vatIncl ? 'כן' : 'לא') : ['price', 'cost', 'supplier'].includes(k) ? money(merged.lead[k]) : String(merged.lead[k]).replace(/\n/g, ' / ')}`);
   return reply(env, c, id, `${p.summary}\n\n${old ? `עדכון לליד: ${old.name || old.phone}` : 'ליד חדש'}\n${lines.join('\n')}`, {
     reply_markup: { inline_keyboard: [[{ text: '✅ שמרי', callback_data: 'ok:' + pid }, { text: '✖ בטלי', callback_data: 'no:' + pid }]] },
@@ -115,7 +115,7 @@ async function handle(env, c, u) {
 
 async function callback(env, c, id, cq) {
   const [act, pid] = String(cq.data || '').split(':');
-  const key = 'crm:tgp:' + pid;
+  const key = 'alt:tgp:' + pid;
   const pend = /^[a-z0-9]{12}$/.test(pid || '') ? await getKV(env, key) : null;
   const done = (t) => tg(env, c.token, 'answerCallbackQuery', { callback_query_id: cq.id, text: t }).catch(() => {});
   if (!pend || pend.chat !== id) { await done('פג תוקף. שלחי שוב.'); return; }
@@ -130,7 +130,7 @@ async function callback(env, c, id, cq) {
   const price = Number(lead.price) || 0;
   let extra = '';
   if (price > 0) {
-    const cfg = (await getKV(env, 'crm:cfg')) || { vat: 18, supplierInCost: false };
+    const cfg = (await getKV(env, 'alt:cfg')) || { vat: 18, supplierInCost: false };
     const net = lead.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
     extra = `\nרווח כרגע: ${money(net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0))}`;
   }

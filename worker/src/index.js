@@ -113,7 +113,7 @@ async function route(req, env, url) {
   const { pathname } = url;
   const method = req.method;
 
-  if (pathname === '/api/telegram' && method === 'POST') return tgWebhook(env, req);   // called by Telegram: authenticated by its secret header, not by a cookie
+  if (pathname === '/api/alt/tg-hook' && method === 'POST') return tgWebhook(env, req);   // called by Telegram: authenticated by its secret header, not by a cookie
 
   if (method !== 'GET' && req.headers.get('x-requested-with') !== 'fd') throw new HttpError(403, 'בקשה לא מורשית');
 
@@ -149,21 +149,11 @@ async function route(req, env, url) {
     return getEdits(env, await siteFor(env, s, m[1]), m[2]);
   }
 
+  if (pathname.startsWith('/api/alt/')) return altRoute(req, env, url, method);
+
   if (pathname.startsWith('/api/admin/')) {
     await requireOwner(req, env);
     if (pathname === '/api/admin/state' && method === 'GET') return adminState(env);
-    if (pathname === '/api/admin/crm' && method === 'GET') return json(await crmState(env));
-    if (pathname === '/api/admin/crm/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
-    if (pathname === '/api/admin/crm/telegram') {
-      if (method === 'GET') return json(await tgStatus(env));
-      if (method === 'POST') return json(await tgConnect(env, url.origin, await body(req).catch(() => ({}))));
-      if (method === 'DELETE') { await tgDisconnect(env); return json({ ok: true }); }
-    }
-    if (pathname === '/api/admin/crm/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
-    if ((m = pathname.match(/^\/api\/admin\/crm\/leads\/([a-z0-9]{8,32})$/))) {
-      if (method === 'PUT') return json({ lead: await saveLead(env, m[1], await body(req)) });
-      if (method === 'DELETE') { await deleteLead(env, m[1]); return json({ ok: true }); }
-    }
     if (pathname === '/api/admin/domain-orders' && method === 'GET') return json({ orders: await listOrders(env) });
     if ((m = pathname.match(/^\/api\/admin\/domain-orders\/([a-z0-9]+)\/(paid|register|cancel|manual|delete)$/)) && method === 'POST') return json({ order: await orderAction(env, m[1], m[2], await body(req).catch(() => ({}))) });
     if (pathname === '/api/admin/sites' && method === 'POST') return saveSite(req, env, null);
@@ -187,6 +177,57 @@ async function route(req, env, url) {
       if (method === 'PUT') return saveUser(req, env, m[1]);
       if (method === 'DELETE') { await env.CMS.delete('u:' + m[1]); return json({ ok: true }); }
     }
+  }
+  throw new HttpError(404, 'לא נמצא');
+}
+
+/* ---------------- Alternative (separate lead system: its own password, cookie and data; nothing in the CMS admin can see it) ---------------- */
+const ALT_COOKIE = 'alt_session';
+const altSecret = (env) => (env.SESSION_SECRET || '') + ':alternative';          // a CMS cookie can never be a valid Alternative cookie, or the other way round
+const altCookie = (req, value, maxAge) => `${ALT_COOKIE}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${new URL(req.url).protocol === 'https:' ? '; Secure' : ''}`;
+async function altAuthed(req, env) {
+  const m = (req.headers.get('cookie') || '').match(new RegExp(`(?:^|; )${ALT_COOKIE}=([^;]+)`));
+  const rec = await getKV(env, 'alt:auth');
+  const p = rec && m ? await verifyToken(m[1], altSecret(env)) : null;
+  return !!(p && p.r === 'alt' && p.k === rec.hash.slice(0, 12));                  // changing the password logs every device out
+}
+async function altLogin(req, env, rec) {
+  const token = await signToken({ r: 'alt', k: rec.hash.slice(0, 12), e: Date.now() + SESSION_DAYS * 864e5 }, altSecret(env));
+  return json({ ok: true }, 200, { 'set-cookie': altCookie(req, token, SESSION_DAYS * 86400) });
+}
+async function altRoute(req, env, url, method) {
+  const { pathname } = url;
+  let m;
+  if (pathname === '/api/alt/me' && method === 'GET') return json({ configured: !!(await getKV(env, 'alt:auth')), authed: await altAuthed(req, env) });
+  if (pathname === '/api/alt/logout' && method === 'POST') return json({ ok: true }, 200, { 'set-cookie': altCookie(req, '', 0) });
+  if (pathname === '/api/alt/setup' && method === 'POST') {          // first password, or a reset: proven with the agency owner password
+    await checkRateLimit(env, req);
+    const { adminPassword = '', password = '' } = await body(req);
+    if (!env.ADMIN_PASSWORD || !(await secretEquals(String(adminPassword), env.ADMIN_PASSWORD))) { await countFailure(env, req); throw new HttpError(401, 'סיסמת הניהול שגויה'); }
+    if (String(password).length < 8 || String(password).length > 200) throw new HttpError(400, 'הסיסמה החדשה צריכה להיות באורך 8 תווים לפחות');
+    const rec = await hashPassword(String(password));
+    await putKV(env, 'alt:auth', rec);
+    return altLogin(req, env, rec);
+  }
+  if (pathname === '/api/alt/login' && method === 'POST') {
+    await checkRateLimit(env, req);
+    const rec = await getKV(env, 'alt:auth');
+    const { password = '' } = await body(req);
+    if (!(await verifyPassword(String(password), rec)) || !rec) { await countFailure(env, req); throw new HttpError(401, 'הסיסמה שגויה'); }
+    return altLogin(req, env, rec);
+  }
+  if (!(await altAuthed(req, env))) throw new HttpError(401, 'יש להתחבר');
+  if (pathname === '/api/alt/leads' && method === 'GET') return json(await crmState(env));
+  if (pathname === '/api/alt/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
+  if (pathname === '/api/alt/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
+  if (pathname === '/api/alt/telegram') {
+    if (method === 'GET') return json(await tgStatus(env));
+    if (method === 'POST') return json(await tgConnect(env, url.origin, await body(req).catch(() => ({}))));
+    if (method === 'DELETE') { await tgDisconnect(env); return json({ ok: true }); }
+  }
+  if ((m = pathname.match(/^\/api\/alt\/leads\/([a-z0-9]{8,32})$/))) {
+    if (method === 'PUT') return json({ lead: await saveLead(env, m[1], await body(req)) });
+    if (method === 'DELETE') { await deleteLead(env, m[1]); return json({ ok: true }); }
   }
   throw new HttpError(404, 'לא נמצא');
 }

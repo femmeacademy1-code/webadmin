@@ -4,8 +4,8 @@ import { HttpError } from './validate.js';
 
 export const STAGES = ['talked', 'hot', 'viewing', 'closing', 'delivered', 'done', 'lost'];
 const DEAL = ['delivered', 'done'];
-const LEAD = 'crm:l:';
-const CFG = 'crm:cfg';
+const LEAD = 'alt:l:';
+const CFG = 'alt:cfg';
 const MAX_LEADS = 900;      // each lead is read with its own KV get; stay well under the 1000-operation limit of one request
 const MAX_LOG = 60;
 
