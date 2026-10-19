@@ -118,6 +118,7 @@ legend{font-weight:800;padding:0 6px}
 .xo:first-of-type{border-top:0;padding-top:0}
 .xh{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .x3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.xrow{width:100%;background:none;border:0;border-top:1px solid var(--line);text-align:start;color:inherit;cursor:pointer}
 .drow{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line);font-size:15px}
 .drow span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
 #dealList summary{cursor:pointer;font-weight:600;color:var(--muted)}
@@ -161,10 +162,11 @@ legend{font-weight:800;padding:0 6px}
   <section class="sum" aria-label="סיכום">
     <div class="sumhead">
       <h2>הכסף שנכנס</h2>
-      <select id="period" aria-label="תקופה"></select>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="expAdd">＋ הוצאת שיווק</button><select id="period" aria-label="תקופה"></select></span>
     </div>
     <div class="kpis" id="kpis"></div>
     <details id="dealList" hidden></details>
+    <details id="expList" hidden></details>
   </section>
 
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
@@ -187,7 +189,7 @@ var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
 var DEAL=['delivered','done'];
 
-var catalog=[];
+var catalog=[],expenses=[],expRecent={},expGone={},editingExp=null;
 var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',period='all',editing=null,lastFocus=null;
 
 function $(id){return document.getElementById(id)}
@@ -228,6 +230,16 @@ function inPeriod(l){
   return true;
 }
 function monthName(ym){var p=ym.split('-');return new Date(Date.UTC(+p[0],+p[1]-1,15)).toLocaleDateString('he-IL',{month:'long',year:'numeric',timeZone:'UTC'})}
+function pad2(v){return String(v).length<2?'0'+v:String(v)}
+function inPeriodStr(s){
+  if(period==='all')return true;
+  s=String(s||'');var now=new Date();
+  if(period==='month')return s.slice(0,7)===now.getFullYear()+'-'+pad2(now.getMonth()+1);
+  if(period==='last'){var p=new Date(now.getFullYear(),now.getMonth()-1,1);return s.slice(0,7)===p.getFullYear()+'-'+pad2(p.getMonth()+1)}
+  if(period==='year')return s.slice(0,4)===String(now.getFullYear());
+  if(period.indexOf('m:')===0)return s.slice(0,7)===period.slice(2);
+  return true;
+}
 function renderPeriod(){
   var o=[['all','כל הזמן'],['month','החודש'],['last','חודש שעבר'],['year','השנה']],cnt={};
   allLeads().forEach(function(l){if(DEAL.indexOf(l.stage)>-1&&l.dealAt){var k=String(l.dealAt).slice(0,7);cnt[k]=(cnt[k]||0)+1}});
@@ -238,17 +250,21 @@ function renderPeriod(){
 function renderKpis(){
   var all=allLeads().filter(function(l){return DEAL.indexOf(l.stage)>-1&&inPeriod(l)});
   var t={rev:0,vat:0,cost:0,sup:0,profit:0};
+  var mkList=expenses.filter(function(x){return inPeriodStr(x.date)}),mk=mkList.reduce(function(s,x){return s+n(x.amount)},0);
   all.forEach(function(l){var c=calc(l);t.rev+=c.net;t.vat+=c.vat;t.cost+=c.cost;t.sup+=c.sup;t.profit+=c.profit});
   var exp=0,expN=0;
   allLeads().forEach(function(l){if(l.stage==='closing'){var c=calc(l);if(c.has){exp+=c.profit;expN++}}});
   $('kpis').innerHTML=
-    '<div class="kpi big"><span>רווח נקי</span><b class="num">'+fmt(t.profit)+'</b><small>'+all.length+' עסקאות שנסגרו</small></div>'+
+    '<div class="kpi big"><span>רווח נקי'+(mk?' אחרי שיווק':'')+'</span><b class="num">'+fmt(t.profit-mk)+'</b><small>'+all.length+' עסקאות שנסגרו</small></div>'+
+    (mk?'<div class="kpi"><span>רווח לפני שיווק</span><b class="num">'+fmt(t.profit)+'</b></div><div class="kpi"><span>הוצאות שיווק</span><b class="num">'+fmt(mk)+'</b><small>'+mkList.length+' הוצאות</small></div>':'')+
     '<div class="kpi"><span>הכנסה לפני מע״מ</span><b class="num">'+fmt(t.rev)+'</b></div>'+
     '<div class="kpi"><span>עלות המוצרים</span><b class="num">'+fmt(t.cost)+'</b></div>'+
     '<div class="kpi"><span>הספקים קיבלו</span><b class="num">'+fmt(t.sup)+'</b></div>'+
     '<div class="kpi"><span>מע״מ לתשלום</span><b class="num">'+fmt(t.vat)+'</b></div>'+
     '<div class="kpi"><span>רווח צפוי מ"סוגר"</span><b class="num">'+fmt(exp)+'</b><small>'+expN+' לידים בשלב סגירה</small></div>';
   all.sort(function(a,b){return String(a.dealAt||'').localeCompare(String(b.dealAt||''))});
+  var xl=$('expList');
+  if(xl){xl.hidden=!mkList.length;xl.innerHTML=mkList.length?'<summary>הוצאות שיווק בתקופה ('+mkList.length+' · '+fmt(mk)+')</summary>'+mkList.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date))}).map(function(x){return '<button type="button" class="drow xrow" data-exp="'+x.id+'"><span class="num">'+dstr(x.date)+'</span><span>'+esc(x.label||'שיווק')+'</span><b class="num">'+fmt(n(x.amount))+'</b></button>'}).join(''):''}
   $('dealList').hidden=!all.length;
   $('dealList').innerHTML=all.length?'<summary>פירוט העסקאות בתקופה ('+all.length+')</summary>'+all.map(function(l){var c=calc(l);return '<div class="drow"><span class="num">'+(l.dealAt?dstr(l.dealAt):'')+'</span><span>'+esc(l.name||l.phone||'')+(l.product?' · '+esc(l.product):'')+(qtyOf(l)>1?' × '+qtyOf(l):'')+'</span><b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></div>'}).join(''):'';
 }
@@ -377,6 +393,10 @@ function load(){
     Object.keys(recent).forEach(function(id){var r=recent[id];if(now-r.at>180000){delete recent[id];return}var sv=m[id];if(!sv||(sv.updatedAt||'')<(r.lead.updatedAt||''))m[id]=r.lead;else delete recent[id]});
     Object.keys(gone).forEach(function(id){if(now-gone[id]>180000)delete gone[id];else delete m[id]});
     catalog=d.catalog||catalog;
+    var exm={};(d.expenses||[]).forEach(function(x){exm[x.id]=x});
+    Object.keys(expRecent).forEach(function(id){var r=expRecent[id];if(now-r.at>180000){delete expRecent[id];return}var sv=exm[id];if(!sv||sv.date!==r.item.date||sv.amount!==r.item.amount||sv.label!==r.item.label)exm[id]=r.item;else delete expRecent[id]});
+    Object.keys(expGone).forEach(function(id){if(now-expGone[id]>180000)delete expGone[id];else delete exm[id]});
+    expenses=Object.keys(exm).map(function(id){return exm[id]});
     leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
@@ -666,6 +686,33 @@ function runImport(){
   p.then(function(){unbusy();closeEditor();filter='all';try{localStorage.setItem('crmFilter',filter)}catch(x){}render();toast('נשמרו '+done+' לידים')}).catch(function(){unbusy();toast('נשמרו '+done+' מתוך '+todo.length+'. אפשר לנסות שוב על השאר.');var left=IMP.filter(function(r){return r.on});left.slice(0,done).forEach(function(r){r.on=false});paintImport()});
 }
 
+/* marketing expenses */
+function openExpense(id){
+  lastFocus=document.activeElement;editingExp=id||null;
+  var x=id?expenses.filter(function(e){return e.id===id})[0]:null;
+  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="expForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(x?'עריכת הוצאת שיווק':'הוצאת שיווק')+'</h2>'+
+   '<div class="grid2">'+field('e_date','תאריך',x?x.date:today(),'date',{})+field('e_amount','סכום (₪)',x?x.amount:'','number',{})+
+   '<div class="f full"><label for="e_label">על מה (פייסבוק, גוגל, אינסטגרם, מעצבת…)</label><input id="e_label" list="e_list" value="'+esc(x?x.label:'')+'" autocomplete="off"><datalist id="e_list"><option value="פייסבוק"><option value="אינסטגרם"><option value="גוגל"><option value="טיקטוק"><option value="יוצרת תוכן"><option value="צילום"><option value="עיצוב"></datalist></div></div>'+
+   '<p class="note">הסכום יורד מהרווח של החודש לפי התאריך, כפי שהקלדת (כולל מע״מ אם שילמת עם מע״מ).</p>'+
+   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(x?'<button class="btn danger" type="button" id="expDel">מחיקה</button>':'')+'</div></form></div>';
+  setTimeout(function(){var ae=document.activeElement,f=$('e_amount');if(f&&!(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)))f.focus()},30);
+}
+function saveExpense(){
+  var v=clean(val('e_amount')),d=val('e_date');
+  if(!d){toast('בחרי תאריך');return}
+  if(v===''||!isFinite(Number(v))||Number(v)<0){toast('רשמי סכום תקין');return}
+  var id=editingExp||newId(),body={date:d,amount:v,label:val('e_label')};
+  guard(api('PUT','/alt/expenses/'+id,body)).then(function(r){
+    expenses=expenses.filter(function(e){return e.id!==id}).concat([r.expense]);expRecent[id]={item:r.expense,at:Date.now()};delete expGone[id];
+    closeEditor();render();toast('ההוצאה נשמרה');
+  }).catch(function(){});
+}
+function delExpense(btn){
+  if(!btn.dataset.arm){btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000);return}
+  var id=editingExp;
+  guard(api('DELETE','/alt/expenses/'+id)).then(function(){expenses=expenses.filter(function(e){return e.id!==id});expGone[id]=Date.now();delete expRecent[id];closeEditor();render();toast('ההוצאה נמחקה')}).catch(function(){});
+}
+
 /* settings */
 function openSettings(){
   lastFocus=document.activeElement;
@@ -716,6 +763,9 @@ document.addEventListener('click',function(e){
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
+  if(t.id==='expAdd'){openExpense(null);return}
+  var ex=t.closest('[data-exp]');if(ex){openExpense(ex.dataset.exp);return}
+  if(t.id==='expDel'){delExpense(t);return}
   if(t.id==='selBtn'){SEL.on=!SEL.on;SEL.ids={};render();return}
   if(t.id==='selOff'){SEL.on=false;SEL.ids={};render();return}
   if(t.id==='selAll'){var vis=[].map.call(document.querySelectorAll('#list [data-pickid]'),function(e){return e.dataset.pickid});var allOn=vis.every(function(i){return SEL.ids[i]});vis.forEach(function(i){if(allOn)delete SEL.ids[i];else SEL.ids[i]=1});render();return}
@@ -766,6 +816,7 @@ document.addEventListener('submit',function(e){
     return;
   }
   if(e.target.id==='sheet')saveEditor();
+  if(e.target.id==='expForm')saveExpense();
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}
     guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked,supplierPct:val('s_pct')})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});

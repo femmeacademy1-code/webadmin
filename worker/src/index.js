@@ -15,7 +15,7 @@ import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
 import { chat } from './chat.js';
 import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
-import { crmState, saveLead, deleteLead, saveCfg, extractFromImages, importMany, migrateLegacy, CATALOG } from './crm.js';
+import { crmState, saveLead, deleteLead, saveCfg, extractFromImages, importMany, migrateLegacy, CATALOG, listExpenses, saveExpense, deleteExpense } from './crm.js';
 import { tgStatus, tgConnect, tgDisconnect, tgWebhook } from './telegram.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
@@ -218,7 +218,7 @@ async function altRoute(req, env, url, method) {
   }
   if (!(await altAuthed(req, env))) throw new HttpError(401, 'יש להתחבר');
   await migrateLegacy(env);
-  if (pathname === '/api/alt/leads' && method === 'GET') return json({ ...(await crmState(env)), catalog: CATALOG });
+  if (pathname === '/api/alt/leads' && method === 'GET') return json({ ...(await crmState(env)), catalog: CATALOG, expenses: await listExpenses(env) });
   if (pathname === '/api/alt/import' && method === 'POST') return json(await importMany(env, await body(req)));
   if (pathname === '/api/alt/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
   if (pathname === '/api/alt/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
@@ -226,6 +226,10 @@ async function altRoute(req, env, url, method) {
     if (method === 'GET') return json(await tgStatus(env));
     if (method === 'POST') return json(await tgConnect(env, url.origin, await body(req).catch(() => ({}))));
     if (method === 'DELETE') { await tgDisconnect(env); return json({ ok: true }); }
+  }
+  if ((m = pathname.match(/^\/api\/alt\/expenses\/([a-z0-9]{8,32})$/))) {
+    if (method === 'PUT') return json({ expense: await saveExpense(env, m[1], await body(req)) });
+    if (method === 'DELETE') { await deleteExpense(env, m[1]); return json({ ok: true }); }
   }
   if ((m = pathname.match(/^\/api\/alt\/leads\/([a-z0-9]{8,32})$/))) {
     if (method === 'PUT') return json({ lead: await saveLead(env, m[1], await body(req)) });

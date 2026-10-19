@@ -1353,3 +1353,29 @@ test('alternative import of the owner sheet: the sheet numbers win, the catalog 
   assert.deepEqual(a.fields.extras.map((x) => [x.k, x.amount, x.cost]), [['setup', 8000, 4500], ['other', 15000, 5000]]);
   assert.equal(b.fields.price, 9100); assert.equal(b.fields.supplier, Math.round(9100 / 1.18 * 0.7));                                                   // missing: filled from the catalog
 });
+
+test('alternative: marketing expenses are stored per month, validated, moved when the date changes, deleted, and listed with the leads', async () => {
+  const alt = await altCookieFor();
+  assert.equal((await call('PUT', '/api/alt/expenses/exp000000001', { body: { date: '2026-07-03', amount: 500 } })).status, 401);
+  assert.equal((await call('PUT', '/api/alt/expenses/exp000000001', { cookie: alt, body: { date: '3/7', amount: 500 } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/expenses/exp000000001', { cookie: alt, body: { date: '2026-07-03', amount: 'abc' } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/expenses/exp000000001', { cookie: alt, body: { date: '2026-07-03', amount: '' } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/expenses/exp000000001', { cookie: alt, body: { date: '2026-07-03', amount: '₪1,250.50', label: ' פייסבוק ' } })).data.expense.amount, 1250.5);
+  await call('PUT', '/api/alt/expenses/exp000000002', { cookie: alt, body: { date: '2026-08-15', amount: 300, label: 'גוגל' } });
+  let r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.deepEqual(r.expenses.map((x) => [x.date, x.amount, x.label]).sort(), [['2026-07-03', 1250.5, 'פייסבוק'], ['2026-08-15', 300, 'גוגל']]);
+  await call('PUT', '/api/alt/expenses/exp000000001', { cookie: alt, body: { date: '2026-08-01', amount: 1000, label: 'פייסבוק' } });   // moved to August: not duplicated in July
+  r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.equal(r.expenses.length, 2); assert.ok(r.expenses.every((x) => x.date.startsWith('2026-08')));
+  assert.equal(await env.CMS.get('alt:x:2026-07'), null);                                      // the emptied month is removed
+  assert.equal((await call('DELETE', '/api/alt/expenses/exp000000002', { cookie: alt })).status, 200);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.expenses.length, 1);
+  // the Telegram summary mentions the month's marketing
+  env.TELEGRAM_API = 'https://tg.test';
+  const m = new Date().toISOString().slice(0, 7);
+  await call('PUT', '/api/alt/expenses/exp000000003', { cookie: alt, body: { date: m + '-01', amount: 400, label: 'x' } });
+  await env.CMS.put('alt:tg', JSON.stringify({ token: '1:x', secret: 'sec-expense-0123456789', username: 'b', chats: [5], codes: [] }));
+  await env.CMS.put('alt:migrated', '1'); tgCalls = [];
+  await worker.fetch(new Request('https://cms.test/api/alt/tg-hook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'sec-expense-0123456789' }, body: JSON.stringify({ message: { chat: { id: 5, type: 'private' }, text: '/summary' } }) }), env);
+  assert.match(tgCalls.pop().body.text, /שיווק ₪400/);
+});

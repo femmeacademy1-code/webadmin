@@ -134,6 +134,19 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(opts.some((t) => /יולי 2026 \(1\)/.test(t)) && opts.some((t) => /אוקטובר 2026 \(1\)/.test(t)), `${tag}: months with deals are listed (${opts.join(' | ')})`);
   await pg.selectOption('#period', 'm:2026-07');
   ok(/1,800/.test(await pg.innerText('.kpi.big')) && /משה/.test(await pg.textContent('#dealList')), `${tag}: July shows only July's profit and its deals`);
+  // marketing expenses lower the month's profit
+  await pg.selectOption('#period', 'm:2026-07');
+  await pg.click('#expAdd'); await pg.waitForSelector('#e_amount'); await pg.waitForTimeout(150);
+  await pg.fill('#e_date', '2026-07-10'); await pg.fill('#e_amount', '₪1,000'); await pg.fill('#e_label', 'פייסבוק'); await pg.click('#expForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/אחרי שיווק/.test(await pg.innerText('#kpis')) && /1,000/.test(await pg.innerText('#kpis')) && /800/.test(await pg.innerText('.kpi.big')), `${tag}: July profit 1,800 - marketing 1,000 = 800 (${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')})`);
+  ok(/פייסבוק/.test(await pg.textContent('#expList')), `${tag}: the expense is listed`);
+  await pg.click('#expList summary'); await pg.click('#expList [data-exp]'); await pg.waitForSelector('#expDel'); await pg.waitForTimeout(150);
+  await pg.fill('#e_date', '2026-08-02'); await pg.click('#expForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(!/אחרי שיווק/.test(await pg.innerText('#kpis')) && /1,800/.test(await pg.innerText('.kpi.big')), `${tag}: moving it to August removes it from July`);
+  await pg.selectOption('#period', 'all');
+  await pg.evaluate(() => { document.getElementById('expList').open = true; }); await pg.click('#expList [data-exp]'); await pg.waitForSelector('#expDel'); await pg.waitForTimeout(150); await pg.click('#expDel'); await pg.click('#expDel'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(await pg.locator('#expList').isHidden(), `${tag}: deleted`);
+  await pg.selectOption('#period', 'm:2026-07');
   // the closed tabs follow the chosen month
   await pg.click('[data-f="delivered"]');
   ok((await pg.locator('#list .card').count()) === 0 && /יולי 2026/.test(await pg.innerText('#periodNote')), `${tag}: with July chosen the delivered tab shows no October deal`);

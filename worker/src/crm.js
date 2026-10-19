@@ -110,6 +110,47 @@ export async function saveLead(env, id, input) {
   return { id, ...lead };
 }
 
+/* Marketing expenses: one KV document per month (alt:x:YYYY-MM) holding that month's items, so listing them costs a handful of reads. */
+const EXP = 'alt:x:';
+const MAX_EXP_MONTH = 300;
+export async function listExpenses(env) {
+  const keys = [];
+  let cursor;
+  do {
+    const r = await env.CMS.list({ prefix: EXP, cursor });
+    keys.push(...r.keys.map((k) => k.name));
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  const docs = await Promise.all(keys.map((k) => getKV(env, k)));
+  return docs.flatMap((d) => (d && Array.isArray(d.items) ? d.items : []));
+}
+async function dropExpense(env, id) {
+  const r = await env.CMS.list({ prefix: EXP });
+  for (const k of r.keys) {
+    const d = await getKV(env, k.name);
+    if (d && Array.isArray(d.items) && d.items.some((x) => x.id === id)) {
+      const items = d.items.filter((x) => x.id !== id);
+      if (items.length) await env.CMS.put(k.name, JSON.stringify({ items })); else await env.CMS.delete(k.name);
+    }
+  }
+}
+export async function saveExpense(env, id, input) {
+  if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
+  const date = text(input.date, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) throw new HttpError(400, 'תאריך לא תקין');
+  const amount = money(input.amount, 'סכום');
+  if (amount === '' || amount < 0) throw new HttpError(400, 'רשמי סכום');
+  const item = { id, date, amount, label: text(input.label, 80) };
+  await dropExpense(env, id);                                   // a changed date can move the item to another month
+  const key = EXP + date.slice(0, 7);
+  const d = (await getKV(env, key)) || { items: [] };
+  if (d.items.length >= MAX_EXP_MONTH) throw new HttpError(400, 'יותר מדי הוצאות בחודש הזה');
+  d.items.push(item);
+  await env.CMS.put(key, JSON.stringify(d));
+  return item;
+}
+export async function deleteExpense(env, id) { await dropExpense(env, id); }
+
 export async function deleteLead(env, id) {
   await env.CMS.delete(LEAD + id);
 }
