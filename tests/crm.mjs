@@ -57,6 +57,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-stg="closing"]');
   await pg.fill('#f_price', '11800'); await pg.fill('#f_cost', '5000'); await pg.fill('#f_supplier', '2000');
   ok((await pg.innerText('#calc')).includes('3,000'), `${tag}: editor shows profit 3,000`);
+  await pg.fill('#f_commission', '1800');
+  ok(/1,800/.test(await pg.innerText('#calc .pf')), `${tag}: a commission is the profit exactly as written`);
+  await pg.fill('#f_commission', '');
+  ok((await pg.innerText('#calc .pf')).includes('3,000'), `${tag}: without it the profit is computed`);
   await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: lead saved and listed`);
   ok(/3,000/.test(await pg.innerText('#kpis')), `${tag}: expected profit KPI 3,000`);

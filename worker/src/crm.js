@@ -48,7 +48,7 @@ export async function saveLead(env, id, input) {
   if (!old || old.stage !== stage) log.push({ s: stage, t: now });
   const lead = {
     name, phone, product: text(input.product, 200), source: text(input.source, 120), notes: text(input.notes, 2000), suppName: text(input.suppName, 120), follow,
-    stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), vatIncl: input.vatIncl !== false,
+    stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
     createdAt: (old && old.createdAt) || now, updatedAt: now, log,
   };
   const dealAt = old && old.dealAt;
@@ -90,7 +90,7 @@ const SHOT_SYSTEM = `You read screenshots for a small Israeli business that sell
 Rules:
 - Fill only what is visible or clearly implied. Leave a field empty ("" or omit) when unknown. Never invent phone numbers, names or amounts. Amounts are numbers in ILS without the currency sign.
 - commission_receipt: a receipt / invoice for the owner's COMMISSION on a tent sale (it mentions עמלה, e.g. "לוטוס 5 עמלה"). Put the tent model in "model" exactly as written (e.g. "לוטוס 5M", "פעמון 4"). Do NOT fill price, cost or supplier for it: the server computes them from the catalog.
-- receiptAmount: for customer_payment and commission_receipt, the total amount written on the receipt (it may differ from the catalog price, e.g. a small discount on the commission). The server always completes the sale to the full catalog price.
+- receiptAmount: the total amount written on the receipt. For commission_receipt this is the owner's commission and profit, exactly as written (it may be slightly discounted); never change or recompute it. For customer_payment it is what the customer paid.
 - model: the tent model named anywhere in the screenshot or message (לוטוס / פעמון plus the size in meters), or "".
 - docType: "chat" (conversation with a customer), "customer_payment" (receipt / invoice / payment proof FROM the customer), "supplier_invoice" (invoice or order from a supplier for the goods), "supplier_payment" (proof that we paid a supplier), or "other".
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
@@ -169,10 +169,11 @@ export async function extractFromImages(env, input) {
     const net = cat.price / (1 + Number(cfg.vat) / 100);
     fields.price = cat.price; fields.vatIncl = true; fields.supplier = Math.round(net * Number(cfg.supplierPct) / 100);
     delete fields.cost;
+    if (p.docType === 'commission_receipt') { const c = amount(p.receiptAmount) || amount(p.price); if (c) fields.commission = c; else delete fields.commission; }
     if (!fields.product) fields.product = `${cat.family} ${cat.m}M`;
     const ra = amount(p.receiptAmount) || amount(p.price);
-    if (ra && Math.round(ra) !== cat.price) fields.notes = [fields.notes, `בקבלה: ₪${Math.round(ra).toLocaleString('en-US')} (מחיר קטלוג ₪${cat.price.toLocaleString('en-US')})`].filter(Boolean).join('\n');
-    note = ` (לפי הקטלוג: ${cat.family} ${cat.m}M ₪${cat.price.toLocaleString('en-US')}, הספק ${cfg.supplierPct}% לפני מע״מ)`;
+    if (p.docType === 'customer_payment' && ra && Math.round(ra) !== cat.price) fields.notes = [fields.notes, `בקבלה: ₪${Math.round(ra).toLocaleString('en-US')} (מחיר קטלוג ₪${cat.price.toLocaleString('en-US')})`].filter(Boolean).join('\n');
+    note = ` (לפי הקטלוג: ${cat.family} ${cat.m}M ₪${cat.price.toLocaleString('en-US')}, הספק ${cfg.supplierPct}% לפני מע״מ${fields.commission ? `, הרווח שלנו הוא העמלה שבקבלה ₪${Math.round(fields.commission).toLocaleString('en-US')}` : ''})`;
   }
   const matchId = leads.some((l) => l.id === p.matchId) ? p.matchId : '';
   return { fields, matchId, docType: text(p.docType, 30), summary: (text(p.summary, 300) || 'לא זיהיתי פרטים בצילום') + note };

@@ -186,8 +186,9 @@ function calc(l){
   var gross=incl?price:price*(1+vat);
   var net=incl?price/(1+vat):price;
   var cost=n(l.cost),sup=n(l.supplier);
-  var profit=net-cost-(cfg.supplierInCost?0:sup);
-  return {gross:gross,net:net,vat:gross-net,cost:cost,sup:sup,profit:profit,has:price>0};
+  var hasCom=l.commission!==''&&l.commission!=null&&isFinite(parseFloat(l.commission));      // our commission, exactly as written on the receipt, is the profit
+  var profit=hasCom?n(l.commission):net-cost-(cfg.supplierInCost?0:sup);
+  return {gross:gross,net:net,vat:gross-net,cost:cost,sup:sup,profit:profit,has:price>0||hasCom,com:hasCom};
 }
 
 /* ---------- list ---------- */
@@ -266,7 +267,7 @@ function api(method,path,body){
 }
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
-function pick(l){var o={};['name','phone','product','source','follow','notes','price','cost','supplier','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
+function pick(l){var o={};['name','phone','product','source','follow','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;render();return d.lead})}
 function load(){
   return api('GET','/alt/leads').then(function(d){
@@ -303,7 +304,7 @@ function advance(id){
 function field(id,label,val,type,extra){
   return '<div class="f'+(extra&&extra.full?' full':'')+'"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val)+'"'+(type==='number'?' inputmode="decimal" step="any" dir="ltr"':'')+(extra&&extra.ph?' placeholder="'+extra.ph+'"':'')+'></div>';
 }
-var LABEL={name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
+var LABEL={commission:'העמלה (רווח)',name:'שם',phone:'טלפון',product:'מוצר',source:'מקור',follow:'תאריך חזרה',notes:'הערות',suppName:'שם הספק',price:'מחיר',cost:'עלות',supplier:'ספק קיבל',stage:'שלב',vatIncl:'מע״מ'};
 /* merge a screenshot proposal into a lead (new or existing) without saving it */
 function applyProposal(l,f,summary){
   var out=Object.assign({},l),changed=[];
@@ -336,6 +337,7 @@ function openEditor(id,hint){
    '<fieldset><legend>הכסף</legend><div class="grid2">'+
      field('f_price','מחיר ללקוח (₪)',l.price,'number',{})+field('f_cost','כמה עלה המוצר (₪)',l.cost,'number',{})+
      field('f_supplier','כמה הספק קיבל (₪)',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
+     field('f_commission','העמלה שלנו = הרווח (₪). אם ריק, מחושב',l.commission,'number',{full:true})+
      '<label class="chk"><input type="checkbox" id="f_vatIncl"'+(l.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
      '<div class="calc" id="calc"></div>'+
    '</div></fieldset>'+
@@ -351,7 +353,7 @@ function openEditor(id,hint){
 function closeEditor(){editing=null;$('sheetHost').innerHTML='';if(lastFocus&&lastFocus.focus)try{lastFocus.focus()}catch(e){}}
 function val(id){var e=$(id);return e?e.value.trim():''}
 function formLead(){
-  return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),vatIncl:$('f_vatIncl').checked};
+  return {price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),vatIncl:$('f_vatIncl').checked};
 }
 function updCalc(){
   var el=$('calc');if(!el)return;
@@ -365,7 +367,7 @@ function updCalc(){
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
   var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:val('f_follow'),notes:$('f_notes').value.trim(),
-    price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
+    price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   save(editing||newId(),d).then(function(){closeEditor();toast('נשמר')}).catch(function(){});
 }

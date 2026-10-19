@@ -9,7 +9,7 @@ const KEY = 'alt:tg';
 const api = (env) => env.TELEGRAM_API || 'https://api.telegram.org';
 const getKV = async (env, k) => { const v = await env.CMS.get(k); return v ? JSON.parse(v) : null; };
 const rand = (n, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') => { const r = crypto.getRandomValues(new Uint8Array(n)); return [...r].map((x) => alphabet[x % alphabet.length]).join(''); };
-const LABEL = { name: 'שם', phone: 'טלפון', product: 'מוצר', source: 'מקור', follow: 'לחזור ב', notes: 'הערות', suppName: 'ספק', price: 'מחיר', cost: 'עלות מוצר', supplier: 'הספק קיבל', stage: 'שלב', vatIncl: 'המחיר כולל מע״מ' };
+const LABEL = { name: 'שם', phone: 'טלפון', product: 'מוצר', source: 'מקור', follow: 'לחזור ב', notes: 'הערות', suppName: 'ספק', commission: 'העמלה (רווח)', price: 'מחיר', cost: 'עלות מוצר', supplier: 'הספק קיבל', stage: 'שלב', vatIncl: 'המחיר כולל מע״מ' };
 const STAGE = { talked: 'דיברנו', hot: 'ליד חם', viewing: 'הלך לראות', closing: 'סוגר', delivered: 'קיבל סחורה', done: 'נסגר', lost: 'לא התקדם' };
 const money = (v) => '₪' + Math.round(v).toLocaleString('en-US');
 
@@ -107,7 +107,7 @@ async function handle(env, c, u) {
   if (!merged.changed.length) return reply(env, c, id, `${p.summary}\nאין מידע חדש לשמירה על ${old ? old.name || old.phone : 'הליד'}.`);
   const pid = rand(12);
   await env.CMS.put('alt:tgp:' + pid, JSON.stringify({ chat: id, matchId: p.matchId, fields: f }), { expirationTtl: 3600 });
-  const lines = merged.changed.map((k) => `• ${LABEL[k] || k}: ${k === 'stage' ? STAGE[merged.lead.stage] : k === 'vatIncl' ? (merged.lead.vatIncl ? 'כן' : 'לא') : ['price', 'cost', 'supplier'].includes(k) ? money(merged.lead[k]) : String(merged.lead[k]).replace(/\n/g, ' / ')}`);
+  const lines = merged.changed.map((k) => `• ${LABEL[k] || k}: ${k === 'stage' ? STAGE[merged.lead.stage] : k === 'vatIncl' ? (merged.lead.vatIncl ? 'כן' : 'לא') : ['price', 'cost', 'supplier', 'commission'].includes(k) ? money(merged.lead[k]) : String(merged.lead[k]).replace(/\n/g, ' / ')}`);
   return reply(env, c, id, `${p.summary}\n\n${old ? `עדכון לליד: ${old.name || old.phone}` : 'ליד חדש'}\n${lines.join('\n')}`, {
     reply_markup: { inline_keyboard: [[{ text: '✅ שמרי', callback_data: 'ok:' + pid }, { text: '✖ בטלי', callback_data: 'no:' + pid }]] },
   });
@@ -132,7 +132,7 @@ async function callback(env, c, id, cq) {
   if (price > 0) {
     const cfg = (await getKV(env, 'alt:cfg')) || { vat: 18, supplierInCost: false };
     const net = lead.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    extra = `\nרווח כרגע: ${money(net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0))}`;
+    extra = `\nרווח כרגע: ${money(lead.commission !== '' && lead.commission != null ? Number(lead.commission) : net - (Number(lead.cost) || 0) - (cfg.supplierInCost ? 0 : Number(lead.supplier) || 0))}`;
   }
   await reply(env, c, id, `נשמר ✅ ${lead.name || lead.phone} · ${STAGE[lead.stage]}${extra}`);
 }
@@ -146,7 +146,7 @@ async function summary(env, c, id) {
   for (const l of leads) {
     if (!['delivered', 'done'].includes(l.stage) || !(l.dealAt || '').startsWith(ym)) continue;
     const price = Number(l.price) || 0; const net = l.vatIncl === false ? price : price / (1 + Number(cfg.vat) / 100);
-    profit += net - (Number(l.cost) || 0) - (cfg.supplierInCost ? 0 : Number(l.supplier) || 0); deals++;
+    profit += l.commission !== '' && l.commission != null ? Number(l.commission) : net - (Number(l.cost) || 0) - (cfg.supplierInCost ? 0 : Number(l.supplier) || 0); deals++;
   }
   const today = now.toISOString().slice(0, 10);
   const late = open.filter((l) => l.follow && l.follow < today).map((l) => l.name || l.phone);

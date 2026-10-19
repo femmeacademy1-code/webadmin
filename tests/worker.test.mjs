@@ -1250,13 +1250,15 @@ test('alternative: when Claude refuses the request the reason is shown (bad key 
 test('alternative: a commission receipt is priced from the catalog, supplier gets the configured share of the pre-VAT price', async () => {
   const alt = await altCookieFor();
   const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString('base64');
-  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', price: 123, cost: 99, supplier: 5 } }];
+  aiReply = [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: { docType: 'commission_receipt', model: 'לוטוס 5M', summary: 'קבלת עמלה', name: 'דנה', receiptAmount: 1800, price: 123, cost: 99, supplier: 5 } }];
   let r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.equal(r.data.fields.price, 7500); assert.equal(r.data.fields.vatIncl, true);
   assert.equal(r.data.fields.supplier, 4449);                      // 7500 / 1.18 * 70%
   assert.equal(r.data.fields.cost, undefined); assert.equal(r.data.fields.product, 'לוטוס 5M');
   assert.match(r.data.summary, /לפי הקטלוג/);
+  assert.equal(r.data.fields.commission, 1800);                    // our profit is exactly the commission written on the receipt, never recomputed
+  assert.equal(r.data.fields.notes, undefined);
   assert.equal((await call('PUT', '/api/alt/config', { cookie: alt, body: { vat: 18, supplierPct: 60 } })).data.cfg.supplierPct, 60);
   r = await call('POST', '/api/alt/extract', { cookie: alt, body: { images: [JPG] } });
   assert.equal(r.data.fields.supplier, Math.round(7500 / 1.18 * 0.6));
@@ -1269,4 +1271,5 @@ test('alternative: a commission receipt is priced from the catalog, supplier get
   assert.equal(d.fields.price, 4000);                              // the receipt shows a bit less (discount): the sale is still recorded at the full catalog price
   assert.equal(d.fields.supplier, Math.round(4000 / 1.18 * 0.6));  // (supplier share is 60% here, set above)
   assert.match(d.fields.notes, /בקבלה: ₪4,100/);
+  assert.equal(d.fields.commission, undefined);                    // a customer's receipt is not the commission: the profit stays computed
 });
