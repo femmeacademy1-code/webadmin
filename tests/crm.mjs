@@ -8,7 +8,7 @@ import worker from '../worker/src/index.js';
 let aiInput = { docType: 'chat', matchId: '', summary: 'שיחה עם רונית: מעוניינת במיטה', name: 'רונית לוי', phone: '0541112222', product: 'מיטה זוגית', source: 'וואטסאפ', stage: 'hot' };
 function env0() {
   const real = globalThis.fetch;
-  globalThis.fetch = async (u, i) => (String(u).startsWith('https://tg.test') ? new Response(JSON.stringify({ ok: true, result: String(u).endsWith('getMe') ? { username: 'femme_leads_bot' } : true })) : String(u).startsWith('https://anthropic.test') ? new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: aiInput }] })) : real(u, i));
+  globalThis.fetch = async (u, i) => (String(u).startsWith('https://anthropic.test') && String(i && i.body).includes('"propose_leads"') ? new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 'y', name: 'propose_leads', input: { leads: [{ docType: 'commission_receipt', model: 'לוטוס 5M', commission: 1800, closedDate: '2026-07-12', stage: 'done', name: 'משה בדיקה', phone: '0531111111', summary: 'משה' }, { docType: 'other', stage: 'viewing', name: 'דנה', phone: '050-123-4567', summary: 'דנה' }] } }] })) : String(u).startsWith('https://tg.test') ? new Response(JSON.stringify({ ok: true, result: String(u).endsWith('getMe') ? { username: 'femme_leads_bot' } : true })) : String(u).startsWith('https://anthropic.test') ? new Response(JSON.stringify({ content: [{ type: 'tool_use', id: 'x', name: 'propose_lead', input: aiInput }] })) : real(u, i));
 }
 const kv = new Map();
 env0();
@@ -109,6 +109,15 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="hot"]'); await pg.click('.card'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא התקדם/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);
   await pg.click('[data-f="all"]');
+  // bulk import from a CSV: review the proposed rows, then save them all
+  await pg.click('[data-f="all"]');
+  await pg.setInputFiles('#impIn', { name: 'july.csv', mimeType: 'text/csv', buffer: Buffer.from('שם,טלפון\nמשה,0531111111\nדנה,0501234567\n', 'utf8') });
+  await pg.waitForSelector('#impSheet');
+  ok((await pg.locator('#impSheet .card.imp').count()) === 2, `${tag}: import preview lists both rows`);
+  ok(/עדכון ליד קיים/.test(await pg.innerText('#impSheet')) && /ליד חדש/.test(await pg.innerText('#impSheet')), `${tag}: same phone is an update, the other a new lead`);
+  ok((await pg.locator('#list .card').count()) === 2, `${tag}: nothing saved before confirming the import`);
+  await pg.click('#impGo'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok((await pg.locator('.card').count()) === 3 && /משה בדיקה/.test(await pg.innerText('#list')) && /נסגר ב/.test(await pg.innerText('#list')), `${tag}: imported lead added with its closing date`);
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
   await pg.click('.card'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {
@@ -119,7 +128,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await pg.waitForTimeout(500);
   ok(/מוצר מעודכן/.test(await pg.innerText('#list')), `${tag}: a stale server list does not undo a fresh save`);
   await pg.unroute('**/api/alt/leads');
-  for (let n = 0; n < 2; n++) { await pg.click('.card'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
+  for (let n = 0; n < 3; n++) { await pg.click('.card'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
   ok(await pg.locator('.empty').count() === 1, `${tag}: delete works`);
   ok(errs.length === 0, `${tag}: no page errors ${errs.join(';')}`);
   await pg.close();

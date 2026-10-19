@@ -142,8 +142,10 @@ legend{font-weight:800;padding:0 6px}
       <button class="btn" id="outBtn" type="button">יציאה</button>
       <button class="btn" id="csvBtn" type="button">ייצוא לאקסל</button>
       <button class="btn" id="shotBtn" type="button">📷 הוספה מצילום</button>
+      <button class="btn" id="impBtn" type="button">📥 ייבוא מקובץ</button>
       <button class="btn pri" id="newBtn" type="button">＋ ליד חדש</button>
       <input type="file" id="shotIn" accept="image/*" multiple hidden>
+      <input type="file" id="impIn" accept=".xlsx,.xls,.csv,image/*" multiple hidden>
     </div>
   </header>
 
@@ -278,7 +280,7 @@ function api(method,path,body){
 }
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
-function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
+function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 /* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
 var recent={},gone={};
 /* after an update the lead must stay visible: if its new stage is not in the current tab, switch to the tab it moved to */
@@ -479,6 +481,94 @@ function readShots(files){
   }).catch(function(e){b.remove();if(!e.status)toast(e.message||'הקריאה נכשלה')});
 }
 
+/* bulk import: a spreadsheet (xlsx / csv) or screenshots of it -> Claude proposes every row -> she reviews the list -> all are saved */
+var IMP=[];
+function loadSheetJs(){
+  return new Promise(function(res,rej){
+    if(window.XLSX)return res(window.XLSX);
+    var sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload=function(){window.XLSX?res(window.XLSX):rej(new Error('x'))};sc.onerror=function(){rej(new Error('אי אפשר לטעון את קורא האקסל. שמרי את הקובץ כ-CSV או צלמי מסך.'))};
+    document.head.appendChild(sc);
+  });
+}
+function readText(file){
+  return new Promise(function(res,rej){
+    var fr=new FileReader();
+    fr.onload=function(){var t=String(fr.result);if(t.indexOf('\ufffd')>-1){var f2=new FileReader();f2.onload=function(){res(String(f2.result))};f2.onerror=function(){res(t)};f2.readAsText(file,'windows-1255')}else res(t)};
+    fr.onerror=function(){rej(new Error('אי אפשר לקרוא את הקובץ'))};fr.readAsText(file);
+  });
+}
+function chunkCsv(name,csv){
+  var lines=csv.split(/\r?\n/).filter(function(l){return l.replace(/[,;\s"]/g,'')!==''});
+  if(!lines.length)return [];
+  var head=lines[0],out=[],size=40;
+  for(var i=1;i<lines.length;i+=size)out.push('# '+name+'\n'+head+'\n'+lines.slice(i,i+size).join('\n'));
+  return lines.length===1?['# '+name+'\n'+head]:out;
+}
+function busy(t){var b=$('busyBox');if(!b){b=document.createElement('div');b.id='busyBox';b.className='busy';b.innerHTML='<div role="status"></div>';document.body.appendChild(b)}b.firstChild.textContent=t}
+function unbusy(){var b=$('busyBox');if(b)b.remove()}
+function importFiles(files){
+  files=[].slice.call(files);if(!files.length)return;
+  var sheets=files.filter(function(f){return /\.(xlsx|xls|csv)$/i.test(f.name)}),imgs=files.filter(function(f){return /^image\//.test(f.type)}).slice(0,4);
+  if(!sheets.length&&!imgs.length){toast('בחרי קובץ אקסל, CSV או צילום');return}
+  busy('קוראת את הקובץ…');
+  var jobs=[],prep=Promise.resolve();
+  sheets.forEach(function(f){
+    prep=prep.then(function(){
+      if(/\.csv$/i.test(f.name))return readText(f).then(function(t){chunkCsv(f.name,t).forEach(function(c){jobs.push({text:c})})});
+      return Promise.all([loadSheetJs(),f.arrayBuffer()]).then(function(r){
+        var wb=r[0].read(r[1],{type:'array',cellDates:true});
+        wb.SheetNames.forEach(function(sn){var csv=r[0].utils.sheet_to_csv(wb.Sheets[sn],{blankrows:false,dateNF:'dd/mm/yyyy'});chunkCsv(f.name+' / '+sn,csv).forEach(function(c){jobs.push({text:c})})});
+      });
+    });
+  });
+  if(imgs.length)prep=prep.then(function(){return Promise.all(imgs.map(shrink))}).then(function(arr){jobs.push({images:arr})});
+  var items=[];
+  prep.then(function(){
+    if(!jobs.length)throw new Error('לא מצאתי שורות בקובץ');
+    var p=Promise.resolve();
+    jobs.forEach(function(j,i){p=p.then(function(){busy('קוראת… '+(i+1)+' מתוך '+jobs.length);return guard(api('POST','/alt/import',j)).then(function(r){items=items.concat(r.items||[])})})});
+    return p;
+  }).then(function(){unbusy();if(!items.length){toast('לא זיהיתי לידים בקובץ');return}openImport(items)}).catch(function(e){unbusy();if(!e.status)toast(e.message||'הייבוא נכשל')});
+}
+function openImport(items){
+  lastFocus=document.activeElement;
+  IMP=items.map(function(it){
+    var old=it.matchId?leads[it.matchId]:null;
+    var m=applyProposal(old?Object.assign({},old):{stage:'talked',vatIncl:true},it.fields,it.summary);
+    return {id:old?old.id:newId(),old:old,lead:m.lead,changed:m.changed,on:m.changed.length>0,closed:it.fields.closedDate||''};
+  });
+  paintImport();
+}
+function paintImport(){
+  var old=$('impSheet'),top=old?old.scrollTop:0;
+  var on=IMP.filter(function(r){return r.on}).length;
+  var h='<div class="veil" id="veil" dir="rtl" lang="he"><div class="sheet" id="impSheet" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+IMP.length+' לידים בקובץ</h2><p class="note">בדקי, בטלי סימון למה שלא רוצה, ותקני שלב. כלום לא נשמר עד שתלחצי על ההוספה.</p>';
+  IMP.forEach(function(r,i){
+    var l=r.lead,c=calc(l),s=SM[l.stage]||SM.talked;
+    h+='<div class="card imp" style="--c:'+stageColor(s.id)+'"><label class="chk"><input type="checkbox" data-imp="'+i+'"'+(r.on?' checked':'')+'> <b>'+esc(l.name||l.phone||'ללא שם')+'</b></label>'+
+      '<div class="row"><span class="pill">'+(r.old?'עדכון ליד קיים':'ליד חדש')+'</span><select data-impstage="'+i+'" aria-label="שלב">'+STAGES.map(function(x){return '<option value="'+x.id+'"'+(x.id===l.stage?' selected':'')+'>'+x.name+'</option>'}).join('')+'</select></div>'+
+      '<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+(r.closed?' · נסגר '+dstr(r.closed):'')+'</div>'+
+      (c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>ספק <span class="num">'+fmt(c.sup)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'')+
+      (r.changed.length?'':'<div class="note">אין מידע חדש לשמירה</div>')+'</div>';
+  });
+  h+='<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="button" id="impGo"'+(on?'':' disabled')+'>הוספה / עדכון של '+on+'</button><button class="btn" type="button" id="impAll">סימון הכל</button><button class="btn" type="button" id="cancelBtn">ביטול</button></div></div></div></div>';
+  $('sheetHost').innerHTML=h;
+  if($('impSheet'))$('impSheet').scrollTop=top;
+}
+function runImport(){
+  var todo=IMP.filter(function(r){return r.on}),done=0;
+  if(!todo.length)return;
+  busy('שומרת 0 מתוך '+todo.length);
+  var p=Promise.resolve();
+  todo.forEach(function(r){p=p.then(function(){
+    var l=r.lead,b=pick(l);b.qty=qtyOf(l);
+    if(DEAL.indexOf(l.stage)>-1){b.closedDate=r.closed||'';b.extras=(l.extras&&l.extras.length)?l.extras:undefined}
+    return save(r.id,b).then(function(){done++;busy('שומרת '+done+' מתוך '+todo.length)});
+  })});
+  p.then(function(){unbusy();closeEditor();filter='all';try{localStorage.setItem('crmFilter',filter)}catch(x){}render();toast('נשמרו '+done+' לידים')}).catch(function(){unbusy();toast('נשמרו '+done+' מתוך '+todo.length+'. אפשר לנסות שוב על השאר.');var left=IMP.filter(function(r){return r.on});left.slice(0,done).forEach(function(r){r.on=false});paintImport()});
+}
+
 /* settings */
 function openSettings(){
   lastFocus=document.activeElement;
@@ -538,6 +628,9 @@ document.addEventListener('click',function(e){
   if(t.closest('[data-xdel]')){t.closest('.xo').remove();return}
   if(t.id==='newBtn'){openEditor(null);return}
   if(t.id==='shotBtn'){$('shotIn').click();return}
+  if(t.id==='impBtn'){$('impIn').click();return}
+  if(t.id==='impGo'){runImport();return}
+  if(t.id==='impAll'){var allOn=IMP.every(function(r){return r.on});IMP.forEach(function(r){r.on=!allOn&&r.changed.length>0});paintImport();return}
   if(t.id==='settingsBtn'){openSettings();return}
   if(t.id==='csvBtn'){exportCsv();return}
   if(t.id==='cancelBtn'||t.id==='veil'){closeEditor();return}
@@ -555,6 +648,9 @@ document.addEventListener('input',function(e){
   if(e.target.closest&&e.target.closest('fieldset'))updCalc()});
 document.addEventListener('change',function(e){
   if(e.target.id==='shotIn'){readShots(e.target.files);e.target.value='';return}
+  if(e.target.id==='impIn'){importFiles(e.target.files);e.target.value='';return}
+  if(e.target.dataset&&e.target.dataset.imp!=null){IMP[+e.target.dataset.imp].on=e.target.checked;var on=IMP.filter(function(r){return r.on}).length,g=$('impGo');if(g){g.textContent='הוספה / עדכון של '+on;g.disabled=!on}return}
+  if(e.target.dataset&&e.target.dataset.impstage!=null){IMP[+e.target.dataset.impstage].lead.stage=e.target.value;paintImport();return}
   if(e.target.id==='period'){period=e.target.value;renderKpis()}
   if(e.target.id==='f_vatIncl'){autoSupplier();[].forEach.call(document.querySelectorAll('#row_extras .xo'),autoXProfit);updCalc()}
   if(e.target.classList&&e.target.classList.contains('xk'))updCalc();

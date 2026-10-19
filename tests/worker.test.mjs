@@ -1313,3 +1313,29 @@ test('alternative: leads saved by the first version (crm:*) are carried over, no
   const hook = await worker.fetch(new Request('https://cms.test/api/telegram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'sec-legacy-0123456789' }, body: JSON.stringify({ message: { chat: { id: 5, type: 'private' }, text: '/help' } }) }), env);
   assert.equal(hook.status, 200);
 });
+
+test('alternative: bulk import returns many proposals (catalog, quantity, extras, same-phone match) and saves nothing', async () => {
+  const alt = await altCookieFor();
+  await call('PUT', '/api/alt/leads/lead0001abcd', { cookie: alt, body: { name: 'דנה כהן', phone: '050-123-4567', stage: 'hot' } });
+  assert.equal((await call('POST', '/api/alt/import', { body: { text: 'x' } })).status, 401);
+  assert.equal((await call('POST', '/api/alt/import', { cookie: alt, body: {} })).status, 400);
+  aiReply = [{ type: 'tool_use', id: 'm', name: 'propose_leads', input: { leads: [
+    { docType: 'commission_receipt', model: 'לוטוס 5M', quantity: 2, commission: 3400, receiptNo: '77', closedDate: '2026-07-12', stage: 'done', name: 'שם אחר', phone: '0501234567', summary: 'דנה' },
+    { docType: 'customer_payment', model: 'פעמון 4M', closedDate: '12/07/2026', stage: 'done', name: 'יוסי', phone: '0529999999', extras: [{ label: 'תוספת בידוד', amount: 1180, cost: 700 }, { label: 'מעקה', amount: 300 }], summary: 'יוסי' },
+    { docType: 'other', summary: 'שורה ריקה' },
+  ] } }];
+  const r = await call('POST', '/api/alt/import', { cookie: alt, body: { text: 'שם,טלפון\nדנה,0501234567' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.items.length, 2);                                               // the empty row is dropped
+  const [a, b] = r.data.items;
+  assert.equal(a.matchId, 'lead0001abcd');                                            // same phone (formatting ignored) = same person
+  assert.equal(a.fields.price, 7500); assert.equal(a.fields.qty, 2); assert.equal(a.fields.commission, 3400); assert.equal(a.fields.closedDate, '2026-07-12');
+  assert.equal(a.fields.supplier, Math.round(7500 / 1.18 * 2 * 0.7));
+  assert.equal(b.matchId, ''); assert.equal(b.fields.price, 4000); assert.equal(b.fields.closedDate, undefined);   // a non-ISO date is dropped, never guessed
+  assert.deepEqual(b.fields.extras.map((x) => x.k), ['insulation', 'other']);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.length, 1);   // nothing saved
+  // the proposal can be saved as is: extras with cost get their profit, the closing date becomes the deal date
+  const sv = await call('PUT', '/api/alt/leads/lead0002abcd', { cookie: alt, body: { ...b.fields, stage: 'done' } });
+  assert.equal(sv.status, 200, JSON.stringify(sv.data));
+  assert.equal(sv.data.lead.extras[0].profit, 300);
+});
