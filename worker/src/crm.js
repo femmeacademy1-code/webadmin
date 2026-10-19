@@ -34,6 +34,13 @@ export async function crmState(env) {
   return { leads, cfg: { vat: 18, supplierInCost: false, supplierPct: 70, ...((await getKV(env, CFG)) || {}) } };
 }
 
+const EXTRA_KINDS = ['insulation', 'setup', 'other'];
+function cleanExtras(v) {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, 12).map((x) => ({ k: EXTRA_KINDS.includes(x && x.k) ? x.k : 'other', label: text(x && x.label, 60), amount: money(x && x.amount, 'תוספת') }))
+    .filter((x) => x.k !== 'other' || x.label || x.amount !== '');
+}
+
 export async function saveLead(env, id, input) {
   if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
   const old = await getKV(env, LEAD + id);
@@ -54,6 +61,7 @@ export async function saveLead(env, id, input) {
   const delivery = text(input.deliveryDate, 10);
   if (delivery && !/^\d{4}-\d{2}-\d{2}$/.test(delivery)) throw new HttpError(400, 'תאריך אספקה לא תקין');
   lead.deliveryDate = delivery;
+  lead.extras = input.extras === undefined ? ((old && old.extras) || []) : cleanExtras(input.extras);     // extras (insulation, setup, others) are recorded; they never change the profit
   const closed = text(input.closedDate, 10);
   if (closed && !/^\d{4}-\d{2}-\d{2}$/.test(closed)) throw new HttpError(400, 'תאריך סגירה לא תקין');
   const dealAt = old && old.dealAt;

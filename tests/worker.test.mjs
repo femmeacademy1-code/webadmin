@@ -1145,6 +1145,11 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: 'מחר' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
+  const ex = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', price: 7500, commission: 1800, extras: [{ k: 'insulation', label: 'x', amount: '1200' }, { k: 'setup', amount: 800 }, { k: 'other', label: 'שטיח', amount: 300 }, { k: 'other', label: '', amount: '' }, { k: 'bogus', label: 'מעקה', amount: 50 }] } });
+  assert.deepEqual(ex.data.lead.extras, [{ k: 'insulation', label: 'x', amount: 1200 }, { k: 'setup', label: '', amount: 800 }, { k: 'other', label: 'שטיח', amount: 300 }, { k: 'other', label: 'מעקה', amount: 50 }]);
+  assert.equal(ex.data.lead.commission, 1800);                                                                         // extras never touch the profit
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered' } })).data.lead.extras.length, 4);   // not sent: kept
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', extras: [{ k: 'setup', amount: 'abc' }] } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { stage: 'hot' } })).status, 400);          // no name / phone
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', price: 'abc' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', follow: '12/10/2026' } })).status, 400);

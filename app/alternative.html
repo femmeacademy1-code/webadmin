@@ -113,6 +113,7 @@ legend{font-weight:800;padding:0 6px}
 .hint b{display:block}
 .busy{position:fixed;inset:0;background:rgba(20,12,10,.45);z-index:30;display:grid;place-items:center}
 .busy div{background:var(--surface);padding:18px 26px;border-radius:12px;font-weight:600}
+#row_extras:not([hidden]){display:flex;flex-direction:column;gap:12px}
 .note{color:var(--muted);font-size:14px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}h1{font-size:26px}.kpi b{font-size:22px}.kpi.big b{font-size:28px}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
@@ -255,7 +256,7 @@ function renderList(){
     return '<div class="card" role="button" tabindex="0" data-open="'+l.id+'" style="--c:'+stageColor(s.id)+'">'+
       '<div class="row"><h3>'+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product?'<div class="prod">'+esc(l.product)+'</div>':'')+
-      '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
+      '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
       '<div class="acts">'+nextBtn+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
@@ -320,7 +321,25 @@ function applyProposal(l,f,summary){
   return {lead:out,changed:changed,summary:summary};
 }
 /* a closed deal needs a closing date, not a follow-up */
-function syncStage(stg){var d=DEAL.indexOf(stg)>-1;var f=$('row_follow'),c=$('row_closed'),u=$('row_supply'),r=$('row_receipt');if(f)f.hidden=d;if(c)c.hidden=!d;if(u)u.hidden=!d;if(r)r.hidden=!d}
+function xRow(label,amount){return '<div class="grid2 xo"><div class="f"><input class="xl" aria-label="מה התוספת" placeholder="מה התוספת" value="'+esc(label)+'"></div><div class="f" style="flex-direction:row;gap:8px"><input class="xa" aria-label="סכום" type="number" inputmode="decimal" step="any" dir="ltr" placeholder="סכום ₪" value="'+esc(amount)+'"><button type="button" class="btn sm" data-xdel="1" aria-label="הסרה">✕</button></div></div>'}
+function extrasHtml(l){
+  var ex=l.extras||[],g=function(k){return ex.filter(function(x){return x.k===k})[0]};
+  var ins=g('insulation'),set=g('setup');
+  return '<fieldset id="row_extras" hidden><legend>תוספות</legend>'+
+   '<div class="grid2"><label class="chk"><input type="checkbox" id="x_ins"'+(ins?' checked':'')+'> תוספת בידוד</label><div class="f"><input id="x_ins_a" aria-label="סכום בידוד" type="number" inputmode="decimal" step="any" dir="ltr" placeholder="סכום ₪" value="'+esc(ins?ins.amount:'')+'"></div>'+
+   '<label class="chk"><input type="checkbox" id="x_set"'+(set?' checked':'')+'> תוספת הקמה</label><div class="f"><input id="x_set_a" aria-label="סכום הקמה" type="number" inputmode="decimal" step="any" dir="ltr" placeholder="סכום ₪" value="'+esc(set?set.amount:'')+'"></div></div>'+
+   '<div id="x_other">'+ex.filter(function(x){return x.k==='other'}).map(function(x){return xRow(x.label,x.amount)}).join('')+'</div>'+
+   '<button type="button" class="btn sm" id="xAdd">+ תוספת נוספת</button><p class="note">התוספות נרשמות לפי הפירוט בלבד ולא משנות את הרווח.</p></fieldset>';
+}
+function readExtras(){
+  var out=[];
+  if($('x_ins')&&$('x_ins').checked)out.push({k:'insulation',label:'בידוד',amount:val('x_ins_a')});
+  if($('x_set')&&$('x_set').checked)out.push({k:'setup',label:'הקמה',amount:val('x_set_a')});
+  [].forEach.call(document.querySelectorAll('#x_other .xo'),function(r){var l=r.querySelector('.xl').value.trim(),a=r.querySelector('.xa').value.trim();if(l||a)out.push({k:'other',label:l,amount:a})});
+  return out;
+}
+function extrasTotal(l){return (l.extras||[]).reduce(function(s,x){return s+n(x.amount)},0)}
+function syncStage(stg){var d=DEAL.indexOf(stg)>-1;var ex=$('row_extras');if(ex)ex.hidden=!d;var f=$('row_follow'),c=$('row_closed'),u=$('row_supply'),r=$('row_receipt');if(f)f.hidden=d;if(c)c.hidden=!d;if(u)u.hidden=!d;if(r)r.hidden=!d}
 function openEditor(id,hint){
   lastFocus=document.activeElement;
   editing=id;
@@ -345,6 +364,7 @@ function openEditor(id,hint){
      '<label class="chk"><input type="checkbox" id="f_vatIncl"'+(l.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
      '<div class="calc" id="calc"></div>'+
    '</div></fieldset>'+
+   extrasHtml(l)+
    (l.log&&l.log.length?'<ul class="log">'+l.log.slice().reverse().map(function(x){return '<li>'+(SM[x.s]?SM[x.s].name:x.s)+' · '+dstr(x.t)+'</li>'}).join('')+'</ul>':'')+
    '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+
    (id?'<button class="btn danger" type="button" id="delBtn">מחיקה</button>':'')+'</div>'+
@@ -371,7 +391,7 @@ function updCalc(){
 }
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
-  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
+  var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:DEAL.indexOf(stg)>-1?readExtras():undefined,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
     price:val('f_price'),cost:val('f_cost'),supplier:val('f_supplier'),commission:val('f_commission'),suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   save(editing||newId(),d).then(function(){closeEditor();toast('נשמר')}).catch(function(){});
@@ -443,8 +463,8 @@ function tgConnect(token){
 /* csv */
 function csvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){
-  var rows=[['שם','טלפון','מוצר','שלב','מקור','מחיר ללקוח','כולל מעמ','לפני מעמ','מעמ','עלות מוצר','ספק','ספק קיבל','רווח','תאריך סגירה','תאריך אספקה','מספר קבלה']];
-  allLeads().forEach(function(l){var c=calc(l);rows.push([l.name,l.phone,l.product,(SM[l.stage]||{}).name,l.source,l.price,l.vatIncl===false?'לא':'כן',Math.round(c.net),Math.round(c.vat),l.cost,l.suppName,l.supplier,Math.round(c.profit),l.dealAt?l.dealAt.slice(0,10):'',l.deliveryDate||'',l.receiptNo||'']);});
+  var rows=[['שם','טלפון','מוצר','שלב','מקור','מחיר ללקוח','כולל מעמ','לפני מעמ','מעמ','עלות מוצר','ספק','ספק קיבל','רווח','תאריך סגירה','תאריך אספקה','מספר קבלה','תוספות','סכום תוספות']];
+  allLeads().forEach(function(l){var c=calc(l);rows.push([l.name,l.phone,l.product,(SM[l.stage]||{}).name,l.source,l.price,l.vatIncl===false?'לא':'כן',Math.round(c.net),Math.round(c.vat),l.cost,l.suppName,l.supplier,Math.round(c.profit),l.dealAt?l.dealAt.slice(0,10):'',l.deliveryDate||'',l.receiptNo||'',(l.extras||[]).map(function(x){return (x.label||x.k)+(x.amount!==''?' '+x.amount:'')}).join(' + '),Math.round(extrasTotal(l))]);});
   var csv='\ufeff'+rows.map(function(r){return r.map(csvCell).join(',')}).join('\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='leads-'+today()+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
 }
@@ -461,6 +481,8 @@ document.addEventListener('click',function(e){
   if(t.id==='tgLink'){tgConnect('');return}
   if(t.id==='tgOff'){if(t.dataset.arm){guard(api('DELETE','/alt/telegram')).then(function(){tgLoad();toast('הבוט נותק')}).catch(function(){})}else{t.dataset.arm='1';t.textContent='בטוחה? לחצי שוב'}return}
   if(t.id==='outBtn'){api('POST','/alt/logout').then(function(){leads={};showLogin()});return}
+  if(t.id==='xAdd'){$('x_other').insertAdjacentHTML('beforeend',xRow('',''));return}
+  if(t.closest('[data-xdel]')){t.closest('.xo').remove();return}
   if(t.id==='newBtn'){openEditor(null);return}
   if(t.id==='shotBtn'){$('shotIn').click();return}
   if(t.id==='settingsBtn'){openSettings();return}

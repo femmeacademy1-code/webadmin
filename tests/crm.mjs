@@ -68,8 +68,9 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-adv]'); await pg.waitForSelector('#veil');            // closing -> delivered opens editor
   ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'קיבל סחורה', `${tag}: advanced to delivered`);
   ok(await pg.locator('#row_closed').isVisible() && await pg.locator('#row_follow').isHidden(), `${tag}: a closed deal asks for a closing date, not a follow-up`);
-  await pg.fill('#f_closed', '2026-10-05'); await pg.fill('#f_supply', '2026-10-09'); await pg.fill('#f_receipt', 'A-4411'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.fill('#f_closed', '2026-10-05'); await pg.fill('#f_supply', '2026-10-09'); await pg.fill('#f_receipt', 'A-4411'); await pg.check('#x_ins'); await pg.fill('#x_ins_a', '1200'); await pg.click('#xAdd'); await pg.fill('.xo .xl', 'שטיח'); await pg.fill('.xo .xa', '300'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/נסגר ב/.test(await pg.innerText('.card')), `${tag}: card shows the closing date`);
+  ok(/תוספות/.test(await pg.innerText('.card')) && /1,500/.test(await pg.innerText('.card')), `${tag}: card shows extras total 1,500`);
   ok(/אספקה ב/.test(await pg.innerText('.card')) && /A-4411/.test(await pg.innerText('.card')), `${tag}: card shows the supply date and receipt number`);
   ok(/1,600|3,000/.test(await pg.innerText('.kpi.big')), `${tag}: net profit after delivery: ${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')}`);
   // telegram connect box
