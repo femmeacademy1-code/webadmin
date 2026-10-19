@@ -276,10 +276,16 @@ function api(method,path,body){
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
 function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
-function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;render();return d.lead})}
+/* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
+var recent={},gone={};
+function save(id,body){return guard(api('PUT','/alt/leads/'+id,body)).then(function(d){leads[id]=d.lead;recent[id]={lead:d.lead,at:Date.now()};delete gone[id];render();return d.lead})}
 function load(){
   return api('GET','/alt/leads').then(function(d){
-    var m={};d.leads.forEach(function(l){m[l.id]=l});leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
+    var m={};d.leads.forEach(function(l){m[l.id]=l});
+    var now=Date.now();
+    Object.keys(recent).forEach(function(id){var r=recent[id];if(now-r.at>180000){delete recent[id];return}var sv=m[id];if(!sv||(sv.updatedAt||'')<(r.lead.updatedAt||''))m[id]=r.lead;else delete recent[id]});
+    Object.keys(gone).forEach(function(id){if(now-gone[id]>180000)delete gone[id];else delete m[id]});
+    leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
     if(e.status===401)showLogin();
@@ -432,7 +438,7 @@ function saveEditor(){
 }
 function armDelete(btn){
   if(btn.dataset.arm){
-    guard(api('DELETE','/alt/leads/'+editing)).then(function(){delete leads[editing];closeEditor();render();toast('הליד נמחק')}).catch(function(){});
+    guard(api('DELETE','/alt/leads/'+editing)).then(function(){gone[editing]=Date.now();delete recent[editing];delete leads[editing];closeEditor();render();toast('הליד נמחק')}).catch(function(){});
   }else{btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000)}
 }
 

@@ -101,6 +101,16 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: survives reload (stored on the server)`);
   ok(await pg.evaluate(() => document.documentElement.scrollWidth) <= w, `${tag}: no horizontal scroll`);
   await pg.screenshot({ path: `/tmp/crm-${tag}.png`, fullPage: true });
+  // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
+  await pg.click('.card'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.route('**/api/alt/leads', async (route) => {
+    const j = await (await route.fetch()).json();
+    j.leads = j.leads.map((l) => ({ ...l, product: 'ישן-STALE', updatedAt: '2020-01-01T00:00:00.000Z' }));
+    await route.fulfill({ json: j });
+  });
+  await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await pg.waitForTimeout(500);
+  ok(/מוצר מעודכן/.test(await pg.innerText('#list')), `${tag}: a stale server list does not undo a fresh save`);
+  await pg.unroute('**/api/alt/leads');
   for (let n = 0; n < 2; n++) { await pg.click('.card'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
   ok(await pg.locator('.empty').count() === 1, `${tag}: delete works`);
   ok(errs.length === 0, `${tag}: no page errors ${errs.join(';')}`);
