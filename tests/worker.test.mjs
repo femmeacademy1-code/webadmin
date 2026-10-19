@@ -1083,3 +1083,42 @@ test('chat: delete / insert image / insert video / replace image only work with 
   assert.match(sent, /<attachments>[\s\S]*pic-1\.jpg[\s\S]*clip-1\.mp4[\s\S]*<\/attachments>/);
   assert.doesNotMatch(sent, /evil\.sh/);                      // paths outside the upload allow-list never reach the model
 });
+
+/* ---------- lead tracking (owner only) ---------- */
+test('crm: owner-only, server owns the timeline, validates input, deletes', async () => {
+  const { owner, client } = await setup();
+  assert.equal((await call('GET', '/api/admin/crm')).status, 401);
+  assert.equal((await call('GET', '/api/admin/crm', { cookie: client })).status, 403);
+  assert.equal((await call('PUT', '/api/admin/crm/leads/abcd1234', { cookie: client, body: { name: 'x' } })).status, 403);
+
+  const empty = await call('GET', '/api/admin/crm', { cookie: owner });
+  assert.deepEqual(empty.data.leads, []); assert.equal(empty.data.cfg.vat, 18);
+
+  const id = 'lead0001abcd';
+  const a = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: ' דנה ', phone: '0501234567', stage: 'closing', price: '11800', cost: 5000, supplier: '2000', vatIncl: true, dealAt: '1999-01-01', createdAt: '1999-01-01' } });
+  assert.equal(a.status, 200, JSON.stringify(a.data));
+  assert.equal(a.data.lead.name, 'דנה'); assert.equal(a.data.lead.price, 11800);
+  assert.notEqual(a.data.lead.createdAt, '1999-01-01'); assert.equal(a.data.lead.dealAt, undefined);   // clients can't set the timeline
+  assert.equal(a.data.lead.log.length, 1);
+
+  const b = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'דנה', stage: 'delivered', price: 11800 } });
+  assert.equal(b.data.lead.log.length, 2); assert.ok(b.data.lead.dealAt); assert.equal(b.data.lead.createdAt, a.data.lead.createdAt);
+  const c = await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'דנה', stage: 'delivered', notes: 'עודכן' } });
+  assert.equal(c.data.lead.log.length, 2);                      // same stage: no new log entry
+  assert.equal(c.data.lead.dealAt, b.data.lead.dealAt);
+
+  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { stage: 'hot' } })).status, 400);          // no name / phone
+  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'x', price: 'abc' } })).status, 400);
+  assert.equal((await call('PUT', `/api/admin/crm/leads/${id}`, { cookie: owner, body: { name: 'x', follow: '12/10/2026' } })).status, 400);
+  assert.equal((await call('PUT', '/api/admin/crm/leads/BAD', { cookie: owner, body: { name: 'x' } })).status, 404);
+  const odd = await call('PUT', '/api/admin/crm/leads/lead0002abcd', { cookie: owner, body: { name: 'x', stage: 'bogus' } });
+  assert.equal(odd.data.lead.stage, 'talked');
+
+  assert.equal((await call('PUT', '/api/admin/crm/config', { cookie: owner, body: { vat: 500 } })).status, 400);
+  assert.equal((await call('PUT', '/api/admin/crm/config', { cookie: owner, body: { vat: 17, supplierInCost: true } })).data.cfg.vat, 17);
+  const all = await call('GET', '/api/admin/crm', { cookie: owner });
+  assert.equal(all.data.leads.length, 2); assert.equal(all.data.cfg.supplierInCost, true);
+
+  assert.equal((await call('DELETE', `/api/admin/crm/leads/${id}`, { cookie: owner })).status, 200);
+  assert.equal((await call('GET', '/api/admin/crm', { cookie: owner })).data.leads.length, 1);
+});
