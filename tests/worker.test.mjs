@@ -1285,3 +1285,21 @@ test('alternative: a commission receipt is priced from the catalog, supplier get
   assert.match(d.fields.notes, /בקבלה: ₪4,100/);
   assert.equal(d.fields.commission, undefined);                    // a customer's receipt is not the commission: the profit stays computed
 });
+
+test('alternative: leads saved by the first version (crm:*) are carried over, nothing is lost or overwritten, old Telegram webhook address still works', async () => {
+  const lead = { name: 'דנה ישנה', phone: '0501111111', stage: 'hot', price: 7500, log: [] };
+  await env.CMS.put('crm:l:old000000001', JSON.stringify(lead));
+  await env.CMS.put('crm:l:old000000002', JSON.stringify({ ...lead, name: 'ישן שתיים' }));
+  await env.CMS.put('crm:cfg', JSON.stringify({ vat: 17, supplierInCost: false }));
+  await env.CMS.put('alt:l:old000000002', JSON.stringify({ ...lead, name: 'חדש יותר' }));                    // already present: must not be overwritten
+  const alt = await altCookieFor();
+  const r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.deepEqual(r.leads.map((l) => l.name).sort(), ['דנה ישנה', 'חדש יותר'].sort());
+  assert.equal(r.cfg.vat, 17);
+  assert.ok(await env.CMS.get('crm:l:old000000001'));                                                          // the old copy stays
+  env.TELEGRAM_API = 'https://tg.test';
+  await env.CMS.put('crm:tg', JSON.stringify({ token: '1:x', secret: 'sec-legacy-0123456789', username: 'b', chats: [5], codes: [] }));
+  await env.CMS.delete('alt:migrated');
+  const hook = await worker.fetch(new Request('https://cms.test/api/telegram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'sec-legacy-0123456789' }, body: JSON.stringify({ message: { chat: { id: 5, type: 'private' }, text: '/help' } }) }), env);
+  assert.equal(hook.status, 200);
+});

@@ -2,7 +2,7 @@
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
-import { crmState, saveLead, extractFromImages, applyProposal } from './crm.js';
+import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy } from './crm.js';
 import { secretEquals } from './auth.js';
 
 const KEY = 'alt:tg';
@@ -50,6 +50,7 @@ export async function tgDisconnect(env) {
 
 /* ----- Telegram side ----- */
 export async function tgWebhook(env, req) {
+  await migrateLegacy(env);
   const c = await getKV(env, KEY);
   const got = req.headers.get('x-telegram-bot-api-secret-token') || '';
   if (!c || !got || !(await secretEquals(got, c.secret))) throw new HttpError(401, 'לא מורשה');

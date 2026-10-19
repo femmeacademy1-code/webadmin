@@ -18,6 +18,24 @@ function money(v, label) {
   return Math.round(x * 100) / 100;
 }
 
+/* The first version stored everything under crm:* (before it became the separate "Alternative" system). Copy it to alt:* once, never deleting the old keys. */
+export async function migrateLegacy(env) {
+  if (await env.CMS.get('alt:migrated')) return;
+  let cursor;
+  do {
+    const r = await env.CMS.list({ prefix: 'crm:l:', cursor });
+    for (const k of r.keys) {
+      const to = 'alt:l:' + k.name.slice('crm:l:'.length);
+      if (!(await env.CMS.get(to))) { const v = await env.CMS.get(k.name); if (v) await env.CMS.put(to, v); }
+    }
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  for (const [from, to] of [['crm:cfg', 'alt:cfg'], ['crm:tg', 'alt:tg']]) {
+    if (!(await env.CMS.get(to))) { const v = await env.CMS.get(from); if (v) await env.CMS.put(to, v); }
+  }
+  await env.CMS.put('alt:migrated', '1');
+}
+
 export async function crmState(env) {
   const keys = [];
   let cursor;

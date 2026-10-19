@@ -15,7 +15,7 @@ import { normalizeDomain, dnsRecords, checkDns, isApex } from './domain.js';
 import { chat } from './chat.js';
 import { checkDomains, createOrder, listOrders, orderAction } from './domains.js';
 import { Cloudflare, projectName } from './cloudflare.js';
-import { crmState, saveLead, deleteLead, saveCfg, extractFromImages } from './crm.js';
+import { crmState, saveLead, deleteLead, saveCfg, extractFromImages, migrateLegacy } from './crm.js';
 import { tgStatus, tgConnect, tgDisconnect, tgWebhook } from './telegram.js';
 import { HttpError, PAGE_KEY, validateEdits, validateImages, validateSite, validateUser, LIMITS } from './validate.js';
 
@@ -113,7 +113,7 @@ async function route(req, env, url) {
   const { pathname } = url;
   const method = req.method;
 
-  if (pathname === '/api/alt/tg-hook' && method === 'POST') return tgWebhook(env, req);   // called by Telegram: authenticated by its secret header, not by a cookie
+  if ((pathname === '/api/alt/tg-hook' || pathname === '/api/telegram') && method === 'POST') return tgWebhook(env, req);      // /api/telegram: the address the first version registered with Telegram   // called by Telegram: authenticated by its secret header, not by a cookie
 
   if (method !== 'GET' && req.headers.get('x-requested-with') !== 'fd') throw new HttpError(403, 'בקשה לא מורשית');
 
@@ -217,6 +217,7 @@ async function altRoute(req, env, url, method) {
     return altLogin(req, env, rec);
   }
   if (!(await altAuthed(req, env))) throw new HttpError(401, 'יש להתחבר');
+  await migrateLegacy(env);
   if (pathname === '/api/alt/leads' && method === 'GET') return json(await crmState(env));
   if (pathname === '/api/alt/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
   if (pathname === '/api/alt/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });
