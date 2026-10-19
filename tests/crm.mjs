@@ -134,6 +134,12 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(opts.some((t) => /יולי 2026 \(1\)/.test(t)) && opts.some((t) => /אוקטובר 2026 \(1\)/.test(t)), `${tag}: months with deals are listed (${opts.join(' | ')})`);
   await pg.selectOption('#period', 'm:2026-07');
   ok(/1,800/.test(await pg.innerText('.kpi.big')) && /משה/.test(await pg.textContent('#dealList')), `${tag}: July shows only July's profit and its deals`);
+  // the closed tabs follow the chosen month
+  await pg.click('[data-f="delivered"]');
+  ok((await pg.locator('#list .card').count()) === 0 && /יולי 2026/.test(await pg.innerText('#periodNote')), `${tag}: with July chosen the delivered tab shows no October deal`);
+  await pg.selectOption('#period', 'm:2026-10');
+  ok((await pg.locator('#list .card').count()) === 1 && /דנה/.test(await pg.innerText('#list')), `${tag}: with October chosen it shows that deal`);
+  await pg.selectOption('#period', 'm:2026-07'); await pg.click('[data-f="all"]');
   // bulk change of closing date (select mode)
   await pg.click('#selBtn'); await pg.click('#list .card:has-text("דנה")'); await pg.fill('#selDate', '2026-07-20'); await pg.click('#selApply');
   await pg.waitForFunction(() => /20\.7\.26/.test(document.querySelector('#list').innerText));

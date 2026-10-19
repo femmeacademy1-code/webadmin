@@ -168,6 +168,7 @@ legend{font-weight:800;padding:0 6px}
   </section>
 
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
+  <div class="note" id="periodNote" hidden></div>
   <div class="list" id="list" aria-live="polite"></div>
   <section class="sum" id="potBox" hidden aria-label="רווח פוטנציאלי"></section>
 </div>
@@ -252,7 +253,7 @@ function renderKpis(){
   $('dealList').innerHTML=all.length?'<summary>פירוט העסקאות בתקופה ('+all.length+')</summary>'+all.map(function(l){var c=calc(l);return '<div class="drow"><span class="num">'+(l.dealAt?dstr(l.dealAt):'')+'</span><span>'+esc(l.name||l.phone||'')+(l.product?' · '+esc(l.product):'')+(qtyOf(l)>1?' × '+qtyOf(l):'')+'</span><b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></div>'}).join(''):'';
 }
 function renderTabs(){
-  var ls=allLeads(),cnt={};STAGES.forEach(function(s){cnt[s.id]=0});ls.forEach(function(l){if(cnt[l.stage]!=null)cnt[l.stage]++});
+  var ls=allLeads(),cnt={};STAGES.forEach(function(s){cnt[s.id]=0});ls.forEach(function(l){if(cnt[l.stage]==null)return;if(DEAL.indexOf(l.stage)>-1&&period!=='all'&&!inPeriod(l))return;cnt[l.stage]++});      // closed tabs count only the chosen month
   var open=ls.filter(function(l){return l.stage!=='done'&&l.stage!=='lost'}).length;
   var h='<button class="tab" type="button" data-f="open" aria-pressed="'+(filter==='open')+'">פתוחים <em>'+open+'</em></button>';
   STAGES.forEach(function(s){h+='<button class="tab" type="button" data-f="'+s.id+'" style="--c:'+stageColor(s.id)+'" aria-pressed="'+(filter===s.id)+'"><i></i>'+s.name+' <em>'+cnt[s.id]+'</em></button>'});
@@ -260,7 +261,11 @@ function renderTabs(){
   $('tabs').innerHTML=h;
 }
 function renderList(){
+  var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
+  var note=$('periodNote');
+  if(note){note.hidden=!byMonth;if(byMonth){var so=$('period').selectedOptions[0];note.textContent='מוצגות רק עסקאות שנסגרו ב: '+(so?so.textContent.replace(/\s*\(\d+\)$/,''):'')+'. אפשר לשנות בתיבת "הכסף שנכנס" למעלה.'}}
   var ls=allLeads().filter(function(l){
+    if(byMonth)return l.stage===filter&&inPeriod(l);
     if(filter==='all')return true;
     if(filter==='open')return l.stage!=='done'&&l.stage!=='lost';
     return l.stage===filter;
@@ -749,7 +754,7 @@ document.addEventListener('change',function(e){
   if(e.target.id==='impIn'){importFiles(e.target.files);e.target.value='';return}
   if(e.target.dataset&&e.target.dataset.imp!=null){IMP[+e.target.dataset.imp].on=e.target.checked;var on=IMP.filter(function(r){return r.on}).length,g=$('impGo');if(g){g.textContent='הוספה / עדכון של '+on;g.disabled=!on}return}
   if(e.target.dataset&&e.target.dataset.impstage!=null){var rr=IMP[+e.target.dataset.impstage];rr.lead.stage=e.target.value;if(DEAL.indexOf(rr.lead.stage)>-1&&!rr.closed&&impDateVal)rr.closed=impDateVal;paintImport();return}
-  if(e.target.id==='period'){period=e.target.value;renderKpis()}
+  if(e.target.id==='period'){period=e.target.value;render()}
   if(e.target.id==='f_vatIncl'){autoSupplier();[].forEach.call(document.querySelectorAll('#row_extras .xo'),autoXProfit);updCalc()}
   if(e.target.classList&&e.target.classList.contains('xk'))updCalc();
 });
