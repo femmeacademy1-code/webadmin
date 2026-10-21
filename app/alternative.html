@@ -7,6 +7,8 @@
 <meta name="theme-color" content="#f7f3ef">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="לידים אלטרנייטיב">
+<link rel="icon" type="image/png" href="alt-icon.png">
+<link rel="apple-touch-icon" href="alt-icon.png">
 <title>מעקב לידים אלטרנייטיב</title>
 <style>
 @font-face{font-family:"Assistant";font-weight:200 800;font-display:swap;src:url(fonts/assistant-hebrew.woff2) format("woff2");unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
@@ -129,6 +131,8 @@ legend{font-weight:800;padding:0 6px}
 .card.pick.sel::before{content:'☑'}
 .cnote{white-space:pre-wrap;font-size:14.5px;background:var(--chip);border-radius:8px;padding:6px 10px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .card.lostc{opacity:.65}
+.brand{background:#2b2321;border-radius:14px;padding:12px 16px;display:flex;justify-content:center}
+.brand img{height:86px;width:auto;max-width:100%;object-fit:contain}
 .note{color:var(--muted);font-size:14px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}h1{font-size:26px}.kpi b{font-size:22px}.kpi.big b{font-size:28px}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
@@ -138,6 +142,7 @@ legend{font-weight:800;padding:0 6px}
 </head>
 <body>
 <form class="login" id="login" dir="rtl" hidden>
+  <div class="brand"><img src="alt-logo.png" alt="Alternative"></div>
   <h1>מעקב לידים אלטרנייטיב</h1>
   <p class="note" id="l_note">מעקב לידים ומכירות</p>
   <div class="f" id="l_adminRow" hidden><label for="l_admin">סיסמת הניהול (פעם אחת, להגדרת הסיסמה)</label><input id="l_admin" type="password" autocomplete="off" dir="ltr"></div>
@@ -146,6 +151,7 @@ legend{font-weight:800;padding:0 6px}
   <button class="btn pri" type="submit" id="l_btn">כניסה</button>
 </form>
 <div class="wrap" id="app" dir="rtl" lang="he" hidden>
+  <div class="brand"><img src="alt-logo.png" alt="Alternative – פתרונות אלטרנטיביים לאירוח בטבע"></div>
   <header>
     <h1>מעקב לידים אלטרנייטיב</h1>
     <div class="hbtns">
@@ -284,6 +290,31 @@ function renderTabs(){
   h+='<button class="tab" type="button" data-f="all" aria-pressed="'+(filter==='all')+'">הכל <em>'+ls.length+'</em></button>';
   $('tabs').innerHTML=h;
 }
+/* duplicates: the same phone (any format) or the same name is the same lead, wherever it is in the system */
+function normName(s){return String(s||'').replace(/\s+/g,' ').trim().toLowerCase()}
+function phoneKey(s){var d=String(s||'').replace(/\D/g,'').replace(/^972/,'0');return d.length>=7?d:''}
+function findDups(name,phone,exceptId){
+  var pk=phoneKey(phone),nk=normName(name),out=[];
+  allLeads().forEach(function(l){
+    if(l.id===exceptId)return;
+    var byPhone=pk&&phoneKey(l.phone)===pk,byName=nk&&normName(l.name)===nk;
+    if(byPhone||byName)out.push({lead:l,by:byPhone?'phone':'name'});
+  });
+  return out;
+}
+function dupLine(d){var l=d.lead,s=SM[l.stage]||SM.talked;return '<div class="drow"><span>'+(d.by==='phone'?'אותו טלפון':'אותו שם')+': <b>'+esc(l.name||l.phone)+'</b> · בשלב "'+s.name+'"'+(l.product?' · '+esc(l.product):'')+(DEAL.indexOf(s.id)>-1&&l.dealAt?' · נסגר ב-'+dstr(l.dealAt):'')+'</span><button type="button" class="btn sm" data-opendup="'+l.id+'">פתיחה</button></div>'}
+var dupForce=false;
+function paintDup(){
+  var h=$('dupHint');if(!h)return;
+  var orig=editing?leads[editing]:null;
+  var ds=findDups(val('f_name'),val('f_phone'),editing);
+  var changed=!orig||val('f_phone')!==(orig.phone||'')||val('f_name')!==(orig.name||'');
+  if(!ds.length||!changed){h.hidden=true;h.innerHTML='';return}
+  h.hidden=false;
+  h.innerHTML='<b>⚠ ליד זה כבר קיים במערכת</b>'+ds.map(dupLine).join('')+(dupForce?'':'<div class="row" style="margin-top:8px"><button type="button" class="btn sm" id="dupForce">זה אדם אחר, להוסיף בכל זאת</button></div>');
+}
+var RANK=['hot','catalog','talked','season','viewing','closing','delivered','done','lost'];
+function rankOf(st){var i=RANK.indexOf(st);return i<0?99:i}
 function renderList(){
   var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
   var bar=$('periodBar'),note=$('periodNote'),closedTab=DEAL.indexOf(filter)>-1&&view==='leads';
@@ -297,7 +328,7 @@ function renderList(){
   ls.sort(function(a,b){
     var fa=a.follow||'9999',fb=b.follow||'9999';
     if(filter!=='all'&&filter!=='open')return (b.updatedAt||'').localeCompare(a.updatedAt||'');
-    return (SM[b.stage]?SM[b.stage].i:0)-(SM[a.stage]?SM[a.stage].i:0)||fa.localeCompare(fb);
+    return rankOf(a.stage)-rankOf(b.stage)||fa.localeCompare(fb)||(b.updatedAt||'').localeCompare(a.updatedAt||'');     // hot first, then received the catalog, talked, next season
   });
   if(!ls.length){
     $('list').innerHTML='<div class="empty"><b>'+(Object.keys(leads).length?'אין לידים בשלב הזה':'עוד אין לידים')+'</b>'+(Object.keys(leads).length?'בחרי שלב אחר למעלה.':'כל פעם שדיברת עם מישהו, לחצי "ליד חדש" ורשמי שם וטלפון.')+'</div>';
@@ -567,7 +598,7 @@ function openEditor(id,hint){
    (proposal?'<div class="hint"><b>הצעה מהצילום. בדקי ותקני לפני שמירה</b>'+esc(proposal.summary)+(proposal.changed.length?'<br>מולא: '+proposal.changed.map(function(k){return LABEL[k]||k}).join(', '):'<br>לא נמצא מידע חדש לשמירה.')+'</div>':'')+
    '<div class="stages" id="stages">'+STAGES.map(function(s){return '<button type="button" class="stg" data-stg="'+s.id+'" style="--c:'+stageColor(s.id)+'" aria-pressed="'+(s.id===stg)+'">'+s.name+'</button>'}).join('')+'</div>'+
    '<div class="grid2">'+
-     field('f_name','שם',l.name,'text',{})+field('f_phone','טלפון',l.phone,'tel',{})+
+     field('f_name','שם',l.name,'text',{})+field('f_phone','טלפון',l.phone,'tel',{})+'<div class="hint" id="dupHint" hidden style="grid-column:1/-1;border-color:var(--warn)"></div>'+
      field('f_product','מה הוא מחפש / איזה מוצר',l.product,'text',{full:true})+
      field('f_source','מאיפה הגיע',l.source,'text',{})+'<div class="f" id="row_follow">'+field('f_follow','לחזור אליו ב',l.follow,'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_closed" hidden>'+field('f_closed','תאריך סגירה',l.dealAt?l.dealAt.slice(0,10):today(),'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_supply" hidden>'+field('f_supply','תאריך אספקה',l.deliveryDate,'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_receipt" hidden>'+field('f_receipt','מספר קבלה',l.receiptNo,'text',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+
      '<div class="f full"><label for="f_notes">הערות</label><textarea id="f_notes" rows="3">'+esc(l.notes)+'</textarea></div>'+
@@ -586,8 +617,10 @@ function openEditor(id,hint){
    (id?'<button class="btn danger" type="button" id="delBtn">מחיקה</button>':'')+'</div>'+
   '</form></div>';
   $('sheetHost').innerHTML=h;
+  dupForce=false;
   $('sheet').dataset.stage=stg;
   syncStage(stg);
+  paintDup();
   if(l.supplier!==''&&l.supplier!=null)$('f_supplier').dataset.manual='1';      // a saved supplier amount is never overwritten
   updCalc();
   setTimeout(function(){var ae=document.activeElement,f=$(id?'f_price':'f_name');if(f&&!(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)))f.focus()},30);      // never steal focus from a field she already tapped
@@ -622,6 +655,8 @@ function saveEditor(){
   var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:ex,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
     price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
+  var orig0=editing?leads[editing]:null,changed0=!orig0||d.phone!==(orig0.phone||'')||d.name!==(orig0.name||'');
+  if(changed0&&!dupForce&&findDups(d.name,d.phone,editing).length){paintDup();toast('ליד זה כבר קיים במערכת');var dh=$('dupHint');if(dh&&dh.scrollIntoView)dh.scrollIntoView({block:'center'});return}
   save(editing||newId(),d).then(function(l){closeEditor();reveal(l);toast('נשמר')}).catch(function(){});
 }
 function armDelete(btn){
@@ -948,6 +983,8 @@ document.addEventListener('click',function(e){
   if(t.id==='shDel'){delShipment(t);return}
   if(t.id==='moneyBtn'){view='money';SEL.on=false;SEL.ids={};render();window.scrollTo(0,0);return}
   if(t.id==='backBtn'){view='leads';render();window.scrollTo(0,0);return}
+  if(t.id==='dupForce'){dupForce=true;paintDup();toast('אפשר לשמור');return}
+  var od=t.closest('[data-opendup]');if(od){openEditor(od.dataset.opendup);return}
   if(t.id==='expAdd'){openExpense(null);return}
   if(t.id==='expMgr'){openExpMgr();return}
   if(t.id==='xmAll'){var allx=expenses.every(function(x){return XSEL[x.id]});XSEL={};if(!allx)expenses.forEach(function(x){XSEL[x.id]=1});paintExpMgr();return}
@@ -985,6 +1022,7 @@ document.addEventListener('keydown',function(e){
 });
 document.addEventListener('input',function(e){
   if(e.target.id==='f_supplier')e.target.dataset.manual='1';
+  if(e.target.id==='f_name'||e.target.id==='f_phone'){dupForce=false;paintDup()}
   if(e.target.id==='f_price'||e.target.id==='f_qty')autoSupplier();
   var xr=e.target.closest&&e.target.closest('.xo');
   if(xr){if(e.target.classList.contains('xp'))e.target.dataset.manual='1';else if(e.target.classList.contains('xa')||e.target.classList.contains('xc'))autoXProfit(xr)}

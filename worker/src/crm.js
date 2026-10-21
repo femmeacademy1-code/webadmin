@@ -316,6 +316,7 @@ function shapeProposal(p, leads, cfg, opts = {}) {
   }
   if (!cat && Number(p.quantity) > 1) fields.qty = qtyOf({ qty: p.quantity });
   let matchId = leads.some((l) => l.id === p.matchId) ? p.matchId : '';
+  if (!matchId && digits(fields.phone).length < 7 && fields.name) { const nm = String(fields.name).replace(/\s+/g, ' ').trim().toLowerCase(); const same = leads.filter((l) => String(l.name || '').replace(/\s+/g, ' ').trim().toLowerCase() === nm); if (same.length === 1) matchId = same[0].id; }   // no phone: an exact name that belongs to exactly one lead
   if (!matchId && digits(fields.phone).length >= 7) { const same = leads.find((l) => digits(l.phone) === digits(fields.phone)); if (same) matchId = same.id; }   // same phone = same person
   return { fields, matchId, docType: text(p.docType, 30), summary: (text(p.summary, 300) || 'לא זיהיתי פרטים בצילום') + note };
 }

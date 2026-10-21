@@ -1332,6 +1332,10 @@ test('alternative: bulk import returns many proposals (catalog, quantity, extras
   assert.equal(a.matchId, 'lead0001abcd');                                            // same phone (formatting ignored) = same person
   assert.equal(a.fields.price, 7500); assert.equal(a.fields.qty, 2); assert.equal(a.fields.commission, 3400); assert.equal(a.fields.closedDate, '2026-07-12');
   assert.equal(a.fields.supplier, Math.round(7500 / 1.18 * 2 * 0.7));
+  aiReply = [{ type: 'tool_use', id: 'n', name: 'propose_leads', input: { leads: [{ docType: 'other', name: ' דנה  כהן ', stage: 'hot', summary: 'בלי טלפון' }, { docType: 'other', name: 'מישהי אחרת', phone: '0539999999', summary: 'x' }] } }];
+  const byName = (await call('POST', '/api/alt/import', { cookie: alt, body: { text: 'x' } })).data.items;
+  assert.equal(byName[0].matchId, 'lead0001abcd');                                    // no phone: the same name is the same lead
+  assert.equal(byName[1].matchId, '');
   assert.equal(b.matchId, ''); assert.equal(b.fields.price, 4000); assert.equal(b.fields.closedDate, undefined);   // a non-ISO date is dropped, never guessed
   assert.deepEqual(b.fields.extras.map((x) => x.k), ['insulation', 'other']);
   assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.length, 1);   // nothing saved

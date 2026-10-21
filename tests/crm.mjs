@@ -127,6 +127,28 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="hot"]');
   ok(await pg.locator('#list .card:has-text("רונית") [data-adv]').innerText().then((t) => /קיבל קטלוג/.test(t)) && await pg.locator('#list .card:has-text("רונית") [data-cat]').count() === 0, `${tag}: no second 'received the catalog' button`);
   await pg.click('[data-f="all"]');
+  // the logo at the top
+  ok(await pg.evaluate(() => { const i = document.querySelector('#app .brand img'); return !!i && i.complete && i.naturalWidth > 100; }), `${tag}: the Alternative logo is shown`);
+  // order of the open tab: hot first, the delivered deal last
+  await pg.click('[data-f="open"]');
+  const order = await pg.locator('#list .card h3').allInnerTexts();
+  ok(order.length >= 3 && /דנה/.test(order[order.length - 1]) && !/דנה/.test(order[0]), `${tag}: open tab order: ${order.join(' | ')}`);
+  await pg.click('[data-f="all"]');
+  // duplicates: the same phone (any format) is refused, with where the lead is
+  await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
+  await pg.fill('#f_name', 'מישהו חדש'); await pg.fill('#f_phone', '050-123-4567');
+  await pg.waitForSelector('#dupHint:not([hidden])');
+  const dh = await pg.innerText('#dupHint');
+  ok(/כבר קיים במערכת/.test(dh) && /דנה כהן/.test(dh) && /קיבל סחורה/.test(dh), `${tag}: the hint says the lead exists and where (${dh.replace(/\n/g, ' ')})`);
+  await pg.click('#sheet button[type=submit]');
+  ok((await pg.locator('#veil').count()) === 1 && (await pg.locator('#list .card').count()) === 3, `${tag}: saving the duplicate is blocked`);
+  await pg.click('[data-opendup]'); await pg.waitForFunction(() => document.querySelector('#f_name') && document.querySelector('#f_name').value === 'דנה כהן');
+  ok(await pg.locator('#dupHint').isHidden(), `${tag}: the existing lead opens from the hint`);
+  await pg.click('#cancelBtn');
+  await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
+  await pg.fill('#f_name', ' דנה  כהן '); await pg.waitForSelector('#dupHint:not([hidden])');
+  ok(/אותו שם/.test(await pg.innerText('#dupHint')), `${tag}: the same name is caught too`);
+  await pg.click('#cancelBtn');
   // a one-tap "hot" button for a lead that is not hot (here: it received the catalog)
   await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
   await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
