@@ -290,6 +290,8 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
   ok(await pg.evaluate(() => { const f = document.getElementById('projForm'), sm = document.getElementById('pjSum'), last = [...f.querySelectorAll('.pjrow')].pop(), notes = document.getElementById('p_notes'); return !!(last.compareDocumentPosition(sm) & 4) && !!(notes.compareDocumentPosition(sm) & 4); }), `${tag}: the summary sits at the end, after all the items and the notes`);
+  await pg.click('[data-pjadd="tent"]'); await pg.locator('#pj_tent .pjrow').last().locator('.pl').fill('אוהל לוטוס'); await pg.locator('#pj_tent .pjrow').last().locator('.pq').fill('2'); await pg.locator('#pj_tent .pjrow').last().locator('.pu').fill('1000');
+  ok(/2,000/.test(await pg.innerText('#pjsub_tent')) && await pg.locator('#pj_tent .pjrow .pv').count() === 1, `${tag}: a purchased-tents category with quantity and a licensed/exempt choice`);
   const mon = new Date().toISOString().slice(0, 7);
   await pg.selectOption('#p_status', 'done'); await pg.fill('#p_date', mon + '-12');
   const pjProfitText = (await pg.innerText('#pjSum'));

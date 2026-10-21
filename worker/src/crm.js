@@ -188,7 +188,7 @@ export async function deleteShipment(env, id) {
  * One document (alt:proj) with all projects. Each item: category, what, quantity, unit price (planned) and an optional actual total. */
 const PROJ = 'alt:proj';
 const MAX_PROJ = 200;
-const PCATS = ['material', 'accessory', 'labor', 'fuel', 'other'];
+const PCATS = ['tent', 'material', 'accessory', 'labor', 'fuel', 'other'];
 export async function listProjects(env) {
   const d = await getKV(env, PROJ);
   return d && Array.isArray(d.items) ? d.items : [];

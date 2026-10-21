@@ -839,7 +839,7 @@ function runImport(){
 }
 
 /* project costing: every item with its cost (materials, accessories, workers, fuel, other), the budget kept for overruns, the net profit */
-var PCATS=[{k:'material',name:'חומרי גלם',ph:'למשל: עץ, בד, ברגים'},{k:'accessory',name:'מוצרים נלווים',ph:'מוצר נלווה'},{k:'labor',name:'עובדים',ph:'עובד (כמות = ימים, מחיר = יומית)'},{k:'fuel',name:'דלק',ph:'דלק (כמות = נסיעות, מחיר = עלות נסיעה)'},{k:'other',name:'אחר',ph:'הוצאה אחרת'}];
+var PCATS=[{k:'tent',name:'אוהלים שנרכשו',ph:'איזה אוהל (כמות = כמה יחידות, מחיר = ליחידה)'},{k:'material',name:'חומרי גלם',ph:'למשל: עץ, בד, ברגים'},{k:'accessory',name:'מוצרים נלווים',ph:'מוצר נלווה'},{k:'labor',name:'עובדים',ph:'עובד (כמות = ימים, מחיר = יומית)'},{k:'fuel',name:'דלק',ph:'דלק (כמות = נסיעות, מחיר = עלות נסיעה)'},{k:'other',name:'אחר',ph:'הוצאה אחרת'}];
 var PSTAT={plan:'בתכנון',doing:'בביצוע',done:'הסתיים'};
 /* VAT in project costing. "עוסק מורשה": the price is with or without VAT, and VAT paid to licensed suppliers (amount entered includes VAT) is recovered, so only
  * its net counts as a cost. "עוסק פטור": no VAT on the income, no VAT to recover, every amount counts as entered. Each cost row says whether its supplier is licensed or exempt. */
