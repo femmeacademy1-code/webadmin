@@ -1416,6 +1416,10 @@ test('alternative: project costing is stored with its items, validated, updated,
   const p = r.data.project;
   assert.equal(p.name, 'בית עץ'); assert.equal(p.price, 100000); assert.equal(p.contingencyPct, 10);          // default budget for overruns
   assert.deepEqual(p.items.map((x) => [x.cat, x.label, x.qty, x.unit, x.actual]), [['material', 'עץ', 10, 1000, 11500], ['labor', 'עובד', 5, 800, ''], ['other', 'שונות', 1, 50, '']]);   // the empty row is dropped
+  const vm = await call('PUT', '/api/alt/projects/proj00000009', { cookie: alt, body: { name: 'פטור', vatMode: 'exempt', price: 1000, items: [{ cat: 'material', label: 'א', unit: 100, vatType: 'lic' }, { cat: 'material', label: 'ב', unit: 100 }] } });
+  assert.equal(vm.data.project.vatMode, 'exempt'); assert.deepEqual(vm.data.project.items.map((x) => x.vatType), ['lic', 'exempt']);   // a missing supplier type = exempt (as entered)
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000009', { cookie: alt, body: { name: 'x', vatMode: 'weird' } })).data.project.vatMode, 'lic');
+  await call('DELETE', '/api/alt/projects/proj00000009', { cookie: alt });
   await call('PUT', '/api/alt/leads/lead0009abcd', { cookie: alt, body: { name: 'מאיה', phone: '0501112222' } });
   assert.equal((await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'x', leadId: 'nonexist0001' } })).status, 400);        // the customer must be a real lead
   assert.equal((await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'x', leadId: 'BAD!' } })).status, 400);

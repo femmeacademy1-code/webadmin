@@ -828,14 +828,22 @@ function runImport(){
 /* project costing: every item with its cost (materials, accessories, workers, fuel, other), the budget kept for overruns, the net profit */
 var PCATS=[{k:'material',name:'חומרי גלם',ph:'למשל: עץ, בד, ברגים'},{k:'accessory',name:'מוצרים נלווים',ph:'מוצר נלווה'},{k:'labor',name:'עובדים',ph:'עובד (כמות = ימים, מחיר = יומית)'},{k:'fuel',name:'דלק',ph:'דלק (כמות = נסיעות, מחיר = עלות נסיעה)'},{k:'other',name:'אחר',ph:'הוצאה אחרת'}];
 var PSTAT={plan:'בתכנון',doing:'בביצוע',done:'הסתיים'};
+/* VAT in project costing. "עוסק מורשה": the price is with or without VAT, and VAT paid to licensed suppliers (amount entered includes VAT) is recovered, so only
+ * its net counts as a cost. "עוסק פטור": no VAT on the income, no VAT to recover, every amount counts as entered. Each cost row says whether its supplier is licensed or exempt. */
 function pjTotals(p){
-  var vat=n(cfg.vat)/100,price=n(p.price),net=p.vatIncl===false?price:price/(1+vat),planned=0,actual=0,hasActual=false,by={};
+  var vat=n(cfg.vat)/100,exempt=p.vatMode==='exempt',price=n(p.price);
+  var net=exempt?price:(p.vatIncl===false?price:price/(1+vat)),outVat=exempt?0:(p.vatIncl===false?price*vat:price-net);
+  var entered=0,planned=0,actual=0,inVat=0,licAmt=0,exmAmt=0,hasActual=false,by={};
   (p.items||[]).forEach(function(it){
     var q=(it.qty===''||it.qty==null)?1:n(it.qty),pl=q*n(it.unit),has=it.actual!==''&&it.actual!=null,ac=has?n(it.actual):pl;
-    if(has)hasActual=true;planned+=pl;actual+=ac;by[it.cat]=(by[it.cat]||0)+pl;
+    var lic=it.vatType==='lic',f=(!exempt&&lic)?1/(1+vat):1;
+    if(has)hasActual=true;
+    entered+=pl;planned+=pl*f;actual+=ac*f;if(!exempt&&lic)inVat+=pl-pl*f;
+    if(lic)licAmt+=pl;else exmAmt+=pl;
+    by[it.cat]=(by[it.cat]||0)+pl;
   });
   var pct=(p.contingencyPct===''||p.contingencyPct==null)?10:n(p.contingencyPct),reserve=planned*pct/100,over=actual-planned;
-  return {net:net,planned:planned,actual:actual,hasActual:hasActual,by:by,pct:pct,reserve:reserve,over:over,left:reserve-over,profit:net-planned-reserve,profitNoOver:net-planned,profitActual:net-actual,margin:net>0?(net-planned-reserve)/net:0};
+  return {net:net,outVat:outVat,inVat:inVat,vatNet:outVat-inVat,exempt:exempt,entered:entered,licAmt:licAmt,exmAmt:exmAmt,planned:planned,actual:actual,hasActual:hasActual,by:by,pct:pct,reserve:reserve,over:over,left:reserve-over,profit:net-planned-reserve,profitNoOver:net-planned,profitActual:net-actual,margin:net>0?(net-planned-reserve)/net:0};
 }
 function loadProjects(){return load()}
 var PAYS={none:'לא שולם',deposit:'מקדמה שולמה',partial:'שולם חלקית',paid:'שולם במלואו'};
@@ -859,20 +867,22 @@ function renderProj(){
 }
 function pjRowHtml(cat,it){
   it=it||{};var c=PCATS.filter(function(x){return x.k===cat})[0];
+  var vt=it.vatType||'exempt';
   return '<div class="pjrow" data-cat="'+cat+'"><div class="pjh"><input class="pl" aria-label="פריט" placeholder="'+esc(c.ph)+'" value="'+esc(it.label||'')+'"><button type="button" class="btn sm" data-pjdel="1" aria-label="הסרת שורה">✕</button></div>'+
     '<div class="x3p">'+xf('pq','כמות',it.qty==null||it.qty===''?(it.label||it.unit!==undefined&&it.unit!==''?1:''):it.qty)+xf('pu','מחיר ליחידה (₪)',it.unit)+xf('pa','בפועל, סה״כ (₪)',it.actual)+'</div>'+
+    '<div class="f"><label>ספק</label><select class="pv" aria-label="סוג הספק"><option value="lic"'+(vt==='lic'?' selected':'')+'>ספק עוסק מורשה (הסכום כולל מע״מ)</option><option value="exempt"'+(vt!=='lic'?' selected':'')+'>ספק עוסק פטור / בלי מע״מ</option></select></div>'+
     '<div class="note">סה״כ מתוכנן: <b class="pt num">₪0</b></div></div>';
 }
-function pjAddRow(cat){var box=$('pj_'+cat);if(!box)return;box.insertAdjacentHTML('beforeend',pjRowHtml(cat,{qty:1}));var inp=box.lastElementChild.querySelector('.pl');if(inp)inp.focus();pjUpdate()}
+function pjAddRow(cat){var box=$('pj_'+cat);if(!box)return;var lastSel=box.querySelector('.pjrow:last-child .pv');box.insertAdjacentHTML('beforeend',pjRowHtml(cat,{qty:1,vatType:lastSel?lastSel.value:'lic'}));var inp=box.lastElementChild.querySelector('.pl');if(inp)inp.focus();pjUpdate()}
 function pjRead(){
   var items=[];
   [].forEach.call(document.querySelectorAll('#projForm .pjrow'),function(r){
     var q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value),a=clean(r.querySelector('.pa').value),l=r.querySelector('.pl').value.trim();
     [q,u,a].forEach(function(v){if(v!==''&&(!isFinite(Number(v))||Number(v)<0))throw new Error('בשורה "'+(l||'ללא שם')+'" יש מספר לא תקין')});
     if(!l&&u===''&&a==='')return;
-    items.push({cat:r.dataset.cat,label:l,qty:q===''?1:q,unit:u,actual:a});
+    items.push({cat:r.dataset.cat,label:l,qty:q===''?1:q,unit:u,actual:a,vatType:r.querySelector('.pv').value});
   });
-  return {price:clean(val('p_price')),vatIncl:$('p_vat').checked,contingencyPct:clean(val('p_pct')),items:items};
+  return {price:clean(val('p_price')),vatIncl:$('p_vat').checked,vatMode:$('p_vatmode').value,contingencyPct:clean(val('p_pct')),items:items};
 }
 function pjUpdate(){
   var s=$('pjSum');if(!s)return;
@@ -881,13 +891,21 @@ function pjUpdate(){
   var t=pjTotals(p),pay={status:$('p_pay')?$('p_pay').value:'none',paid:n(clean(val('p_paid'))),price:n(p.price)};
   PCATS.forEach(function(c){var e=$('pjsub_'+c.k);if(e)e.textContent=fmt(t.by[c.k]||0)});
   var row=function(l,v,cls){return '<div class="drow"><span>'+l+'</span><b class="num'+(cls?' '+cls:'')+'">'+v+'</b></div>'};
-  s.innerHTML=row('הכנסה לפני מע״מ',fmt(t.net))+row('עלויות מתוכננות',fmt(t.planned))+
+  var vm=$('p_vatmode')?$('p_vatmode').value:'lic';
+  var ve=$('p_vat');if(ve){ve.disabled=vm==='exempt';ve.parentNode.style.opacity=vm==='exempt'?'.5':'1'}
+  [].forEach.call(document.querySelectorAll('#projForm .pv'),function(sl){sl.disabled=vm==='exempt'});
+  s.innerHTML=row(t.exempt?'הכנסה (פטור ממע״מ)':'הכנסה לפני מע״מ',fmt(t.net))+
+    row('הוצאות כפי שהוזנו',fmt(t.entered))+
+    (!t.exempt&&t.entered>0?'<div class="drow"><span class="note">מזה ספקים מורשים (כולל מע״מ): '+fmt(t.licAmt)+' · ספקים פטורים: '+fmt(t.exmAmt)+'</span></div>'+row('מע״מ תשומות לקיזוז (מספקים מורשים)',fmt(t.inVat)):'')+
+    row(t.exempt?'עלויות (בלי קיזוז מע״מ)':'עלויות נטו (אחרי קיזוז מע״מ)',fmt(t.planned))+
     row('תקציב לחריגות ('+n(t.pct)+'%)',fmt(t.reserve))+
     (t.hasActual?row('חריגה בפועל (בפועל פחות מתוכנן)',fmt(t.over),t.over>0?'neg':'')+row('נשאר מתקציב החריגות',fmt(t.left),t.left<0?'neg':''):'')+
     '<div class="drow"><span><b>רווח נקי אחרי תקציב חריגות</b></span><b class="pjbig num'+(t.profit<0?' neg':'')+'">'+fmt(t.profit)+'</b></div>'+
     row('רווח נקי אם אין חריגות',fmt(t.profitNoOver))+
     (t.hasActual?row('רווח נקי לפי העלויות בפועל',fmt(t.profitActual),t.profitActual<0?'neg':''):'')+
     (t.net>0?row('אחוז רווח מההכנסה',Math.round(t.margin*100)+'%'):'')+
+    (!t.exempt&&(t.outVat>0||t.inVat>0)?row('מע״מ עסקאות (על הכנסה)',fmt(t.outVat))+row('מע״מ תשומות (לקיזוז)',fmt(t.inVat))+row(t.vatNet>=0?'מע״מ נטו לתשלום':'מע״מ נטו להחזר',fmt(Math.abs(t.vatNet))):'')+
+    (t.exempt?'<div class="drow"><span class="note">פרויקט פטור ממע״מ: אין מע״מ על ההכנסה ואין קיזוז מע״מ על ההוצאות.</span></div>':'')+
     (pay.paid>0||pay.status!=='none'?row('שולם עד כה',fmt(pay.paid))+row('נותר לגבייה (מהמחיר ללקוחה)',fmt(Math.max(0,pay.price-pay.paid)),pay.price-pay.paid>0?'neg':''):'');
 }
 function leadOptions(sel){
@@ -909,6 +927,7 @@ function openProject(id,pre){
    field('p_contactPhone','טלפון איש הקשר',p?p.contactPhone:'','tel',{})+
    '<div class="f"><label for="p_team">הצוות (מי עובד על זה)</label><input id="p_team" value="'+esc(p?p.team||'':'')+'" placeholder="למשל: יוסי, דני" autocomplete="off"></div>'+
    field('p_price','מה הלקוחה משלמת (₪)',p?p.price:'','number',{})+field('p_pct','תקציב לחריגות (% מהעלויות)',p&&p.contingencyPct!=null?p.contingencyPct:10,'number',{})+
+   '<div class="f"><label for="p_vatmode">מע״מ בפרויקט</label><select id="p_vatmode"><option value="lic"'+(!p||p.vatMode!=='exempt'?' selected':'')+'>עוסק מורשה (עם מע״מ)</option><option value="exempt"'+(p&&p.vatMode==='exempt'?' selected':'')+'>עוסק פטור (פטור ממע״מ)</option></select></div>'+
    '<label class="chk"><input type="checkbox" id="p_vat"'+(!p||p.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
    '<div class="f"><label for="p_status">מצב הפרויקט</label><select id="p_status">'+Object.keys(PSTAT).map(function(k){return '<option value="'+k+'"'+((p&&p.status?p.status:'plan')===k?' selected':'')+'>'+PSTAT[k]+'</option>'}).join('')+'</select></div>'+
    '<div class="f"><label for="p_pay">סטטוס תשלום</label><select id="p_pay">'+Object.keys(PAYS).map(function(k){return '<option value="'+k+'"'+((p&&p.payStatus?p.payStatus:'none')===k?' selected':'')+'>'+PAYS[k]+'</option>'}).join('')+'</select></div>'+
@@ -934,7 +953,7 @@ function savePj(){
   var r;try{r=pjRead();var pc=r.contingencyPct;if(pc!==''&&(!isFinite(Number(pc))||Number(pc)<0||Number(pc)>100))throw new Error('אחוז תקציב החריגות חייב להיות בין 0 ל-100');var paid=clean(val('p_paid'));if(paid!==''&&(!isFinite(Number(paid))||Number(paid)<0))throw new Error('הסכום ב"שולם עד כה" לא תקין')}catch(e){toast(e.message);return}
   var id=editingProj||newId(),lid=$('p_lead').value,lead=lid?leads[lid]:null;
   var body={name:name,leadId:lid,location:val('p_location'),customer:val('p_customer')||(lead?lead.name:''),contactName:val('p_contact'),contactPhone:val('p_contactPhone'),team:val('p_team'),payStatus:$('p_pay').value,paidAmount:clean(val('p_paid')),
-    price:r.price,vatIncl:r.vatIncl,contingencyPct:r.contingencyPct,status:$('p_status').value,notes:$('p_notes').value.trim(),items:r.items};
+    price:r.price,vatIncl:r.vatIncl,vatMode:r.vatMode,contingencyPct:r.contingencyPct,status:$('p_status').value,notes:$('p_notes').value.trim(),items:r.items};
   guard(api('PUT','/alt/projects/'+id,body)).then(function(d){projects=projects.filter(function(x){return x.id!==id}).concat([d.project]);pjRecent[id]={item:d.project,at:Date.now()};delete pjGone[id];closeEditor();render();toast('הפרויקט נשמר')}).catch(function(){});
 }
 function pjDelProject(btn){
@@ -1195,7 +1214,7 @@ document.addEventListener('change',function(e){
   if(e.target.dataset&&e.target.dataset.impstage!=null){var rr=IMP[+e.target.dataset.impstage];rr.lead.stage=e.target.value;if(DEAL.indexOf(rr.lead.stage)>-1&&!rr.closed&&impDateVal)rr.closed=impDateVal;paintImport();return}
   if(e.target.id==='period'||e.target.id==='period2'){period=e.target.value;render()}
   if(e.target.id==='p_lead'){pjLeadInfo();var pl=e.target.value?leads[e.target.value]:null;if(pl){if(!$('p_customer').value)$('p_customer').value=pl.name||'';if(!$('p_contact').value)$('p_contact').value=pl.name||'';if(!$('p_contactPhone').value)$('p_contactPhone').value=pl.phone||''}pjUpdate();return}
-  if(e.target.id==='p_vat'||e.target.id==='p_status'||e.target.id==='p_pay'){pjUpdate();return}
+  if(e.target.id==='p_vat'||e.target.id==='p_status'||e.target.id==='p_pay'||e.target.id==='p_vatmode'||(e.target.classList&&e.target.classList.contains('pv'))){pjUpdate();return}
   if(e.target.id==='f_vatIncl'){autoSupplier();[].forEach.call(document.querySelectorAll('#row_extras .xo'),autoXProfit);updCalc()}
   if(e.target.classList&&e.target.classList.contains('xk'))updCalc();
 });

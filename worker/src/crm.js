@@ -201,13 +201,14 @@ export async function saveProject(env, id, input) {
     if (!Number.isFinite(qty) || qty < 0 || qty > 1e6) throw new HttpError(400, 'כמות לא תקינה');
     const unit = money(x && x.unit, 'מחיר ליחידה'), actual = money(x && x.actual, 'עלות בפועל');
     if ((unit !== '' && unit < 0) || (actual !== '' && actual < 0)) throw new HttpError(400, 'סכום לא יכול להיות שלילי');
-    return { cat: PCATS.includes(x && x.cat) ? x.cat : 'other', label: text(x && x.label, 80), qty, unit, actual };
+    return { cat: PCATS.includes(x && x.cat) ? x.cat : 'other', label: text(x && x.label, 80), qty, unit, actual, vatType: x && x.vatType === 'lic' ? 'lic' : 'exempt' };      // exempt = no VAT to recover (also how old rows without the field are read)
   }).filter((x) => x.label || x.unit !== '' || x.actual !== '');
   const leadId = text(input.leadId, 32);
   if (leadId && !/^[a-z0-9]{8,32}$/.test(leadId)) throw new HttpError(400, 'הלקוחה לא תקינה');
   if (leadId && !(await getKV(env, LEAD + leadId))) throw new HttpError(400, 'הלקוחה שנבחרה לא נמצאה בלידים');
   const payStatus = ['none', 'deposit', 'partial', 'paid'].includes(input.payStatus) ? input.payStatus : 'none';
-  const item = { id, name, leadId, location: text(input.location, 120), payStatus, paidAmount: money(input.paidAmount, 'שולם עד כה'), contactName: text(input.contactName, 80), contactPhone: text(input.contactPhone, 40), team: text(input.team, 200),
+  const vatMode = input.vatMode === 'exempt' ? 'exempt' : 'lic';
+  const item = { id, name, leadId, vatMode, location: text(input.location, 120), payStatus, paidAmount: money(input.paidAmount, 'שולם עד כה'), contactName: text(input.contactName, 80), contactPhone: text(input.contactPhone, 40), team: text(input.team, 200),
     customer: text(input.customer, 120), price: money(input.price, 'מחיר ללקוח'), vatIncl: input.vatIncl !== false, contingencyPct: pct,
     status: ['plan', 'doing', 'done'].includes(input.status) ? input.status : 'plan', notes: text(input.notes, 1000), items, updatedAt: new Date().toISOString() };
   const all = await listProjects(env);

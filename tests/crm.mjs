@@ -257,7 +257,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.selectOption('#p_lead', leadVal);
   ok(/דנה כהן/.test(await pg.innerText('#p_leadInfo')) && /משיכת המחיר/.test(await pg.innerText('#p_leadInfo')) && await pg.inputValue('#p_contactPhone') === '0501234567', `${tag}: choosing a real lead fills the contact and shows her lead details`);
   await pg.fill('#p_location', 'קיבוץ הדוגמה'); await pg.fill('#p_team', 'יוסי, דני'); await pg.selectOption('#p_pay', 'deposit'); await pg.fill('#p_paid', '20,000');
-  const addRow = async (cat, label, q, u) => { await pg.click(`[data-pjadd="${cat}"]`); const r = pg.locator(`#pj_${cat} .pjrow`).last(); await r.locator('.pl').fill(label); await r.locator('.pq').fill(q); await r.locator('.pu').fill(u); return r; };
+  const addRow = async (cat, label, q, u) => { await pg.click(`[data-pjadd="${cat}"]`); const r = pg.locator(`#pj_${cat} .pjrow`).last(); await r.locator('.pl').fill(label); await r.locator('.pq').fill(q); await r.locator('.pu').fill(u); await r.locator('.pv').selectOption('exempt'); return r; };
   const mat = await addRow('material', 'עץ', '10', '1000'); await addRow('labor', 'עובד', '5', '800'); await addRow('fuel', 'דלק', '4', '250'); await addRow('accessory', 'ברגים', '1', '500');
   let ps = await pg.innerText('#pjSum');
   ok(/15,500/.test(ps) && /1,550/.test(ps) && /67,696/.test(ps) && /85%|80%|7\d%|8\d%/.test(ps), `${tag}: costs 15,500, overruns budget 10% = 1,550, net profit 67,696 (${ps.replace(/\n/g, ' | ')})`);
@@ -265,6 +265,14 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ps = await pg.innerText('#pjSum');
   ok(/חריגה בפועל/.test(ps) && /1,500/.test(ps) && /נשאר מתקציב החריגות[\s\S]*50/.test(ps) && /67,746/.test(ps), `${tag}: actual overrun 1,500 of the 1,550 budget, profit by actuals 67,746`);
   ok(/נותר לגבייה/.test(await pg.innerText('#pjSum')) && /שולם עד כה/.test(await pg.innerText('#pjSum')), `${tag}: payments: paid so far and what is left to collect`);
+  // smart VAT: the wood comes from a licensed dealer (VAT recoverable), the rest from exempt dealers
+  await mat.locator('.pv').selectOption('lic');
+  ps = await pg.innerText('#pjSum');
+  ok(/מע״מ תשומות לקיזוז/.test(ps) && /1,525/.test(ps) && /69,374/.test(ps) && /13,729/.test(ps), `${tag}: a licensed supplier's VAT is recovered: net cost 13,975, profit 69,374, VAT to pay 13,729 (${ps.replace(/\n/g, ' | ')})`);
+  await pg.selectOption('#p_vatmode', 'exempt');
+  ps = await pg.innerText('#pjSum');
+  ok(/פטור ממע״מ/.test(ps) && /100,000/.test(ps) && /82,950/.test(ps) && await pg.locator('#p_vat').isDisabled(), `${tag}: an exempt project: no VAT on income, no recovery: profit 82,950`);
+  await pg.selectOption('#p_vatmode', 'lic'); await mat.locator('.pv').selectOption('exempt');
   await pg.click('#projForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/בית עץ/.test(await pg.innerText('#projBox')) && /67,696/.test(await pg.innerText('#projBox')), `${tag}: the project card shows the net profit`);
   const pc = await pg.innerText('#projBox');
