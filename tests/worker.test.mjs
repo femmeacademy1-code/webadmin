@@ -1145,6 +1145,7 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: 'מחר' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'visit' } })).data.lead.stage, 'visit');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'season', follow: '2027-03-01' } })).data.lead.follow, '2027-03-01');   // next season keeps its call date
   const typed = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: '₪7,500', cost: ' 1,200.50 ', supplier: '   ' } })).data.lead;
   const q3 = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: 7500, qty: '3' } })).data.lead;
@@ -1421,4 +1422,16 @@ test('alternative: project costing is stored with its items, validated, updated,
   assert.equal(all.length, 2); assert.equal(all.find((x) => x.id === 'proj00000001').status, 'done');
   assert.equal((await call('DELETE', '/api/alt/projects/proj00000002', { cookie: alt })).status, 200);
   assert.equal((await call('GET', '/api/alt/projects', { cookie: alt })).data.projects.length, 1);
+});
+
+test('alternative: a proposal moves a lead forward but never pushes a closed deal to next season / not relevant', async () => {
+  const { applyProposal } = await import('../worker/src/crm.js');
+  const at = (stage, v) => applyProposal({ name: 'x', stage }, { stage: v }).lead.stage;
+  assert.equal(at('talked', 'hot'), 'hot');
+  assert.equal(at('hot', 'talked'), 'hot');                  // never backwards
+  assert.equal(at('catalog', 'visit'), 'visit');
+  assert.equal(at('hot', 'season'), 'season');
+  assert.equal(at('season', 'hot'), 'hot');                  // a postponed lead that wakes up moves forward again
+  assert.equal(at('done', 'season'), 'done'); assert.equal(at('delivered', 'lost'), 'delivered');
+  assert.equal(at('lost', 'hot'), 'lost');
 });

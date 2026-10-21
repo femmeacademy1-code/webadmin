@@ -153,6 +153,13 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
   await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-hot]').count() === 0, `${tag}: one tap marks it hot with 🔥`);
+  // the new stage "מבקשים ביקור" and the tab order (next season now sits just before not relevant)
+  const tabNames = (await pg.locator('#tabs .tab').allInnerTexts()).map((t) => t.replace(/\s*\d+\s*$/, '').trim());
+  const ti = (n) => tabNames.findIndex((t) => t.includes(n));
+  ok(ti('קיבל קטלוג') < ti('מבקשים ביקור') && ti('מבקשים ביקור') < ti('הלך לראות') && ti('נסגר') < ti('לעונה הבאה') && ti('לעונה הבאה') < ti('לא רלוונטי'), `${tag}: tabs order: ${tabNames.join(' > ')}`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-visit]');
+  await pg.waitForFunction(() => /🏕️ פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/מבקשים ביקור/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: one tap marks 'asks to visit' with 🏕️ on the card`);
   // next season: one button, a date to call him (chips or any date), 🗓️ on the card
   await pg.click('#list .card:has-text("פוטנציאל") [data-season]'); await pg.waitForSelector('#folForm');
   await pg.click('[data-fchip]:has-text("עוד 3 חודשים")'); await pg.click('#folForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });

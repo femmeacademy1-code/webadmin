@@ -17,13 +17,13 @@
 :root{
   --bg:#f7f3ef; --surface:#ffffff; --ink:#2b2321; --muted:#766a65; --line:#e6dcd5;
   --accent:#b8473f; --accent-ink:#ffffff; --good:#1f7a6d; --warn:#9a6a14; --bad:#b3261e; --chip:#f1e8e1;
-  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-catalog:#7e5bb5; --s-season:#5f7fa8; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
+  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-catalog:#7e5bb5; --s-visit:#b5589a; --s-season:#5f7fa8; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
   --f-display:"Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
-  --s-talked:#a89c96; --s-hot:#ef7a74; --s-catalog:#b79ae6; --s-season:#9db6d9; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
+  --s-talked:#a89c96; --s-hot:#ef7a74; --s-catalog:#b79ae6; --s-visit:#e08fc5; --s-season:#9db6d9; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
@@ -205,8 +205,8 @@ legend{font-weight:800;padding:0 6px}
 (function(){
 'use strict';
 var STAGES=[
-  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'season',name:'לעונה הבאה'},{id:'catalog',name:'קיבל קטלוג'},{id:'viewing',name:'הלך לראות'},
-  {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'lost',name:'לא רלוונטי'}
+  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'catalog',name:'קיבל קטלוג'},{id:'visit',name:'מבקשים ביקור'},{id:'viewing',name:'הלך לראות'},
+  {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'season',name:'לעונה הבאה'},{id:'lost',name:'לא רלוונטי'}
 ];
 var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
@@ -325,7 +325,7 @@ function paintDup(){
   h.hidden=false;
   h.innerHTML='<b>⚠ ליד זה כבר קיים במערכת</b>'+ds.map(dupLine).join('')+(dupForce?'':'<div class="row" style="margin-top:8px"><button type="button" class="btn sm" id="dupForce">זה אדם אחר, להוסיף בכל זאת</button></div>');
 }
-var RANK=['hot','catalog','talked','season','viewing','closing','delivered','done','lost'];
+var RANK=['hot','visit','catalog','talked','viewing','closing','delivered','done','season','lost'];
 function rankOf(st){var i=RANK.indexOf(st);return i<0?99:i}
 function renderList(){
   var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
@@ -357,16 +357,17 @@ function renderList(){
     var wa=waLink(l.phone);
     var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
     var catBtn=((s.id==='talked'||s.id==='hot')&&!(next&&next.id==='catalog'))?      /* no second button for the same step as the → button */ '<button class="btn sm" type="button" data-cat="'+l.id+'">📖 קיבל קטלוג</button>':'';
+    var visBtn=((s.id==='talked'||s.id==='hot'||s.id==='catalog')&&!(next&&next.id==='visit'))?'<button class="btn sm" type="button" data-visit="'+l.id+'">🏕️ מבקשים ביקור</button>':'';
     var hotBtn=((s.id==='talked'||s.id==='season'||s.id==='catalog')&&!(next&&next.id==='hot'))?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
-    var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
+    var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='visit'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
-      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
+      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':s.id==='visit'?'🏕️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
-      '<div class="acts">'+nextBtn+hotBtn+catBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
+      '<div class="acts">'+nextBtn+hotBtn+catBtn+visBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
 function renderSelBar(){
@@ -405,7 +406,7 @@ function potProfit(l){
   var sup=n(l.supplier)>0?n(l.supplier):net*pct;
   return {v:net-n(l.cost)*q-(cfg.supplierInCost?0:sup)+xp,est:est};
 }
-var POT_STAGES=['talked','hot','season','catalog','viewing','closing'];
+var POT_STAGES=['talked','hot','catalog','visit','viewing','closing','season'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
   if(filter!=='open'||view!=='leads'){b.hidden=true;return}
@@ -496,6 +497,12 @@ function irrelevant(id,on){
   save(id,body).then(function(){toast(on?(l.name||'הליד')+' סומן כלא רלוונטי 🚫':(l.name||'הליד')+' חזר ל"'+SM[body.stage].name+'"')}).catch(function(){});
 }
 /* one tap: the lead is hot (stage "ליד חם", 🔥 on the card) */
+/* one tap: they ask to visit (stage "מבקשים ביקור", 🏕️ on the card) */
+function askVisit(id){
+  var l=leads[id];if(!l)return;
+  var body=pick(l);body.qty=qtyOf(l);body.stage='visit';
+  save(id,body).then(function(){toast((l.name||'הליד')+' מבקשים ביקור 🏕️')}).catch(function(){});
+}
 function gotHot(id){
   var l=leads[id];if(!l)return;
   var body=pick(l);body.qty=qtyOf(l);body.stage='hot';
@@ -508,7 +515,7 @@ function gotCatalog(id){
   save(id,body).then(function(){toast((l.name||'הליד')+' קיבל קטלוג 📖')}).catch(function(){});
 }
 /* the usual way forward; "לעונה הבאה" is a side branch (a postponed lead continues with the catalog) */
-var FLOW=['talked','hot','catalog','viewing','closing','delivered','done'];
+var FLOW=['talked','hot','catalog','visit','viewing','closing','delivered','done'];
 function nextStageOf(id){if(id==='season')return SM.catalog;var i=FLOW.indexOf(id);return i>-1&&i<FLOW.length-1?SM[FLOW[i+1]]:null}
 function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
 function addMonths(n){var d=new Date();d.setMonth(d.getMonth()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
@@ -552,7 +559,7 @@ function applyProposal(l,f,summary){
   var out=Object.assign({},l),changed=[];
   Object.keys(f).forEach(function(k){
     var v=f[k],cur=l[k];
-    if(k==='stage'){if(!l.stage||(SM[v]&&SM[l.stage]&&SM[v].i>SM[l.stage].i&&l.stage!=='lost')||!l.name){out.stage=v;changed.push(k)}return}
+    if(k==='stage'){var cur=l.stage,side=v==='season'||v==='lost';if(!cur||!l.name||(side?DEAL.indexOf(cur)<0&&cur!=='lost'&&cur!==v:cur!=='lost'&&FLOW.indexOf(v)>FLOW.indexOf(cur))){out.stage=v;changed.push(k)}return}
     if(k==='notes'){if(cur&&String(cur).indexOf(v)>-1)return;out.notes=cur?cur+'\n'+v:v;changed.push(k);return}
     if(['name','phone','product','source','suppName','follow'].indexOf(k)>-1&&cur)return;      // never overwrite what is already written
     if(cur!==v){out[k]=v;changed.push(k)}
@@ -1079,6 +1086,7 @@ document.addEventListener('click',function(e){
   var fo=t.closest('[data-follow]');if(fo){e.stopPropagation();openFollow(fo.dataset.follow,false);return}
   var fc=t.closest('[data-fchip]');if(fc){$('f_fdate').value=fc.dataset.fchip;return}
   if(t.id==='folClear'){saveFollow(true);return}
+  var vs=t.closest('[data-visit]');if(vs){e.stopPropagation();askVisit(vs.dataset.visit);return}
   var ht=t.closest('[data-hot]');if(ht){e.stopPropagation();gotHot(ht.dataset.hot);return}
   var ct=t.closest('[data-cat]');if(ct){e.stopPropagation();gotCatalog(ct.dataset.cat);return}
   var ir=t.closest('[data-irr]');if(ir){e.stopPropagation();irrelevant(ir.dataset.irr,true);return}
