@@ -2,9 +2,10 @@
  * The server owns the timeline (createdAt / updatedAt / dealAt / stage log); the page only sends the fields people type. */
 import { HttpError } from './validate.js';
 
-export const STAGES = ['talked', 'hot', 'catalog', 'visit', 'viewing', 'closing', 'delivered', 'done', 'season', 'lost'];
-const FLOW = ['talked', 'hot', 'catalog', 'visit', 'viewing', 'closing', 'delivered', 'done'];     // the way forward; "season" (next season) and "lost" (not relevant) sit outside it
-const DEAL = ['delivered', 'done'];
+export const STAGES = ['talked', 'hot', 'catalog', 'visit', 'viewing', 'closing', 'done', 'season', 'lost'];
+const normStage = (s) => (s === 'delivered' ? 'done' : s);      // the old stage "קיבל סחורה" was removed: those leads count as closed
+const FLOW = ['talked', 'hot', 'catalog', 'visit', 'viewing', 'closing', 'done'];     // the way forward; "season" (next season) and "lost" (not relevant) sit outside it
+const DEAL = ['done'];
 const LEAD = 'alt:l:';
 const CFG = 'alt:cfg';
 const MAX_LEADS = 900;      // each lead is read with its own KV get; stay well under the 1000-operation limit of one request
@@ -50,7 +51,7 @@ export async function crmState(env) {
   const leads = [];
   for (let i = 0; i < keys.length; i += 50) {
     const rows = await Promise.all(keys.slice(i, i + 50).map((k) => getKV(env, k)));
-    rows.forEach((l, j) => { if (l) leads.push({ id: keys[i + j].slice(LEAD.length), ...l }); });
+    rows.forEach((l, j) => { if (l) leads.push({ id: keys[i + j].slice(LEAD.length), ...l, stage: normStage(l.stage) }); });
   }
   return { leads, cfg: { vat: 18, supplierInCost: false, supplierPct: 70, ...((await getKV(env, CFG)) || {}) } };
 }
@@ -80,14 +81,14 @@ export async function saveLead(env, id, input) {
   if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
   const old = await getKV(env, LEAD + id);
   if (!old && (await env.CMS.list({ prefix: LEAD })).keys.length >= MAX_LEADS) throw new HttpError(400, 'יש יותר מדי לידים במערכת');
-  const stage = STAGES.includes(input.stage) ? input.stage : 'talked';
+  const stage = STAGES.includes(normStage(input.stage)) ? normStage(input.stage) : 'talked';
   const name = text(input.name, 120), phone = text(input.phone, 40);
   if (!name && !phone) throw new HttpError(400, 'רשמי לפחות שם או טלפון');
   const follow = text(input.follow, 10);
   if (follow && !/^\d{4}-\d{2}-\d{2}$/.test(follow)) throw new HttpError(400, 'תאריך לא תקין');
   const now = new Date().toISOString();
   const log = (old && Array.isArray(old.log) ? old.log : []).slice(-(MAX_LOG - 1));
-  if (!old || old.stage !== stage) log.push({ s: stage, t: now });
+  if (!old || normStage(old.stage) !== stage) log.push({ s: stage, t: now });
   const lead = {
     name, phone, product: text(input.product, 200), source: text(input.source, 120), notes: text(input.notes, 2000), suppName: text(input.suppName, 120), receiptNo: text(input.receiptNo, 40), follow,
     stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), qty: input.qty === undefined ? qtyOf(old || {}) : qtyOf(input), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
@@ -260,7 +261,7 @@ Rules:
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
 - supplier_invoice: cost = what the product cost us (before VAT if the document separates it); suppName = the supplier.
 - supplier_payment: supplier = the amount the supplier received; suppName = the supplier.
-- chat: name, phone (digits as written), product (what the customer wants), source ("וואטסאפ" for WhatsApp), notes (one or two Hebrew sentences: what was agreed or asked), follow (YYYY-MM-DD only if a concrete follow-up day is stated; today is given), and stage: talked (first contact), hot (clearly interested), catalog (we sent / they received the catalog), visit (asks to visit / wants to come see), season (postponed to next season / call again later), viewing (went/will go to see the product), closing (agreed on a deal / waiting to pay), delivered (received the goods), done, lost (not relevant / not interested).
+- chat: name, phone (digits as written), product (what the customer wants), source ("וואטסאפ" for WhatsApp), notes (one or two Hebrew sentences: what was agreed or asked), follow (YYYY-MM-DD only if a concrete follow-up day is stated; today is given), and stage: talked (first contact), hot (clearly interested), catalog (we sent / they received the catalog), visit (asks to visit / wants to come see), season (postponed to next season / call again later), viewing (went/will go to see the product), closing (agreed on a deal / waiting to pay), done (closed sale), lost (not relevant / not interested).
 - matchId: the id of an existing lead from <existing_leads> when the name or phone clearly refers to the same person, otherwise "". Never invent an id.
 - summary: one short Hebrew sentence describing what you found, e.g. "שיחה עם דנה כהן: מעוניינת בספה, תחזור ביום ראשון".`;
 
@@ -384,7 +385,7 @@ Rules:
 - Map columns by their headers (Hebrew). The sheet's own numbers are exact: copy them, never recompute them. Known headers of the owner's monthly sheet: לקוחות -> name; סוג אוהל -> product and model ("לוטוס 8 +בידוד" means model לוטוס 8 and an insulation extra); כמות -> quantity; מחיר ללקוח -> the TOTAL the customer pays for all tents, so price = total / quantity; מקדמה (advance paid) -> note "מקדמה ₪X"; תשלום לספק -> supplier (total paid to the supplier); מכס (customs) -> note "מכס ₪X"; רווח אוהלים -> commission (our profit on the tents, exactly as written); הקמה -> an extra labelled הקמה with that amount and cost = עובד הקמה; מוצרים נלווים -> an extra with that label and amount, cost = עלויות חומרים; דלק or other cost columns -> note. A row that only sells a setup (e.g. "הקמה לוטוס 5 שדרות") has no tent price: put only the extras. Other headers: שם/לקוח -> name, טלפון/נייד -> phone, מוצר/דגם/אוהל -> product and model, כמות -> quantity, מחיר -> price, עלות -> cost, ספק -> suppName, מה הספק קיבל -> supplier, עמלה/רווח -> commission, מספר קבלה/חשבונית -> receiptNo, תאריך -> closedDate for a completed sale, תאריך אספקה -> deliveryDate, בידוד/הקמה/תוספת -> extras (label, amount, cost), הערות -> notes. Dates are day/month/year (Israeli order); output YYYY-MM-DD.
 - price is per ONE tent. If a quantity above 1 is given with a total, divide to get the per-tent price. quantity: a whole number, omit when 1 or unknown.
 - model: the tent model named (לוטוס / פעמון plus the size in meters), or "". docType: "commission_receipt" when the row's amount is the owner's COMMISSION (עמלה), "customer_payment" when it is what the customer paid, otherwise "other". For a commission row put the commission in "commission" and do NOT compute price or supplier: the server completes them from the catalog.
-- stage: talked (first contact), hot, catalog (received the catalog), visit (asks to visit), season (postponed to next season), viewing, closing, delivered (received the goods), done (a completed, paid and closed sale), lost. A row of a completed sale with a price / commission / receipt number is "done" unless the sheet says otherwise; with no information use "talked".
+- stage: talked (first contact), hot, catalog (received the catalog), visit (asks to visit), season (postponed to next season), viewing, closing, done (a completed, paid and closed sale), lost. A row of a completed sale with a price / commission / receipt number is "done" unless the sheet says otherwise; with no information use "talked".
 - matchId: id of an existing lead from <existing_leads> when name or phone clearly match, else "".
 - summary: one short Hebrew sentence per item (e.g. "לוטוס 5 לדנה כהן, עמלה 1,800").`;
 

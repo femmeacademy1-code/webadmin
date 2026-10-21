@@ -83,7 +83,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await leadsV();
 
   await pg.click('[data-adv]'); await pg.waitForSelector('#veil');            // closing -> delivered opens editor
-  ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'קיבל סחורה', `${tag}: advanced to delivered`);
+  ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'נסגר', `${tag}: advanced to closed`);
   ok(await pg.locator('#row_closed').isVisible() && await pg.locator('#row_follow').isHidden(), `${tag}: a closed deal asks for a closing date, not a follow-up`);
   await pg.fill('#f_closed', '2026-10-05'); await pg.fill('#f_supply', '2026-10-09'); await pg.fill('#f_receipt', 'A-4411'); await pg.check('.xo[data-k=insulation] .xk'); await pg.fill('.xo[data-k=insulation] .xa', '1180'); await pg.fill('.xo[data-k=insulation] .xc', '700');
   ok(await pg.inputValue('.xo[data-k=insulation] .xp') === '300', `${tag}: extra profit = amount before VAT - cost`);
@@ -107,7 +107,8 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'ליד חם', `${tag}: proposal stage applied`);
   ok((await pg.locator('.card').count()) === 1, `${tag}: nothing saved before confirming`);
   await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
-  ok((await pg.locator('.card').count()) === 2, `${tag}: saved after confirming`);
+  await pg.click('[data-f="all"]');
+  ok((await pg.locator('#list .card').count()) === 2, `${tag}: saved after confirming`);
   await pg.reload(); await pg.waitForSelector('#app:not([hidden])');
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: survives reload (stored on the server)`);
   ok(await pg.evaluate(() => document.documentElement.scrollWidth) <= w, `${tag}: no horizontal scroll`);
@@ -132,14 +133,14 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   // order of the open tab: hot first, the delivered deal last
   await pg.click('[data-f="open"]');
   const order = await pg.locator('#list .card h3').allInnerTexts();
-  ok(order.length >= 3 && /דנה/.test(order[order.length - 1]) && !/דנה/.test(order[0]), `${tag}: open tab order: ${order.join(' | ')}`);
+  ok(order.length === 2 && /רונית/.test(order[0]) && /פוטנציאל/.test(order[1]), `${tag}: open tab order (hot first, closed deals are not open): ${order.join(' | ')}`);
   await pg.click('[data-f="all"]');
   // duplicates: the same phone (any format) is refused, with where the lead is
   await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
   await pg.fill('#f_name', 'מישהו חדש'); await pg.fill('#f_phone', '050-123-4567');
   await pg.waitForSelector('#dupHint:not([hidden])');
   const dh = await pg.innerText('#dupHint');
-  ok(/כבר קיים במערכת/.test(dh) && /דנה כהן/.test(dh) && /קיבל סחורה/.test(dh), `${tag}: the hint says the lead exists and where (${dh.replace(/\n/g, ' ')})`);
+  ok(/כבר קיים במערכת/.test(dh) && /דנה כהן/.test(dh) && /נסגר/.test(dh), `${tag}: the hint says the lead exists and where (${dh.replace(/\n/g, ' ')})`);
   await pg.click('#sheet button[type=submit]');
   ok((await pg.locator('#veil').count()) === 1 && (await pg.locator('#list .card').count()) === 3, `${tag}: saving the duplicate is blocked`);
   await pg.click('[data-opendup]'); await pg.waitForFunction(() => document.querySelector('#f_name') && document.querySelector('#f_name').value === 'דנה כהן');
@@ -227,8 +228,8 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.selectOption('#period', 'm:2026-07');
   await leadsV();
   // the closed tabs follow the chosen month
-  await pg.click('[data-f="delivered"]');
-  ok((await pg.locator('#list .card').count()) === 0 && /יולי 2026/.test(await pg.locator('#period2 option:checked').innerText()), `${tag}: with July chosen the delivered tab shows no October deal`);
+  await pg.click('[data-f="done"]');
+  ok((await pg.locator('#list .card').count()) === 1 && /משה/.test(await pg.innerText('#list')) && /יולי 2026/.test(await pg.locator('#period2 option:checked').innerText()), `${tag}: with July chosen the closed tab shows only the July deal`);
   await pg.selectOption('#period2', 'm:2026-10');
   ok((await pg.locator('#list .card').count()) === 1 && /דנה/.test(await pg.innerText('#list')), `${tag}: with October chosen it shows that deal`);
   await pg.selectOption('#period2', 'm:2026-07'); await pg.click('[data-f="all"]');

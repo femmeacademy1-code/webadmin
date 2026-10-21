@@ -206,11 +206,11 @@ legend{font-weight:800;padding:0 6px}
 'use strict';
 var STAGES=[
   {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'catalog',name:'קיבל קטלוג'},{id:'visit',name:'מבקשים ביקור'},{id:'viewing',name:'הלך לראות'},
-  {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'season',name:'לעונה הבאה'},{id:'lost',name:'לא רלוונטי'}
+  {id:'closing',name:'סוגר'},{id:'done',name:'נסגר'},{id:'season',name:'לעונה הבאה'},{id:'lost',name:'לא רלוונטי'}
 ];
 var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
-var DEAL=['delivered','done'];
+var DEAL=['done'];
 
 var view='leads';
 var projects=[],pjRecent={},pjGone={},editingProj=null;
@@ -325,7 +325,7 @@ function paintDup(){
   h.hidden=false;
   h.innerHTML='<b>⚠ ליד זה כבר קיים במערכת</b>'+ds.map(dupLine).join('')+(dupForce?'':'<div class="row" style="margin-top:8px"><button type="button" class="btn sm" id="dupForce">זה אדם אחר, להוסיף בכל זאת</button></div>');
 }
-var RANK=['hot','visit','catalog','talked','viewing','closing','delivered','done','season','lost'];
+var RANK=['hot','visit','catalog','talked','viewing','closing','done','season','lost'];
 function rankOf(st){var i=RANK.indexOf(st);return i<0?99:i}
 function renderList(){
   var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
@@ -386,7 +386,7 @@ function applySelDate(){
   var d=$('selDate').value;if(!d){toast('בחרי תאריך');return}
   var ids=Object.keys(SEL.ids).filter(function(id){return leads[id]&&DEAL.indexOf(leads[id].stage)>-1});
   var skipped=Object.keys(SEL.ids).length-ids.length;
-  if(!ids.length){toast('נבחרו רק לידים שלא נסגרו. תאריך סגירה נקבע רק לעסקאות ב"קיבל סחורה" או "נסגר".');return}
+  if(!ids.length){toast('נבחרו רק לידים שלא נסגרו. תאריך סגירה נקבע רק לעסקאות בשלב "נסגר".');return}
   var done=0;busy('מעדכנת 0 מתוך '+ids.length);
   var p=Promise.resolve();
   ids.forEach(function(id){p=p.then(function(){var l=leads[id],b=pick(l);b.qty=qtyOf(l);b.closedDate=d;return save(id,b).then(function(){done++;busy('מעדכנת '+done+' מתוך '+ids.length)})})});
@@ -520,7 +520,7 @@ function gotCatalog(id){
   save(id,body).then(function(){toast((l.name||'הליד')+' קיבל קטלוג 📖')}).catch(function(){});
 }
 /* the usual way forward; "לעונה הבאה" is a side branch (a postponed lead continues with the catalog) */
-var FLOW=['talked','hot','catalog','visit','viewing','closing','delivered','done'];
+var FLOW=['talked','hot','catalog','visit','viewing','closing','done'];
 function nextStageOf(id){if(id==='season')return SM.catalog;var i=FLOW.indexOf(id);return i>-1&&i<FLOW.length-1?SM[FLOW[i+1]]:null}
 function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
 function addMonths(n){var d=new Date();d.setMonth(d.getMonth()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
@@ -550,7 +550,7 @@ function advance(id){
   save(id,body).then(function(sv){
     reveal(sv);
     toast((l.name||'הליד')+' עבר ל"'+nx.name+'"');
-    if(nx.id==='closing'||nx.id==='delivered')openEditor(id);
+    if(nx.id==='closing'||nx.id==='done')openEditor(id);
   }).catch(function(){});
 }
 

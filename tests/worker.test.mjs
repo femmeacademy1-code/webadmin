@@ -1133,9 +1133,9 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.notEqual(a.data.lead.createdAt, '1999-01-01'); assert.equal(a.data.lead.dealAt, undefined);   // clients can't set the timeline
   assert.equal(a.data.lead.log.length, 1);
 
-  const b = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', price: 11800 } });
+  const b = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', price: 11800 } });
   assert.equal(b.data.lead.log.length, 2); assert.ok(b.data.lead.dealAt); assert.equal(b.data.lead.createdAt, a.data.lead.createdAt);
-  const c = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', notes: 'עודכן' } });
+  const c = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', notes: 'עודכן' } });
   assert.equal(c.data.lead.log.length, 2);                      // same stage: no new log entry
   assert.equal(c.data.lead.dealAt, b.data.lead.dealAt);
 
@@ -1143,8 +1143,8 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal(cl.data.lead.dealAt.slice(0, 10), '2026-10-05'); assert.equal(cl.data.lead.follow, '');            // closing date kept, no follow-up on a closed deal
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', closedDate: '5/10' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: 'מחר' } })).status, 400);
-  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
-  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'visit' } })).data.lead.stage, 'visit');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'season', follow: '2027-03-01' } })).data.lead.follow, '2027-03-01');   // next season keeps its call date
   const typed = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: '₪7,500', cost: ' 1,200.50 ', supplier: '   ' } })).data.lead;
@@ -1153,11 +1153,11 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: 7500 } })).data.lead.qty, 3);   // not sent: kept
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', qty: 0 } })).data.lead.qty, 1);       // never below one
   assert.equal(typed.price, 7500); assert.equal(typed.cost, 1200.5); assert.equal(typed.supplier, '');      // amounts typed with a comma, shekel sign or spaces are understood
-  const ex = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', price: 7500, commission: 1800, extras: [{ k: 'insulation', label: 'x', amount: '1180', cost: 700 }, { k: 'setup', amount: 800, cost: 300, profit: 450 }, { k: 'other', label: 'שטיח', amount: 300 }, { k: 'other', label: '', amount: '' }, { k: 'bogus', label: 'מעקה', amount: 50 }] } });
+  const ex = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', price: 7500, commission: 1800, extras: [{ k: 'insulation', label: 'x', amount: '1180', cost: 700 }, { k: 'setup', amount: 800, cost: 300, profit: 450 }, { k: 'other', label: 'שטיח', amount: 300 }, { k: 'other', label: '', amount: '' }, { k: 'bogus', label: 'מעקה', amount: 50 }] } });
   assert.deepEqual(ex.data.lead.extras, [{ k: 'insulation', label: 'x', amount: 1180, cost: 700, profit: 300 }, { k: 'setup', label: '', amount: 800, cost: 300, profit: 450 }, { k: 'other', label: 'שטיח', amount: 300, cost: '', profit: 254.24 }, { k: 'other', label: 'מעקה', amount: 50, cost: '', profit: 42.37 }]);   // profit = amount before VAT - cost, unless typed
   assert.equal(ex.data.lead.commission, 1800);                                                                         // the deal's own profit is untouched
-  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered' } })).data.lead.extras.length, 4);   // not sent: kept
-  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', extras: [{ k: 'setup', amount: 'abc' }] } })).status, 400);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done' } })).data.lead.extras.length, 4);   // not sent: kept
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', extras: [{ k: 'setup', amount: 'abc' }] } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { stage: 'hot' } })).status, 400);          // no name / phone
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', price: 'abc' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'x', follow: '12/10/2026' } })).status, 400);
@@ -1441,6 +1441,16 @@ test('alternative: a proposal moves a lead forward but never pushes a closed dea
   assert.equal(at('catalog', 'visit'), 'visit');
   assert.equal(at('hot', 'season'), 'season');
   assert.equal(at('season', 'hot'), 'hot');                  // a postponed lead that wakes up moves forward again
-  assert.equal(at('done', 'season'), 'done'); assert.equal(at('delivered', 'lost'), 'delivered');
+  assert.equal(at('done', 'season'), 'done'); assert.equal(at('done', 'lost'), 'done');
   assert.equal(at('lost', 'hot'), 'lost');
+});
+
+test('alternative: the removed stage "קיבל סחורה" (delivered) counts as closed: old leads and old requests', async () => {
+  const alt = await altCookieFor();
+  await env.CMS.put('alt:l:old0delivered1', JSON.stringify({ name: 'ישנה', stage: 'delivered', price: 5000, dealAt: '2026-07-10T12:00:00.000Z', log: [{ s: 'delivered', t: '2026-07-10T12:00:00.000Z' }] }));
+  let r = (await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.find((l) => l.id === 'old0delivered1');
+  assert.equal(r.stage, 'done');
+  const w = (await call('PUT', '/api/alt/leads/old0delivered1', { cookie: alt, body: { name: 'ישנה', stage: 'delivered', price: 5000 } })).data.lead;
+  assert.equal(w.stage, 'done'); assert.equal(w.dealAt, '2026-07-10T12:00:00.000Z');          // closing date kept, and no phantom stage change in the log
+  assert.equal(w.log.length, 1);
 });
