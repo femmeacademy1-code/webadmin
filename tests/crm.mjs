@@ -107,15 +107,24 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.screenshot({ path: `/tmp/crm-${tag}.png`, fullPage: true });
   // potential profit of open leads (bottom of the open tab)
   await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
-  await pg.fill('#f_name', 'פוטנציאל'); await pg.fill('#f_product', 'לוטוס 5M'); await pg.click('[data-stg="hot"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.fill('#f_name', 'פוטנציאל'); await pg.fill('#f_product', 'לוטוס 5M'); await pg.fill('#f_notes', 'הערה לדוגמה: מחכה לתשובה'); await pg.click('[data-stg="hot"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.click('[data-f="open"]');
   ok((await pg.locator('#potBox').isVisible()) && /1,907/.test(await pg.innerText('#potBox')), `${tag}: potential profit from the catalog (7,500 -> 1,907) shown at the bottom of the open tab`);
   await pg.click('[data-f="all"]');
   ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
+  ok(/הערה לדוגמה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: the card's notes are visible in the list`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-irr]');
+  await pg.waitForSelector('#list .card.lostc');
+  ok(/לא רלוונטי/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && (await pg.locator('#list .card:has-text("פוטנציאל")').innerText()).includes('🚫 פוטנציאל') && await pg.locator('#list .card:has-text("פוטנציאל") [data-undo]').count() === 1, `${tag}: one tap marks it not relevant with 🚫 on the card`);
+  await pg.click('[data-f="open"]');
+  ok((await pg.locator('#list .card:has-text("פוטנציאל")').count()) === 0, `${tag}: it leaves the open tab`);
+  await pg.click('[data-f="all"]'); await pg.click('#list .card:has-text("פוטנציאל") [data-undo]');
+  await pg.waitForFunction(() => !document.querySelector('#list .card.lostc'));
+  ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: ↩ brings it back to the stage it came from`);
   await pg.click('#list .card:has-text("פוטנציאל")'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' });
   // moving a lead to a stage outside the open tab must not make it vanish
-  await pg.click('[data-f="hot"]'); await pg.click('.card'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
-  ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא התקדם/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);
+  await pg.click('[data-f="hot"]'); await pg.click('.card h3'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא רלוונטי/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);
   await pg.click('[data-f="all"]');
   // bulk import from a CSV: review the proposed rows, then save them all
   await pg.click('[data-f="all"]');
@@ -173,7 +182,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
   await pg.selectOption('#period', 'all');
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
-  await pg.click('.card'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.click('.card h3'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {
     const j = await (await route.fetch()).json();
     j.leads = j.leads.map((l) => ({ ...l, product: 'ישן-STALE', updatedAt: '2020-01-01T00:00:00.000Z' }));
@@ -182,7 +191,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await pg.waitForTimeout(500);
   ok(/מוצר מעודכן/.test(await pg.innerText('#list')), `${tag}: a stale server list does not undo a fresh save`);
   await pg.unroute('**/api/alt/leads');
-  for (let n = 0; n < 3; n++) { await pg.click('.card'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
+  for (let n = 0; n < 3; n++) { await pg.click('.card h3'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
   ok(await pg.locator('.empty').count() === 1, `${tag}: delete works`);
   ok(errs.length === 0, `${tag}: no page errors ${errs.join(';')}`);
   await pg.close();

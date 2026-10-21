@@ -2,7 +2,7 @@
  * The server owns the timeline (createdAt / updatedAt / dealAt / stage log); the page only sends the fields people type. */
 import { HttpError } from './validate.js';
 
-export const STAGES = ['talked', 'hot', 'viewing', 'closing', 'delivered', 'done', 'lost'];
+export const STAGES = ['talked', 'hot', 'catalog', 'viewing', 'closing', 'delivered', 'done', 'lost'];
 const DEAL = ['delivered', 'done'];
 const LEAD = 'alt:l:';
 const CFG = 'alt:cfg';
@@ -191,7 +191,7 @@ Rules:
 - customer_payment: price = the total the customer pays; vatIncl = true when that total includes VAT (the usual case when the document shows a VAT line or "כולל מע״מ"), false when the document says the price is before VAT.
 - supplier_invoice: cost = what the product cost us (before VAT if the document separates it); suppName = the supplier.
 - supplier_payment: supplier = the amount the supplier received; suppName = the supplier.
-- chat: name, phone (digits as written), product (what the customer wants), source ("וואטסאפ" for WhatsApp), notes (one or two Hebrew sentences: what was agreed or asked), follow (YYYY-MM-DD only if a concrete follow-up day is stated; today is given), and stage: talked (first contact), hot (clearly interested), viewing (went/will go to see the product), closing (agreed on a deal / waiting to pay), delivered (received the goods), done, lost (not interested).
+- chat: name, phone (digits as written), product (what the customer wants), source ("וואטסאפ" for WhatsApp), notes (one or two Hebrew sentences: what was agreed or asked), follow (YYYY-MM-DD only if a concrete follow-up day is stated; today is given), and stage: talked (first contact), hot (clearly interested), catalog (we sent / they received the catalog), viewing (went/will go to see the product), closing (agreed on a deal / waiting to pay), delivered (received the goods), done, lost (not relevant / not interested).
 - matchId: the id of an existing lead from <existing_leads> when the name or phone clearly refers to the same person, otherwise "". Never invent an id.
 - summary: one short Hebrew sentence describing what you found, e.g. "שיחה עם דנה כהן: מעוניינת בספה, תחזור ביום ראשון".`;
 
@@ -314,7 +314,7 @@ Rules:
 - Map columns by their headers (Hebrew). The sheet's own numbers are exact: copy them, never recompute them. Known headers of the owner's monthly sheet: לקוחות -> name; סוג אוהל -> product and model ("לוטוס 8 +בידוד" means model לוטוס 8 and an insulation extra); כמות -> quantity; מחיר ללקוח -> the TOTAL the customer pays for all tents, so price = total / quantity; מקדמה (advance paid) -> note "מקדמה ₪X"; תשלום לספק -> supplier (total paid to the supplier); מכס (customs) -> note "מכס ₪X"; רווח אוהלים -> commission (our profit on the tents, exactly as written); הקמה -> an extra labelled הקמה with that amount and cost = עובד הקמה; מוצרים נלווים -> an extra with that label and amount, cost = עלויות חומרים; דלק or other cost columns -> note. A row that only sells a setup (e.g. "הקמה לוטוס 5 שדרות") has no tent price: put only the extras. Other headers: שם/לקוח -> name, טלפון/נייד -> phone, מוצר/דגם/אוהל -> product and model, כמות -> quantity, מחיר -> price, עלות -> cost, ספק -> suppName, מה הספק קיבל -> supplier, עמלה/רווח -> commission, מספר קבלה/חשבונית -> receiptNo, תאריך -> closedDate for a completed sale, תאריך אספקה -> deliveryDate, בידוד/הקמה/תוספת -> extras (label, amount, cost), הערות -> notes. Dates are day/month/year (Israeli order); output YYYY-MM-DD.
 - price is per ONE tent. If a quantity above 1 is given with a total, divide to get the per-tent price. quantity: a whole number, omit when 1 or unknown.
 - model: the tent model named (לוטוס / פעמון plus the size in meters), or "". docType: "commission_receipt" when the row's amount is the owner's COMMISSION (עמלה), "customer_payment" when it is what the customer paid, otherwise "other". For a commission row put the commission in "commission" and do NOT compute price or supplier: the server completes them from the catalog.
-- stage: talked (first contact), hot, viewing, closing, delivered (received the goods), done (a completed, paid and closed sale), lost. A row of a completed sale with a price / commission / receipt number is "done" unless the sheet says otherwise; with no information use "talked".
+- stage: talked (first contact), hot, catalog (received the catalog), viewing, closing, delivered (received the goods), done (a completed, paid and closed sale), lost. A row of a completed sale with a price / commission / receipt number is "done" unless the sheet says otherwise; with no information use "talked".
 - matchId: id of an existing lead from <existing_leads> when name or phone clearly match, else "".
 - summary: one short Hebrew sentence per item (e.g. "לוטוס 5 לדנה כהן, עמלה 1,800").`;
 

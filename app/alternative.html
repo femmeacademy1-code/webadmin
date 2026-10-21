@@ -15,13 +15,13 @@
 :root{
   --bg:#f7f3ef; --surface:#ffffff; --ink:#2b2321; --muted:#766a65; --line:#e6dcd5;
   --accent:#b8473f; --accent-ink:#ffffff; --good:#1f7a6d; --warn:#9a6a14; --bad:#b3261e; --chip:#f1e8e1;
-  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
+  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-catalog:#7e5bb5; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
   --f-display:"Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
-  --s-talked:#a89c96; --s-hot:#ef7a74; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
+  --s-talked:#a89c96; --s-hot:#ef7a74; --s-catalog:#b79ae6; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
@@ -127,6 +127,8 @@ legend{font-weight:800;padding:0 6px}
 .card.sel{outline:3px solid var(--accent)}
 .card.pick::before{content:'☐';font-size:22px}
 .card.pick.sel::before{content:'☑'}
+.cnote{white-space:pre-wrap;font-size:14.5px;background:var(--chip);border-radius:8px;padding:6px 10px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.card.lostc{opacity:.65}
 .note{color:var(--muted);font-size:14px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}h1{font-size:26px}.kpi b{font-size:22px}.kpi.big b{font-size:28px}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
@@ -182,8 +184,8 @@ legend{font-weight:800;padding:0 6px}
 (function(){
 'use strict';
 var STAGES=[
-  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'viewing',name:'הלך לראות'},
-  {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'lost',name:'לא התקדם'}
+  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'catalog',name:'קיבל קטלוג'},{id:'viewing',name:'הלך לראות'},
+  {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'lost',name:'לא רלוונטי'}
 ];
 var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
 var stageColor=function(id){return 'var(--s-'+id+')'};
@@ -304,12 +306,14 @@ function renderList(){
     var due=closed||(l.follow&&s.id!=='done'&&s.id!=='lost'&&DEAL.indexOf(s.id)<0?'<span class="due'+(l.follow<td?' late':'')+'">'+(l.follow<td?'לחזור היה ':'לחזור ב')+dstr(l.follow)+'</span>':'');
     var money=c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'';
     var wa=waLink(l.phone);
-    return '<div class="card'+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
-      '<div class="row"><h3>'+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
+    var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
+    var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
+    return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
+      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
-      '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
+      '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
-      '<div class="acts">'+nextBtn+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
+      '<div class="acts">'+nextBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
 function renderSelBar(){
@@ -348,7 +352,7 @@ function potProfit(l){
   var sup=n(l.supplier)>0?n(l.supplier):net*pct;
   return {v:net-n(l.cost)*q-(cfg.supplierInCost?0:sup)+xp,est:est};
 }
-var POT_STAGES=['talked','hot','viewing','closing'];
+var POT_STAGES=['talked','hot','catalog','viewing','closing'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
   if(filter!=='open'){b.hidden=true;return}
@@ -415,6 +419,14 @@ function showLogin(){
     $('l_btn').textContent=needSetup?'הגדרה וכניסה':'כניסה';
     $('l_pass').autocomplete=needSetup?'new-password':'current-password';
   }).catch(function(){});
+}
+/* one tap: mark a lead not relevant (stage "לא רלוונטי", 🚫 on the card) or bring it back to the stage it came from */
+function irrelevant(id,on){
+  var l=leads[id];if(!l)return;
+  var body=pick(l);body.qty=qtyOf(l);
+  if(on)body.stage='lost';
+  else{var prev='talked';(l.log||[]).forEach(function(x){if(x.s!=='lost'&&SM[x.s])prev=x.s});body.stage=prev}
+  save(id,body).then(function(){toast(on?(l.name||'הליד')+' סומן כלא רלוונטי 🚫':(l.name||'הליד')+' חזר ל"'+SM[body.stage].name+'"')}).catch(function(){});
 }
 function advance(id){
   var l=leads[id];if(!l)return;
@@ -802,6 +814,8 @@ document.addEventListener('click',function(e){
   var tab=t.closest('[data-f]');if(tab){filter=tab.dataset.f;try{localStorage.setItem('crmFilter',filter)}catch(x){}render();return}
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
+  var ir=t.closest('[data-irr]');if(ir){e.stopPropagation();irrelevant(ir.dataset.irr,true);return}
+  var un=t.closest('[data-undo]');if(un){e.stopPropagation();irrelevant(un.dataset.undo,false);return}
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
   if(t.id==='expAdd'){openExpense(null);return}
   if(t.id==='expMgr'){openExpMgr();return}
