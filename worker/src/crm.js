@@ -94,6 +94,9 @@ export async function saveLead(env, id, input) {
     stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), qty: input.qty === undefined ? qtyOf(old || {}) : qtyOf(input), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
     createdAt: (old && old.createdAt) || now, updatedAt: now, log,
   };
+  lead.firstBy = input.firstBy === undefined ? ((old && old.firstBy) || '') : text(input.firstBy, 40);          // who made the first contact
+  lead.followups = input.followups === undefined ? ((old && old.followups) || [])                            // who followed up and when
+    : (Array.isArray(input.followups) ? input.followups.slice(0, 40).map((x) => ({ by: text(x && x.by, 40), date: dateOrEmpty(x && x.date, 'תאריך פולואפ'), note: text(x && x.note, 200) })).filter((x) => x.by || x.date || x.note) : []);
   const delivery = text(input.deliveryDate, 10);
   if (delivery && !/^\d{4}-\d{2}-\d{2}$/.test(delivery)) throw new HttpError(400, 'תאריך אספקה לא תקין');
   lead.deliveryDate = delivery;
@@ -208,7 +211,9 @@ export async function saveProject(env, id, input) {
   if (leadId && !(await getKV(env, LEAD + leadId))) throw new HttpError(400, 'הלקוחה שנבחרה לא נמצאה בלידים');
   const payStatus = ['none', 'deposit', 'partial', 'paid'].includes(input.payStatus) ? input.payStatus : 'none';
   const vatMode = input.vatMode === 'exempt' ? 'exempt' : 'lic';
-  const item = { id, name, leadId, vatMode, location: text(input.location, 120), payStatus, paidAmount: money(input.paidAmount, 'שולם עד כה'), contactName: text(input.contactName, 80), contactPhone: text(input.contactPhone, 40), team: text(input.team, 200),
+  const old = (await listProjects(env)).find((x) => x.id === id);
+  const date = dateOrEmpty(input.date, 'תאריך הפרויקט') || (old && old.date) || new Date().toISOString().slice(0, 10);
+  const item = { id, name, leadId, vatMode, date, location: text(input.location, 120), payStatus, paidAmount: money(input.paidAmount, 'שולם עד כה'), contactName: text(input.contactName, 80), contactPhone: text(input.contactPhone, 40), team: text(input.team, 200),
     customer: text(input.customer, 120), price: money(input.price, 'מחיר ללקוח'), vatIncl: input.vatIncl !== false, contingencyPct: pct,
     status: ['plan', 'doing', 'done'].includes(input.status) ? input.status : 'plan', notes: text(input.notes, 1000), items, updatedAt: new Date().toISOString() };
   const all = await listProjects(env);
@@ -218,6 +223,23 @@ export async function saveProject(env, id, input) {
   await env.CMS.put(PROJ, JSON.stringify({ items: all }));
   return item;
 }
+/* The same VAT rules as the page: licensed project = income without VAT and the VAT of licensed suppliers recovered; exempt project = everything as entered. */
+export function projectTotals(p, cfg) {
+  const vat = Number(cfg.vat) / 100, exempt = p.vatMode === 'exempt', price = Number(p.price) || 0;
+  const net = exempt ? price : (p.vatIncl === false ? price : price / (1 + vat));
+  let planned = 0, actual = 0, hasActual = false;
+  for (const it of p.items || []) {
+    const q = it.qty === '' || it.qty == null ? 1 : Number(it.qty) || 0, pl = q * (Number(it.unit) || 0), has = it.actual !== '' && it.actual != null, ac = has ? Number(it.actual) || 0 : pl;
+    const f = !exempt && it.vatType === 'lic' ? 1 / (1 + vat) : 1;
+    if (has) hasActual = true;
+    planned += pl * f; actual += ac * f;
+  }
+  const pct = p.contingencyPct === '' || p.contingencyPct == null ? 10 : Number(p.contingencyPct);
+  return { net, planned, actual, hasActual, profit: net - planned - planned * pct / 100, profitActual: net - actual };
+}
+/* what a finished project adds to the month's profit: by the actual costs when she wrote them, otherwise by the plan (without the overrun budget) */
+export const projectRealized = (p, cfg) => { const t = projectTotals(p, cfg); return t.hasActual ? t.profitActual : t.net - t.planned; };
+
 export async function deleteProject(env, id) {
   await env.CMS.put(PROJ, JSON.stringify({ items: (await listProjects(env)).filter((x) => x.id !== id) }));
 }

@@ -82,6 +82,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/3,000/.test(await pg.innerText('#kpis')), `${tag}: expected profit KPI 3,000`);
   await leadsV();
 
+  await pg.click('#list .card h3'); await pg.waitForSelector('#f_firstBy');
+  await pg.selectOption('#f_firstBy', 'תמר'); await pg.click('[data-fuadd]'); await pg.locator('.fu .fu-by').last().selectOption('אוריאל'); await pg.locator('.fu .fu-date').last().fill('2026-10-04');
+  await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/קשר ראשון: תמר/.test(await pg.innerText('.card')) && /פולואפ אחרון: אוריאל/.test(await pg.innerText('.card')), `${tag}: the card shows who made first contact and who followed up`);
   await pg.click('[data-adv]'); await pg.waitForSelector('#veil');            // closing -> delivered opens editor
   ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'נסגר', `${tag}: advanced to closed`);
   ok(await pg.locator('#row_closed').isVisible() && await pg.locator('#row_follow').isHidden(), `${tag}: a closed deal asks for a closing date, not a follow-up`);
@@ -177,7 +181,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="all"]'); await pg.click('#list .card:has-text("פוטנציאל") [data-undo]');
   await pg.waitForFunction(() => !document.querySelector('#list .card.lostc'));
   ok(/לעונה הבאה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: ↩ brings it back to the stage it came from`);
-  await pg.click('#list .card:has-text("פוטנציאל")'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.click('#list .card:has-text("פוטנציאל") h3'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' });
   // moving a lead to a stage outside the open tab must not make it vanish
   await pg.click('[data-f="hot"]'); await pg.click('.card h3'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/רונית/.test(await pg.innerText('#list')) && await pg.locator('.tab[aria-pressed="true"]').innerText().then((t) => /לא רלוונטי/.test(t)), `${tag}: the lead moved to lost stays visible (tab switched)`);
@@ -285,6 +289,14 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#cancelBtn'); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
   await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
+  ok(await pg.evaluate(() => { const f = document.getElementById('projForm'), sm = document.getElementById('pjSum'), last = [...f.querySelectorAll('.pjrow')].pop(), notes = document.getElementById('p_notes'); return !!(last.compareDocumentPosition(sm) & 4) && !!(notes.compareDocumentPosition(sm) & 4); }), `${tag}: the summary sits at the end, after all the items and the notes`);
+  const mon = new Date().toISOString().slice(0, 7);
+  await pg.selectOption('#p_status', 'done'); await pg.fill('#p_date', mon + '-12');
+  const pjProfitText = (await pg.innerText('#pjSum'));
+  await pg.click('#projForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.click('#backBtn'); await money(); await pg.selectOption('#period', 'month');
+  ok(/פרויקטים שהסתיימו/.test(await pg.innerText('.kpi.big')) && /בית עץ/.test(await pg.locator('#dealList').textContent()), `${tag}: a finished project enters the month's profit and is listed`);
+  await leadsV(); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd'); await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   await pg.click('#pjDelProject'); await pg.click('#pjDelProject'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/עוד אין פרויקטים/.test(await pg.innerText('#projBox')), `${tag}: deleted`);
   await pg.click('#backBtn');

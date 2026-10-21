@@ -268,6 +268,7 @@ function inPeriodStr(s){
 function renderPeriod(){
   var o=[['all','כל הזמן'],['month','החודש'],['last','חודש שעבר'],['year','השנה']],cnt={};
   allLeads().forEach(function(l){if(DEAL.indexOf(l.stage)>-1&&l.dealAt){var k=String(l.dealAt).slice(0,7);cnt[k]=(cnt[k]||0)+1}});
+  projects.forEach(function(q){if(q.status==='done'&&q.date){var k=String(q.date).slice(0,7);cnt[k]=(cnt[k]||0)+1}});
   Object.keys(cnt).sort().reverse().forEach(function(k){o.push(['m:'+k,monthName(k)+' ('+cnt[k]+')'])});
   if(period.indexOf('m:')===0&&!cnt[period.slice(2)])o.push([period,monthName(period.slice(2))+' (0)']);
   var oh=o.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===period?' selected':'')+'>'+x[1]+'</option>'}).join('');
@@ -278,10 +279,13 @@ function renderKpis(){
   var t={rev:0,vat:0,cost:0,sup:0,profit:0};
   var mkList=expenses.filter(function(x){return inPeriodStr(x.date)}),mk=mkList.reduce(function(s,x){return s+n(x.amount)},0);
   all.forEach(function(l){var c=calc(l);t.rev+=c.net;t.vat+=c.vat;t.cost+=c.cost;t.sup+=c.sup;t.profit+=c.profit});
+  var pjs=projects.filter(function(q){return q.status==='done'&&q.date&&inPeriodStr(q.date)}),pjP=0;
+  pjs.forEach(function(q){pjP+=pjRealized(q)});
+  t.profit+=pjP;
   var exp=0,expN=0;
   allLeads().forEach(function(l){if(l.stage==='closing'){var c=calc(l);if(c.has){exp+=c.profit;expN++}}});
   $('kpis').innerHTML=
-    '<div class="kpi big"><span>רווח נקי'+(mk?' אחרי שיווק':'')+'</span><b class="num">'+fmt(t.profit-mk)+'</b><small>'+all.length+' עסקאות שנסגרו</small></div>'+
+    '<div class="kpi big"><span>רווח נקי'+(mk?' אחרי שיווק':'')+'</span><b class="num">'+fmt(t.profit-mk)+'</b><small>'+all.length+' עסקאות שנסגרו'+(pjs.length?' + '+pjs.length+' פרויקטים שהסתיימו ('+fmt(pjP)+')':'')+'</small></div>'+
     (mk?'<div class="kpi"><span>רווח לפני שיווק</span><b class="num">'+fmt(t.profit)+'</b></div><div class="kpi"><span>הוצאות שיווק</span><b class="num">'+fmt(mk)+'</b><small>'+mkList.length+' הוצאות</small></div>':'')+
     '<div class="kpi"><span>הכנסה לפני מע״מ</span><b class="num">'+fmt(t.rev)+'</b></div>'+
     '<div class="kpi"><span>עלות המוצרים</span><b class="num">'+fmt(t.cost)+'</b></div>'+
@@ -291,8 +295,9 @@ function renderKpis(){
   all.sort(function(a,b){return String(a.dealAt||'').localeCompare(String(b.dealAt||''))});
   var xl=$('expList');
   if(xl){xl.hidden=!mkList.length;xl.innerHTML=mkList.length?'<summary>הוצאות שיווק בתקופה ('+mkList.length+' · '+fmt(mk)+')</summary>'+mkList.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date))}).map(function(x){return '<button type="button" class="drow xrow" data-exp="'+x.id+'"><span class="num">'+dstr(x.date)+'</span><span>'+esc(x.label||'שיווק')+'</span><b class="num">'+fmt(n(x.amount))+'</b></button>'}).join(''):''}
-  $('dealList').hidden=!all.length;
-  $('dealList').innerHTML=all.length?'<summary>פירוט העסקאות בתקופה ('+all.length+')</summary>'+all.map(function(l){var c=calc(l);return '<div class="drow"><span class="num">'+(l.dealAt?dstr(l.dealAt):'')+'</span><span>'+esc(l.name||l.phone||'')+(l.product?' · '+esc(l.product):'')+(qtyOf(l)>1?' × '+qtyOf(l):'')+'</span><b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></div>'}).join(''):'';
+  var pjRows=pjs.map(function(q){var r=pjRealized(q);return '<div class="drow"><span class="num">'+dstr(q.date)+'</span><span>🏗️ '+esc(q.name)+'</span><b class="num'+(r<0?' neg':'')+'">'+fmt(r)+'</b></div>'}).join('');
+  $('dealList').hidden=!all.length&&!pjs.length;
+  $('dealList').innerHTML=all.length||pjs.length?'<summary>פירוט העסקאות והפרויקטים בתקופה ('+(all.length+pjs.length)+')</summary>'+pjRows+all.map(function(l){var c=calc(l);return '<div class="drow"><span class="num">'+(l.dealAt?dstr(l.dealAt):'')+'</span><span>'+esc(l.name||l.phone||'')+(l.product?' · '+esc(l.product):'')+(qtyOf(l)>1?' × '+qtyOf(l):'')+'</span><b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></div>'}).join(''):'';
 }
 function renderTabs(){
   var ls=allLeads(),cnt={};STAGES.forEach(function(s){cnt[s.id]=0});ls.forEach(function(l){if(cnt[l.stage]==null)return;if(DEAL.indexOf(l.stage)>-1&&period!=='all'&&!inPeriod(l))return;cnt[l.stage]++});      // closed tabs count only the chosen month
@@ -362,7 +367,10 @@ function renderList(){
     var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='visit'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var pjl=projects.filter(function(p){return p.leadId===l.id}).map(function(p){var t=pjTotals(p);return '<button type="button" class="btn sm" data-pjopen="'+p.id+'">🏗️ '+esc(p.name)+' · רווח '+fmt(t.profit)+' · '+PAYS[p.payStatus||'none']+'</button>'}).join('');
+    var fu=(l.followups||[]).slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date))}),lf=fu[fu.length-1];
+    var who=(l.firstBy||lf)?'<div class="cnote">'+(l.firstBy?'קשר ראשון: '+esc(l.firstBy):'')+(l.firstBy&&lf?' · ':'')+(lf?'פולואפ אחרון: '+esc(lf.by||'')+(lf.date?' '+dstr(lf.date):'')+(fu.length>1?' ('+fu.length+')':''):'')+'</div>':'';
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
+    note+=who;
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
       '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':s.id==='visit'?'🏕️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
@@ -445,7 +453,7 @@ function api(method,path,body){
 }
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
-function pick(l){var o={};['name','phone','product','source','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
+function pick(l){var o={};['name','phone','product','source','firstBy','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 /* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
 var SEL={on:false,ids:{}};
 var recent={},gone={};
@@ -634,6 +642,8 @@ function openEditor(id,hint){
      field('f_source','מאיפה הגיע',l.source,'text',{})+'<div class="f" id="row_follow">'+field('f_follow','לחזור אליו ב',l.follow,'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_closed" hidden>'+field('f_closed','תאריך סגירה',l.dealAt?l.dealAt.slice(0,10):today(),'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_supply" hidden>'+field('f_supply','תאריך אספקה',l.deliveryDate,'date',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+'<div class="f" id="row_receipt" hidden>'+field('f_receipt','מספר קבלה',l.receiptNo,'text',{}).replace(/^<div class="f">|<\/div>$/g,'')+'</div>'+
      '<div class="f full"><label for="f_notes">הערות</label><textarea id="f_notes" rows="3">'+esc(l.notes)+'</textarea></div>'+
    '</div>'+
+   '<fieldset><legend>מי טיפל</legend><div class="f"><label for="f_firstBy">מי יצר קשר ראשון</label><select id="f_firstBy"><option value="">לא צוין</option>'+PEOPLE.concat(l.firstBy&&PEOPLE.indexOf(l.firstBy)<0?[l.firstBy]:[]).map(function(x){return '<option'+(x===l.firstBy?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select></div>'+
+     '<div id="fuList">'+(l.followups||[]).map(fuRow).join('')+'</div><button type="button" class="btn sm" data-fuadd="1">＋ פולואפ (מי ומתי)</button></fieldset>'+
    '<fieldset><legend>הכסף</legend><div class="grid2">'+
      field('f_price','מחיר לאוהל אחד (₪)',l.price,'number',{})+field('f_qty','כמות אוהלים',l.qty||1,'number',{})+field('f_cost','עלות לאוהל אחד (₪)',l.cost,'number',{})+
      field('f_supplier','כמה הספק קיבל (₪) · '+n(cfg.supplierPct)+'% לפני מע״מ',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
@@ -681,11 +691,14 @@ function updCalc(){
    '<div class="pf'+(c.profit<0?' neg':'')+'"><span>'+(c.xp?'רווח כולל':'רווח')+'</span><b class="num">'+fmt(c.profit)+'</b></div>';
 }
 function moneyVal(id,label){var v=clean(val(id));if(v!==''&&!isFinite(Number(v)))throw new Error('הסכום ב"'+label+'" לא תקין');return v}
+var PEOPLE=['תמר','אוריאל','אורין'];
+function fuRow(f){f=f||{by:'',date:today(),note:''};return '<div class="drow fu"><select class="fu-by" aria-label="מי עשה פולואפ">'+PEOPLE.concat(f.by&&PEOPLE.indexOf(f.by)<0?[f.by]:[]).map(function(x){return '<option'+(x===f.by?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select><input class="fu-date" type="date" value="'+esc(f.date||'')+'" aria-label="מתי"><input class="fu-note" value="'+esc(f.note||'')+'" placeholder="מה סוכם" maxlength="200"><button type="button" class="btn sm" data-fudel="1" aria-label="מחיקת פולואפ">✕</button></div>'}
+function readFollowups(){return [].slice.call(document.querySelectorAll('#fuList .fu')).map(function(r){return {by:r.querySelector('.fu-by').value,date:r.querySelector('.fu-date').value,note:r.querySelector('.fu-note').value.trim()}})}
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
   var mp,mc,ms,mm;try{mp=moneyVal('f_price','מחיר ללקוח');mc=moneyVal('f_cost','עלות');ms=moneyVal('f_supplier','הספק קיבל');mm=moneyVal('f_commission','העמלה');var ex=readExtras()}catch(e){toast(e.message);return}
   var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:ex,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
-    price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg};
+    price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg,firstBy:$('f_firstBy').value,followups:readFollowups()};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   var orig0=editing?leads[editing]:null,changed0=!orig0||d.phone!==(orig0.phone||'')||d.name!==(orig0.name||'');
   if(changed0&&!dupForce&&findDups(d.name,d.phone,editing).length){paintDup();toast('ליד זה כבר קיים במערכת');var dh=$('dupHint');if(dh&&dh.scrollIntoView)dh.scrollIntoView({block:'center'});return}
@@ -845,6 +858,8 @@ function pjTotals(p){
   var pct=(p.contingencyPct===''||p.contingencyPct==null)?10:n(p.contingencyPct),reserve=planned*pct/100,over=actual-planned;
   return {net:net,outVat:outVat,inVat:inVat,vatNet:outVat-inVat,exempt:exempt,entered:entered,licAmt:licAmt,exmAmt:exmAmt,planned:planned,actual:actual,hasActual:hasActual,by:by,pct:pct,reserve:reserve,over:over,left:reserve-over,profit:net-planned-reserve,profitNoOver:net-planned,profitActual:net-actual,margin:net>0?(net-planned-reserve)/net:0};
 }
+/* a finished project adds its profit by the actual costs when she wrote them, otherwise by the plan (no overrun budget); same rule as the server */
+function pjRealized(p){var t=pjTotals(p);return t.hasActual?t.profitActual:t.net-t.planned}
 function loadProjects(){return load()}
 var PAYS={none:'לא שולם',deposit:'מקדמה שולמה',partial:'שולם חלקית',paid:'שולם במלואו'};
 function payColor(k){return k==='paid'?'var(--good)':k==='none'?'var(--bad)':'var(--warn)'}
@@ -931,10 +946,10 @@ function openProject(id,pre){
    '<label class="chk"><input type="checkbox" id="p_vat"'+(!p||p.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
    '<div class="f"><label for="p_status">מצב הפרויקט</label><select id="p_status">'+Object.keys(PSTAT).map(function(k){return '<option value="'+k+'"'+((p&&p.status?p.status:'plan')===k?' selected':'')+'>'+PSTAT[k]+'</option>'}).join('')+'</select></div>'+
    '<div class="f"><label for="p_pay">סטטוס תשלום</label><select id="p_pay">'+Object.keys(PAYS).map(function(k){return '<option value="'+k+'"'+((p&&p.payStatus?p.payStatus:'none')===k?' selected':'')+'>'+PAYS[k]+'</option>'}).join('')+'</select></div>'+
-   field('p_paid','שולם עד כה (₪)',p?p.paidAmount:'','number',{})+'</div>'+
-   '<fieldset class="pjsum"><legend>סיכום</legend><div id="pjSum"></div></fieldset>'+
+   field('p_paid','שולם עד כה (₪)',p?p.paidAmount:'','number',{})+field('p_date','תאריך הפרויקט (לחודש הרווח כשהוא "הסתיים")',p&&p.date?p.date:today(),'date',{})+'</div>'+
    PCATS.map(function(c){return '<div class="pjcat"><span>'+c.name+' · <span class="num" id="pjsub_'+c.k+'">₪0</span></span><button type="button" class="btn sm" data-pjadd="'+c.k+'">＋ שורה</button></div><div id="pj_'+c.k+'">'+items.filter(function(it){return it.cat===c.k}).map(function(it){return pjRowHtml(c.k,it)}).join('')+'</div>'}).join('')+
    '<div class="f"><label for="p_notes">הערות</label><textarea id="p_notes" rows="2">'+esc(p?p.notes||'':'')+'</textarea></div>'+
+   '<fieldset class="pjsum"><legend>סיכום</legend><div id="pjSum"></div></fieldset>'+
    '<p class="note">כמות × מחיר ליחידה = העלות המתוכננת. "בפועל" אופציונלי: כשרושמים אותו, מחושבת החריגה ממה שתוכנן. פרויקט ששויך ללקוחה מופיע גם בכרטיס שלה בלידים.</p>'+
    '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(id&&p?'<button class="btn danger" type="button" id="pjDelProject">מחיקה</button>':'')+'</div></form></div>';
   pjLeadInfo();pjUpdate();
@@ -953,7 +968,7 @@ function savePj(){
   var r;try{r=pjRead();var pc=r.contingencyPct;if(pc!==''&&(!isFinite(Number(pc))||Number(pc)<0||Number(pc)>100))throw new Error('אחוז תקציב החריגות חייב להיות בין 0 ל-100');var paid=clean(val('p_paid'));if(paid!==''&&(!isFinite(Number(paid))||Number(paid)<0))throw new Error('הסכום ב"שולם עד כה" לא תקין')}catch(e){toast(e.message);return}
   var id=editingProj||newId(),lid=$('p_lead').value,lead=lid?leads[lid]:null;
   var body={name:name,leadId:lid,location:val('p_location'),customer:val('p_customer')||(lead?lead.name:''),contactName:val('p_contact'),contactPhone:val('p_contactPhone'),team:val('p_team'),payStatus:$('p_pay').value,paidAmount:clean(val('p_paid')),
-    price:r.price,vatIncl:r.vatIncl,vatMode:r.vatMode,contingencyPct:r.contingencyPct,status:$('p_status').value,notes:$('p_notes').value.trim(),items:r.items};
+    price:r.price,vatIncl:r.vatIncl,vatMode:r.vatMode,contingencyPct:r.contingencyPct,status:$('p_status').value,date:val('p_date'),notes:$('p_notes').value.trim(),items:r.items};
   guard(api('PUT','/alt/projects/'+id,body)).then(function(d){projects=projects.filter(function(x){return x.id!==id}).concat([d.project]);pjRecent[id]={item:d.project,at:Date.now()};delete pjGone[id];closeEditor();render();toast('הפרויקט נשמר')}).catch(function(){});
 }
 function pjDelProject(btn){
@@ -1149,6 +1164,8 @@ document.addEventListener('click',function(e){
   var pjp=t.closest('[data-pjpull]');if(pjp){var pll=leads[pjp.dataset.pjpull];if(pll){$('p_price').value=String(Math.round(calc(pll).gross));pjUpdate()}return}
   var pjn=t.closest('[data-pjnew]');if(pjn){var nl=leads[pjn.dataset.pjnew];if(nl){closeEditor();openProject(null,{leadId:nl.id,customer:nl.name||'',contactName:nl.name||'',contactPhone:nl.phone||'',price:calc(nl).has?Math.round(calc(nl).gross):'',vatIncl:nl.vatIncl!==false,status:'plan',payStatus:'none',contingencyPct:10,items:[]})}return}
   var pjo=t.closest('[data-pjopen]');if(pjo){openProject(pjo.dataset.pjopen);return}
+  if(t.closest('[data-fuadd]')){$('fuList').insertAdjacentHTML('beforeend',fuRow());return}
+  var fud=t.closest('[data-fudel]');if(fud){fud.parentNode.remove();return}
   var pja=t.closest('[data-pjadd]');if(pja){pjAddRow(pja.dataset.pjadd);return}
   if(t.closest('[data-pjdel]')){var rw=t.closest('.pjrow');if(rw)rw.remove();pjUpdate();return}
   if(t.id==='pjDelProject'){pjDelProject(t);return}

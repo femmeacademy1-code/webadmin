@@ -2,7 +2,7 @@
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
-import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit, leadProfit, listExpenses, listShipments } from './crm.js';
+import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit, leadProfit, listExpenses, listShipments, listProjects, projectRealized } from './crm.js';
 import { secretEquals } from './auth.js';
 
 const KEY = 'alt:tg';
@@ -144,6 +144,9 @@ async function summary(env, c, id) {
     profit += leadProfit(l, cfg); deals++;
   }
   const mkt = (await listExpenses(env)).filter((x) => String(x.date).startsWith(ym)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  let pjProfit = 0, pjN = 0;
+  for (const p of await listProjects(env)) { if (p.status === 'done' && String(p.date || '').startsWith(ym)) { pjProfit += projectRealized(p, cfg); pjN++; } }
+  profit += pjProfit; deals += pjN;                                   // finished projects count in the month's profit
   const ship = (await listShipments(env)).filter((x) => !x.arrived);
   const today = now.toISOString().slice(0, 10);
   const late = open.filter((l) => l.follow && l.follow < today).map((l) => l.name || l.phone);

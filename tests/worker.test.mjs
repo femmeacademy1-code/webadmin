@@ -1458,3 +1458,16 @@ test('alternative: the removed stage "קיבל סחורה" (delivered) counts as
   assert.equal(w.stage, 'done'); assert.equal(w.dealAt, '2026-07-10T12:00:00.000Z');          // closing date kept, and no phantom stage change in the log
   assert.equal(w.log.length, 1);
 });
+
+test('alternative: who made first contact and who followed up (and when) are saved and kept on later saves; project date and realized profit', async () => {
+  const alt = await altCookieFor();
+  const id = 'fu000000001';
+  const a = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'רונית', phone: '0501112222', firstBy: 'תמר', followups: [{ by: 'אוריאל', date: '2026-10-05', note: 'ביקשה הצעה' }, { by: '', date: '', note: '' }] } });
+  assert.equal(a.status, 200, JSON.stringify(a.data));
+  assert.equal(a.data.lead.firstBy, 'תמר'); assert.equal(a.data.lead.followups.length, 1); assert.equal(a.data.lead.followups[0].by, 'אוריאל');
+  const b = await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'רונית', phone: '0501112222', notes: 'x' } });        // a save without the fields keeps them
+  assert.equal(b.data.lead.firstBy, 'תמר'); assert.equal(b.data.lead.followups.length, 1);
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'רונית', followups: [{ by: 'אורין', date: '5/10' }] } })).status, 400);
+  const p = await call('PUT', '/api/alt/projects/proj00000009', { cookie: alt, body: { name: 'חופה', price: 11800, status: 'done', date: '2026-10-10', items: [{ cat: 'materials', label: 'עץ', qty: 1, unit: 2000 }] } });
+  assert.equal(p.status, 200, JSON.stringify(p.data)); assert.equal(p.data.project.date, '2026-10-10');
+});
