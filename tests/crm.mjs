@@ -123,6 +123,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#list .card:has-text("פוטנציאל") [data-cat]');
   await pg.waitForFunction(() => /📖 פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-cat]').count() === 0, `${tag}: one tap marks 'received the catalog' with 📖 on the card`);
+  // a one-tap "hot" button for a lead that is not hot (here: it received the catalog)
+  await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
+  await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-hot]').count() === 0, `${tag}: one tap marks it hot with 🔥`);
   // next season: one button, a date to call him (chips or any date), 🗓️ on the card
   await pg.click('#list .card:has-text("פוטנציאל") [data-season]'); await pg.waitForSelector('#folForm');
   await pg.click('[data-fchip]:has-text("עוד 3 חודשים")'); await pg.click('#folForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });

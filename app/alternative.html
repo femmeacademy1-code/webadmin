@@ -312,15 +312,16 @@ function renderList(){
     var wa=waLink(l.phone);
     var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
     var catBtn=(s.id==='talked'||s.id==='hot')?'<button class="btn sm" type="button" data-cat="'+l.id+'">📖 קיבל קטלוג</button>':'';
+    var hotBtn=(s.id==='talked'||s.id==='season'||s.id==='catalog')?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
     var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
-      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
+      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
-      '<div class="acts">'+nextBtn+catBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
+      '<div class="acts">'+nextBtn+hotBtn+catBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
 function renderSelBar(){
@@ -442,6 +443,12 @@ function irrelevant(id,on){
   if(on)body.stage='lost';
   else{var prev='talked';(l.log||[]).forEach(function(x){if(x.s!=='lost'&&SM[x.s])prev=x.s});body.stage=prev}
   save(id,body).then(function(){toast(on?(l.name||'הליד')+' סומן כלא רלוונטי 🚫':(l.name||'הליד')+' חזר ל"'+SM[body.stage].name+'"')}).catch(function(){});
+}
+/* one tap: the lead is hot (stage "ליד חם", 🔥 on the card) */
+function gotHot(id){
+  var l=leads[id];if(!l)return;
+  var body=pick(l);body.qty=qtyOf(l);body.stage='hot';
+  save(id,body).then(function(){toast((l.name||'הליד')+' סומן כליד חם 🔥')}).catch(function(){});
 }
 /* one tap: the lead received the catalog (stage "קיבל קטלוג", 📖 on the card) */
 function gotCatalog(id){
@@ -863,6 +870,7 @@ document.addEventListener('click',function(e){
   var fo=t.closest('[data-follow]');if(fo){e.stopPropagation();openFollow(fo.dataset.follow,false);return}
   var fc=t.closest('[data-fchip]');if(fc){$('f_fdate').value=fc.dataset.fchip;return}
   if(t.id==='folClear'){saveFollow(true);return}
+  var ht=t.closest('[data-hot]');if(ht){e.stopPropagation();gotHot(ht.dataset.hot);return}
   var ct=t.closest('[data-cat]');if(ct){e.stopPropagation();gotCatalog(ct.dataset.cat);return}
   var ir=t.closest('[data-irr]');if(ir){e.stopPropagation();irrelevant(ir.dataset.irr,true);return}
   var un=t.closest('[data-undo]');if(un){e.stopPropagation();irrelevant(un.dataset.undo,false);return}
