@@ -120,9 +120,13 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="all"]');
   ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
   ok(/הערה לדוגמה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: the card's notes are visible in the list`);
-  await pg.click('#list .card:has-text("פוטנציאל") [data-cat]');
+  await pg.click('#list .card:has-text("פוטנציאל") [data-adv]');
   await pg.waitForFunction(() => /📖 פוטנציאל/.test(document.querySelector('#list').innerText));
-  ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-cat]').count() === 0, `${tag}: one tap marks 'received the catalog' with 📖 on the card`);
+  ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: one tap marks 'received the catalog' with 📖 on the card`);
+  // no duplicate buttons: a hot lead's → button already says 'received the catalog'
+  await pg.click('[data-f="hot"]');
+  ok(await pg.locator('#list .card:has-text("רונית") [data-adv]').innerText().then((t) => /קיבל קטלוג/.test(t)) && await pg.locator('#list .card:has-text("רונית") [data-cat]').count() === 0, `${tag}: no second 'received the catalog' button`);
+  await pg.click('[data-f="all"]');
   // a one-tap "hot" button for a lead that is not hot (here: it received the catalog)
   await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
   await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));

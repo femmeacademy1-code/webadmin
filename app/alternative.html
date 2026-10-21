@@ -313,8 +313,8 @@ function renderList(){
     var money=c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'';
     var wa=waLink(l.phone);
     var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
-    var catBtn=(s.id==='talked'||s.id==='hot')?'<button class="btn sm" type="button" data-cat="'+l.id+'">📖 קיבל קטלוג</button>':'';
-    var hotBtn=(s.id==='talked'||s.id==='season'||s.id==='catalog')?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
+    var catBtn=((s.id==='talked'||s.id==='hot')&&!(next&&next.id==='catalog'))?      /* no second button for the same step as the → button */ '<button class="btn sm" type="button" data-cat="'+l.id+'">📖 קיבל קטלוג</button>':'';
+    var hotBtn=((s.id==='talked'||s.id==='season'||s.id==='catalog')&&!(next&&next.id==='hot'))?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
     var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
