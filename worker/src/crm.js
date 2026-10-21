@@ -179,6 +179,41 @@ export async function deleteShipment(env, id) {
   await env.CMS.put(SHIP, JSON.stringify({ items }));
 }
 
+/* Project costing: what a project costs (materials, accessories, workers, fuel, other), the budget kept for overruns, and the net profit.
+ * One document (alt:proj) with all projects. Each item: category, what, quantity, unit price (planned) and an optional actual total. */
+const PROJ = 'alt:proj';
+const MAX_PROJ = 200;
+const PCATS = ['material', 'accessory', 'labor', 'fuel', 'other'];
+export async function listProjects(env) {
+  const d = await getKV(env, PROJ);
+  return d && Array.isArray(d.items) ? d.items : [];
+}
+export async function saveProject(env, id, input) {
+  if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
+  const name = text(input.name, 120);
+  if (!name) throw new HttpError(400, 'רשמי שם לפרויקט');
+  const pct = input.contingencyPct === '' || input.contingencyPct == null ? 10 : Number(input.contingencyPct);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new HttpError(400, 'אחוז תקציב החריגות לא תקין');
+  const items = (Array.isArray(input.items) ? input.items : []).slice(0, 150).map((x) => {
+    const qty = x && x.qty !== '' && x.qty != null ? Number(String(x.qty).replace(/[,\s]/g, '')) : 1;
+    if (!Number.isFinite(qty) || qty < 0 || qty > 1e6) throw new HttpError(400, 'כמות לא תקינה');
+    const unit = money(x && x.unit, 'מחיר ליחידה'), actual = money(x && x.actual, 'עלות בפועל');
+    if ((unit !== '' && unit < 0) || (actual !== '' && actual < 0)) throw new HttpError(400, 'סכום לא יכול להיות שלילי');
+    return { cat: PCATS.includes(x && x.cat) ? x.cat : 'other', label: text(x && x.label, 80), qty, unit, actual };
+  }).filter((x) => x.label || x.unit !== '' || x.actual !== '');
+  const item = { id, name, customer: text(input.customer, 120), price: money(input.price, 'מחיר ללקוח'), vatIncl: input.vatIncl !== false, contingencyPct: pct,
+    status: ['plan', 'doing', 'done'].includes(input.status) ? input.status : 'plan', notes: text(input.notes, 1000), items, updatedAt: new Date().toISOString() };
+  const all = await listProjects(env);
+  const i = all.findIndex((x) => x.id === id);
+  if (i < 0 && all.length >= MAX_PROJ) throw new HttpError(400, 'יותר מדי פרויקטים. מחקי ישנים.');
+  if (i < 0) all.push(item); else all[i] = item;
+  await env.CMS.put(PROJ, JSON.stringify({ items: all }));
+  return item;
+}
+export async function deleteProject(env, id) {
+  await env.CMS.put(PROJ, JSON.stringify({ items: (await listProjects(env)).filter((x) => x.id !== id) }));
+}
+
 export async function deleteLead(env, id) {
   await env.CMS.delete(LEAD + id);
 }

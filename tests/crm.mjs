@@ -233,6 +233,25 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
   await pg.selectOption('#period', 'all');
   await leadsV();
+  // project costing: items, fuel, workers, the budget for overruns, the net profit
+  await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
+  ok(await pg.locator('#tabs').isHidden() && await pg.locator('#projBox').isVisible(), `${tag}: the projects view replaces the leads page`);
+  await pg.click('#pjAdd'); await pg.waitForSelector('#p_name'); await pg.waitForTimeout(150);
+  await pg.fill('#p_name', 'בית עץ'); await pg.fill('#p_price', '100,000');
+  const addRow = async (cat, label, q, u) => { await pg.click(`[data-pjadd="${cat}"]`); const r = pg.locator(`#pj_${cat} .pjrow`).last(); await r.locator('.pl').fill(label); await r.locator('.pq').fill(q); await r.locator('.pu').fill(u); return r; };
+  const mat = await addRow('material', 'עץ', '10', '1000'); await addRow('labor', 'עובד', '5', '800'); await addRow('fuel', 'דלק', '4', '250'); await addRow('accessory', 'ברגים', '1', '500');
+  let ps = await pg.innerText('#pjSum');
+  ok(/15,500/.test(ps) && /1,550/.test(ps) && /67,696/.test(ps) && /85%|80%|7\d%|8\d%/.test(ps), `${tag}: costs 15,500, overruns budget 10% = 1,550, net profit 67,696 (${ps.replace(/\n/g, ' | ')})`);
+  await mat.locator('.pa').fill('11,500');
+  ps = await pg.innerText('#pjSum');
+  ok(/חריגה בפועל/.test(ps) && /1,500/.test(ps) && /נשאר מתקציב החריגות[\s\S]*50/.test(ps) && /67,746/.test(ps), `${tag}: actual overrun 1,500 of the 1,550 budget, profit by actuals 67,746`);
+  await pg.click('#projForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/בית עץ/.test(await pg.innerText('#projBox')) && /67,696/.test(await pg.innerText('#projBox')), `${tag}: the project card shows the net profit`);
+  await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
+  ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
+  await pg.click('#pjDelProject'); await pg.click('#pjDelProject'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/עוד אין פרויקטים/.test(await pg.innerText('#projBox')), `${tag}: deleted`);
+  await pg.click('#backBtn');
   // shipments on the way
   await pg.click('#shipBtn'); await pg.waitForSelector('#shAdd');
   ok(await pg.locator('#tabs').isHidden() && await pg.locator('#list').isHidden() && await pg.locator('#sumBox').isHidden(), `${tag}: the shipments view replaces the leads page`);

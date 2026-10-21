@@ -1401,3 +1401,24 @@ test('alternative: shipments on the way are saved, validated, marked arrived, de
   assert.equal((await call('DELETE', '/api/alt/shipments/ship00000002', { cookie: alt })).status, 200);
   assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.shipments.length, 1);
 });
+
+test('alternative: project costing is stored with its items, validated, updated, deleted', async () => {
+  const alt = await altCookieFor();
+  assert.equal((await call('GET', '/api/alt/projects')).status, 401);
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { price: 1000 } })).status, 400);                 // a name is required
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { name: 'x', contingencyPct: 500 } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { name: 'x', items: [{ cat: 'fuel', label: 'דלק', qty: 'abc', unit: 100 }] } })).status, 400);
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { name: 'x', items: [{ cat: 'fuel', label: 'דלק', qty: 2, unit: -5 }] } })).status, 400);
+  const r = await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { name: ' בית עץ ', customer: 'דנה', price: '₪100,000', vatIncl: true, contingencyPct: '', status: 'doing', items: [
+    { cat: 'material', label: 'עץ', qty: 10, unit: 1000, actual: '11,500' }, { cat: 'labor', label: 'עובד', qty: '5', unit: 800 }, { cat: 'bogus', label: 'שונות', unit: 50 }, { cat: 'fuel', label: '', unit: '' } ] } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const p = r.data.project;
+  assert.equal(p.name, 'בית עץ'); assert.equal(p.price, 100000); assert.equal(p.contingencyPct, 10);          // default budget for overruns
+  assert.deepEqual(p.items.map((x) => [x.cat, x.label, x.qty, x.unit, x.actual]), [['material', 'עץ', 10, 1000, 11500], ['labor', 'עובד', 5, 800, ''], ['other', 'שונות', 1, 50, '']]);   // the empty row is dropped
+  await call('PUT', '/api/alt/projects/proj00000002', { cookie: alt, body: { name: 'שני' } });
+  await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { ...p, status: 'done' } });
+  const all = (await call('GET', '/api/alt/projects', { cookie: alt })).data.projects;
+  assert.equal(all.length, 2); assert.equal(all.find((x) => x.id === 'proj00000001').status, 'done');
+  assert.equal((await call('DELETE', '/api/alt/projects/proj00000002', { cookie: alt })).status, 200);
+  assert.equal((await call('GET', '/api/alt/projects', { cookie: alt })).data.projects.length, 1);
+});
