@@ -233,6 +233,13 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
   await pg.selectOption('#period', 'all');
   await leadsV();
+  // extra products and their profit on a lead that is not closed yet (here: hot)
+  await pg.click('#list .card:has-text("רונית") h3'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
+  ok(await pg.locator('#row_extras').isVisible(), `${tag}: the extra products section is available before the deal closes`);
+  await pg.click('#xAdd'); await pg.fill('#x_other .xl', 'ספה'); await pg.fill('#x_other .xa', '1,180'); await pg.fill('#x_other .xc', '700');
+  ok(await pg.inputValue('#x_other .xp') === '300', `${tag}: its profit = amount before VAT - cost`);
+  await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(/תוספות/.test(await pg.innerText('#list .card:has-text("רונית")')) && /1,180/.test(await pg.innerText('#list .card:has-text("רונית")')), `${tag}: the card shows the extra product`);
   // project costing: items, fuel, workers, the budget for overruns, the net profit
   await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
   ok(await pg.locator('#tabs').isHidden() && await pg.locator('#projBox').isVisible(), `${tag}: the projects view replaces the leads page`);
