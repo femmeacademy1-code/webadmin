@@ -1380,3 +1380,20 @@ test('alternative: marketing expenses are stored per month, validated, moved whe
   await worker.fetch(new Request('https://cms.test/api/alt/tg-hook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'sec-expense-0123456789' }, body: JSON.stringify({ message: { chat: { id: 5, type: 'private' }, text: '/summary' } }) }), env);
   assert.match(tgCalls.pop().body.text, /שיווק ₪400/);
 });
+
+test('alternative: shipments on the way are saved, validated, marked arrived, deleted and listed with the leads', async () => {
+  const alt = await altCookieFor();
+  assert.equal((await call('PUT', '/api/alt/shipments/ship00000001', { body: { title: 'x' } })).status, 401);
+  assert.equal((await call('PUT', '/api/alt/shipments/ship00000001', { cookie: alt, body: { notes: 'x' } })).status, 400);        // who or from whom is required
+  assert.equal((await call('PUT', '/api/alt/shipments/ship00000001', { cookie: alt, body: { title: 'x', eta: '5/12' } })).status, 400);
+  const a = await call('PUT', '/api/alt/shipments/ship00000001', { cookie: alt, body: { title: ' ספה לדנה ', supplier: 'ספק א', shipped: '2026-10-01', eta: '2026-12-01', notes: 'מעקב 123' } });
+  assert.equal(a.status, 200, JSON.stringify(a.data)); assert.equal(a.data.shipment.title, 'ספה לדנה');
+  await call('PUT', '/api/alt/shipments/ship00000002', { cookie: alt, body: { supplier: 'ספק ב', eta: '2026-11-15' } });
+  let r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.equal(r.shipments.length, 2);
+  await call('PUT', '/api/alt/shipments/ship00000001', { cookie: alt, body: { ...a.data.shipment, arrived: '2026-11-20' } });          // marked arrived, not duplicated
+  r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.equal(r.shipments.length, 2); assert.equal(r.shipments.find((x) => x.id === 'ship00000001').arrived, '2026-11-20');
+  assert.equal((await call('DELETE', '/api/alt/shipments/ship00000002', { cookie: alt })).status, 200);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.shipments.length, 1);
+});

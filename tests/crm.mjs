@@ -53,7 +53,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#l_adminRow').isHidden()), `${tag}: after setup the login asks only for the password`);
   await pg.fill('#l_pass', 'wrong-pass-1'); await pg.click('#login button'); await pg.waitForFunction(() => document.querySelector('#l_err').textContent.length > 0);
   await pg.fill('#l_pass', 'alt-pass-1234'); await pg.click('#login button'); await pg.waitForSelector('#app:not([hidden])');
-  ok(await pg.locator('.empty').count() === 1, `${tag}: logged in, empty state`);
+  ok(await pg.locator('#list .empty').count() === 1, `${tag}: logged in, empty state`);
 
   await pg.click('#newBtn'); await pg.waitForSelector('#f_price'); await pg.waitForTimeout(150); await pg.fill('#f_price', '₪7,500');
   ok(await pg.inputValue('#f_supplier') === '4449', `${tag}: supplier fills itself at 70% of the pre-VAT price`);
@@ -207,6 +207,21 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
   await pg.selectOption('#period', 'all');
   await leadsV();
+  // shipments on the way
+  await pg.click('#shipBtn'); await pg.waitForSelector('#shAdd');
+  ok(await pg.locator('#tabs').isHidden() && await pg.locator('#list').isHidden() && await pg.locator('#sumBox').isHidden(), `${tag}: the shipments view replaces the leads page`);
+  await pg.click('#shAdd'); await pg.waitForSelector('#s_title'); await pg.waitForTimeout(150);
+  await pg.fill('#s_title', 'ספה לדנה'); await pg.fill('#s_supplier', 'ספק א'); await pg.fill('#s_shipped', '2026-10-01'); await pg.click('[data-shdays]:has-text("חודש")');
+  ok(await pg.inputValue('#s_eta') === '2026-10-31', `${tag}: the arrival chip counts from the shipping date`);
+  await pg.click('#shForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  const sb = await pg.innerText('#shipBox');
+  ok(/ספה לדנה/.test(sb) && /ספק א/.test(sb) && /יצא ב-1\.10\.26/.test(sb) && /אמור להגיע ב-31\.10\.26/.test(sb), `${tag}: shipment shows what, supplier, when it left, when it should arrive`);
+  await pg.click('[data-sharr]'); await pg.waitForFunction(() => /הגיעו \(1\)/.test(document.querySelector('#shipBox').innerText));
+  ok(/אין משלוחים בדרך/.test(await pg.innerText('#shipBox')), `${tag}: marked arrived, moves to the arrived list`);
+  await pg.evaluate(() => { document.getElementById('shDone').open = true; });
+  await pg.click('#shDone [data-shedit]'); await pg.waitForSelector('#shDel'); await pg.waitForTimeout(150); await pg.click('#shDel'); await pg.click('#shDel'); await pg.waitForSelector('#veil', { state: 'detached' });
+  ok(!/הגיעו/.test(await pg.innerText('#shipBox')), `${tag}: deleted`);
+  await pg.click('#backBtn');
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
   await pg.click('.card h3'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {
@@ -218,7 +233,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/מוצר מעודכן/.test(await pg.innerText('#list')), `${tag}: a stale server list does not undo a fresh save`);
   await pg.unroute('**/api/alt/leads');
   for (let n = 0; n < 3; n++) { await pg.click('.card h3'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' }); }
-  ok(await pg.locator('.empty').count() === 1, `${tag}: delete works`);
+  ok(await pg.locator('#list .empty').count() === 1, `${tag}: delete works`);
   ok(errs.length === 0, `${tag}: no page errors ${errs.join(';')}`);
   await pg.close();
 }

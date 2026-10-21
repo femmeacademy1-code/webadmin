@@ -149,6 +149,7 @@ legend{font-weight:800;padding:0 6px}
   <header>
     <h1>מעקב לידים אלטרנייטיב</h1>
     <div class="hbtns">
+      <button class="btn" id="shipBtn" type="button">🚚 משלוחים בדרך</button>
       <button class="btn" id="moneyBtn" type="button">💰 ניהול כספי</button>
       <button class="btn pri" id="backBtn" type="button" hidden>← חזרה ללידים</button>
       <button class="btn" id="settingsBtn" type="button">הגדרות</button>
@@ -173,6 +174,7 @@ legend{font-weight:800;padding:0 6px}
     <details id="expList" hidden></details>
   </section>
 
+  <section class="sum" id="shipBox" aria-label="משלוחים בדרך" hidden></section>
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
   <div class="row" id="periodBar" hidden><span class="note" id="periodNote"></span><select id="period2" aria-label="חודש" style="width:auto"></select></div>
   <div class="list" id="list" aria-live="polite"></div>
@@ -194,7 +196,7 @@ var stageColor=function(id){return 'var(--s-'+id+')'};
 var DEAL=['delivered','done'];
 
 var view='leads';
-var catalog=[],expenses=[],expRecent={},expGone={},editingExp=null;
+var catalog=[],shipments=[],shRecent={},shGone={},editingShip=null,expenses=[],expRecent={},expGone={},editingExp=null;
 var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',period='all',editing=null,lastFocus=null;
 
 function $(id){return document.getElementById(id)}
@@ -326,7 +328,7 @@ function renderList(){
 }
 function renderSelBar(){
   var b=$('selBar');
-  if(!SEL.on||view==='money'){if(b)b.remove();return}
+  if(!SEL.on||view!=='leads'){if(b)b.remove();return}
   var n0=Object.keys(SEL.ids).length;
   if(!b){b=document.createElement('div');b.id='selBar';b.className='selbar';b.dir='rtl';document.body.appendChild(b)}
   if(!$('selDate')){
@@ -363,7 +365,7 @@ function potProfit(l){
 var POT_STAGES=['talked','hot','season','catalog','viewing','closing'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
-  if(filter!=='open'||view==='money'){b.hidden=true;return}
+  if(filter!=='open'||view!=='leads'){b.hidden=true;return}
   var rows=POT_STAGES.map(function(id){
     var ls=allLeads().filter(function(l){return l.stage===id}),sum=0,withP=0,est=0;
     ls.forEach(function(l){var p=potProfit(l);if(p){sum+=p.v;withP++;if(p.est)est++}});
@@ -381,13 +383,15 @@ function renderPot(){
 }
 /* two departments: the leads, and a separate finance view (button "ניהול כספי") with the money in, expenses and months */
 function applyView(){
-  var m=view==='money';
-  $('sumBox').hidden=!m;$('tabs').hidden=m;$('list').hidden=m;
+  var m=view!=='leads';
+  $('sumBox').hidden=view!=='money';$('shipBox').hidden=view!=='ship';$('tabs').hidden=m;$('list').hidden=m;
   if(m){$('periodBar').hidden=true;$('potBox').hidden=true}
-  ['shotBtn','impBtn','selBtn','newBtn','moneyBtn'].forEach(function(id){$(id).hidden=m});
+  ['shotBtn','impBtn','selBtn','newBtn','moneyBtn','shipBtn'].forEach(function(id){$(id).hidden=m});
   $('backBtn').hidden=!m;
+  var act=shipments.filter(function(x){return !x.arrived}).length;
+  $('shipBtn').textContent='🚚 משלוחים בדרך'+(act?' ('+act+')':'');
 }
-function render(){renderPot();renderPeriod();renderKpis();renderTabs();renderList();renderSelBar();applyView()}
+function render(){renderShip();renderPot();renderPeriod();renderKpis();renderTabs();renderList();renderSelBar();applyView()}
 
 /* ---------- writes ---------- */
 function api(method,path,body){
@@ -417,6 +421,10 @@ function load(){
     Object.keys(expRecent).forEach(function(id){var r=expRecent[id];if(now-r.at>180000){delete expRecent[id];return}var sv=exm[id];if(!sv||sv.date!==r.item.date||sv.amount!==r.item.amount||sv.label!==r.item.label)exm[id]=r.item;else delete expRecent[id]});
     Object.keys(expGone).forEach(function(id){if(now-expGone[id]>180000)delete expGone[id];else delete exm[id]});
     expenses=Object.keys(exm).map(function(id){return exm[id]});
+    var shm={};(d.shipments||[]).forEach(function(x){shm[x.id]=x});
+    Object.keys(shRecent).forEach(function(id){var r=shRecent[id];if(now-r.at>180000){delete shRecent[id];return}var sv=shm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))shm[id]=r.item;else delete shRecent[id]});
+    Object.keys(shGone).forEach(function(id){if(now-shGone[id]>180000)delete shGone[id];else delete shm[id]});
+    shipments=Object.keys(shm).map(function(id){return shm[id]});
     leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
@@ -750,6 +758,62 @@ function runImport(){
   p.then(function(){unbusy();closeEditor();filter='all';try{localStorage.setItem('crmFilter',filter)}catch(x){}render();toast('נשמרו '+done+' לידים')}).catch(function(){unbusy();toast('נשמרו '+done+' מתוך '+todo.length+'. אפשר לנסות שוב על השאר.');var left=IMP.filter(function(r){return r.on});left.slice(0,done).forEach(function(r){r.on=false});paintImport()});
 }
 
+/* shipments on the way: who it is for, supplier, when it left, when it should arrive */
+function daysTo(ymd){var a=new Date(ymd+'T12:00:00'),b=new Date();b.setHours(12,0,0,0);return Math.round((a-b)/864e5)}
+function etaText(x){
+  if(!x.eta)return '<span class="due">לא נקבע מתי מגיע</span>';
+  var d=daysTo(x.eta);
+  if(x.arrived)return '<span class="due">היה אמור להגיע ב-'+dstr(x.eta)+'</span>';
+  return '<span class="due'+(d<0?' late':'')+'">אמור להגיע ב-'+dstr(x.eta)+' · '+(d<0?'באיחור של '+(-d)+' ימים':d===0?'היום':d===1?'מחר':'בעוד '+d+' ימים')+'</span>';
+}
+function renderShip(){
+  var b=$('shipBox');if(!b||view!=='ship')return;
+  var act=shipments.filter(function(x){return !x.arrived}).sort(function(a,c){return (a.eta||'9999').localeCompare(c.eta||'9999')});
+  var done=shipments.filter(function(x){return x.arrived}).sort(function(a,c){return String(c.arrived).localeCompare(String(a.arrived))});
+  var h='<div class="sumhead"><h2>משלוחים בדרך'+(act.length?' ('+act.length+')':'')+'</h2><button class="btn pri sm" type="button" id="shAdd">＋ משלוח חדש</button></div>';
+  if(!act.length)h+='<div class="empty"><b>אין משלוחים בדרך</b>כשמזמינים אוהל מהספק, לחצי "＋ משלוח חדש" ורשמי מתי יצא ומתי אמור להגיע.</div>';
+  h+='<div class="list">'+act.map(function(x){
+    return '<div class="card" style="--c:var(--s-closing)"><div class="row"><h3>🚚 '+esc(x.title||'משלוח')+'</h3><button type="button" class="btn sm" data-shedit="'+x.id+'" aria-label="עריכה">✎</button></div>'+
+      (x.supplier?'<div class="prod">מהספק: '+esc(x.supplier)+'</div>':'')+
+      '<div class="row">'+(x.shipped?'<span class="due">יצא ב-'+dstr(x.shipped)+'</span>':'<span class="due">לא נרשם מתי יצא</span>')+'</div><div class="row">'+etaText(x)+'</div>'+
+      (x.notes?'<div class="cnote">'+esc(x.notes)+'</div>':'')+
+      '<div class="acts"><button class="btn sm" type="button" data-sharr="'+x.id+'">✔ הגיע</button></div></div>';
+  }).join('')+'</div>';
+  if(done.length)h+='<details id="shDone"><summary style="cursor:pointer;font-weight:600;color:var(--muted)">הגיעו ('+done.length+')</summary>'+done.map(function(x){return '<div class="drow"><span class="num">'+dstr(x.arrived)+'</span><span>'+esc(x.title||'משלוח')+(x.supplier?' · '+esc(x.supplier):'')+'</span><button type="button" class="btn sm" data-shundo="'+x.id+'">↩</button><button type="button" class="btn sm" data-shedit="'+x.id+'" aria-label="עריכה">✎</button></div>'}).join('')+'</details>';
+  b.innerHTML=h;
+}
+function openShipment(id){
+  lastFocus=document.activeElement;editingShip=id||null;
+  var x=id?shipments.filter(function(s){return s.id===id})[0]:null;
+  var names={},sups={};Object.keys(leads).forEach(function(k){var l=leads[k];if(l.name)names[l.name]=1;if(l.suppName)sups[l.suppName]=1});
+  shipments.forEach(function(s){if(s.supplier)sups[s.supplier]=1});
+  var chips=[['שבועיים',14],['3 שבועות',21],['חודש',30],['45 יום',45],['חודשיים',60]];
+  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="shForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(x?'עריכת משלוח':'משלוח חדש')+'</h2>'+
+   '<div class="f"><label for="s_title">למי / מה (לקוחה, דגם)</label><input id="s_title" list="s_names" value="'+esc(x?x.title:'')+'" autocomplete="off"><datalist id="s_names">'+Object.keys(names).map(function(k){return '<option value="'+esc(k)+'">'}).join('')+'</datalist></div>'+
+   '<div class="f"><label for="s_supplier">מאיזה ספק</label><input id="s_supplier" list="s_sups" value="'+esc(x?x.supplier:'')+'" autocomplete="off"><datalist id="s_sups">'+Object.keys(sups).map(function(k){return '<option value="'+esc(k)+'">'}).join('')+'</datalist></div>'+
+   '<div class="grid2">'+field('s_shipped','מתי יצא',x?x.shipped:today(),'date',{})+field('s_eta','מתי אמור להגיע',x?x.eta:'','date',{})+'</div>'+
+   '<div class="stages"><span class="note">הגעה בעוד (מיום היציאה):</span>'+chips.map(function(c){return '<button type="button" class="stg" data-shdays="'+c[1]+'">'+c[0]+'</button>'}).join('')+'</div>'+
+   '<div class="f"><label for="s_notes">הערות (מספר מעקב, מכס…)</label><textarea id="s_notes" rows="2">'+esc(x?x.notes:'')+'</textarea></div>'+
+   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(x?'<button class="btn danger" type="button" id="shDel">מחיקה</button>':'')+'</div></form></div>';
+}
+function saveShipmentForm(){
+  var title=val('s_title'),sup=val('s_supplier');
+  if(!title&&!sup){toast('רשמי למי המשלוח או מאיזה ספק');return}
+  var id=editingShip||newId(),old=shipments.filter(function(s){return s.id===id})[0];
+  var body={title:title,supplier:sup,shipped:val('s_shipped'),eta:val('s_eta'),arrived:old?old.arrived:'',notes:$('s_notes').value.trim()};
+  guard(api('PUT','/alt/shipments/'+id,body)).then(function(r){shipments=shipments.filter(function(s){return s.id!==id}).concat([r.shipment]);shRecent[id]={item:r.shipment,at:Date.now()};delete shGone[id];closeEditor();render();toast('המשלוח נשמר')}).catch(function(){});
+}
+function delShipment(btn){
+  if(!btn.dataset.arm){btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000);return}
+  var id=editingShip;
+  guard(api('DELETE','/alt/shipments/'+id)).then(function(){shipments=shipments.filter(function(s){return s.id!==id});shGone[id]=Date.now();delete shRecent[id];closeEditor();render();toast('המשלוח נמחק')}).catch(function(){});
+}
+function markArrived(id,on){
+  var x=shipments.filter(function(s){return s.id===id})[0];if(!x)return;
+  var body={title:x.title,supplier:x.supplier,shipped:x.shipped,eta:x.eta,arrived:on?today():'',notes:x.notes};
+  guard(api('PUT','/alt/shipments/'+id,body)).then(function(r){shipments=shipments.filter(function(s){return s.id!==id}).concat([r.shipment]);shRecent[id]={item:r.shipment,at:Date.now()};render();toast(on?'המשלוח סומן כהגיע ✔':'המשלוח חזר ל"בדרך"')}).catch(function(){});
+}
+
 /* marketing expenses */
 /* a new expense is dated in the month being viewed (the last day of it), otherwise today */
 function defaultExpDate(){
@@ -875,6 +939,13 @@ document.addEventListener('click',function(e){
   var ir=t.closest('[data-irr]');if(ir){e.stopPropagation();irrelevant(ir.dataset.irr,true);return}
   var un=t.closest('[data-undo]');if(un){e.stopPropagation();irrelevant(un.dataset.undo,false);return}
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
+  if(t.id==='shipBtn'){view='ship';SEL.on=false;SEL.ids={};render();window.scrollTo(0,0);return}
+  if(t.id==='shAdd'){openShipment(null);return}
+  var shx=t.closest('[data-shedit]');if(shx){openShipment(shx.dataset.shedit);return}
+  var sha=t.closest('[data-sharr]');if(sha){markArrived(sha.dataset.sharr,true);return}
+  var shu=t.closest('[data-shundo]');if(shu){markArrived(shu.dataset.shundo,false);return}
+  var shc=t.closest('[data-shdays]');if(shc){var bd=new Date(($('s_shipped').value||today())+'T12:00:00');bd.setDate(bd.getDate()+(+shc.dataset.shdays));$('s_eta').value=bd.getFullYear()+'-'+pad2(bd.getMonth()+1)+'-'+pad2(bd.getDate());return}
+  if(t.id==='shDel'){delShipment(t);return}
   if(t.id==='moneyBtn'){view='money';SEL.on=false;SEL.ids={};render();window.scrollTo(0,0);return}
   if(t.id==='backBtn'){view='leads';render();window.scrollTo(0,0);return}
   if(t.id==='expAdd'){openExpense(null);return}
@@ -938,6 +1009,7 @@ document.addEventListener('submit',function(e){
   if(e.target.id==='sheet')saveEditor();
   if(e.target.id==='expForm')saveExpense();
   if(e.target.id==='folForm')saveFollow(false);
+  if(e.target.id==='shForm')saveShipmentForm();
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}
     guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked,supplierPct:val('s_pct')})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});

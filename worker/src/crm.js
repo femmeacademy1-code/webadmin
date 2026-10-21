@@ -151,6 +151,34 @@ export async function saveExpense(env, id, input) {
 }
 export async function deleteExpense(env, id) { await dropExpense(env, id); }
 
+/* Shipments on the way: one document (alt:ship) with all of them: who it is for, supplier, when it left, when it should arrive, when it arrived. */
+const SHIP = 'alt:ship';
+const MAX_SHIP = 300;
+export async function listShipments(env) {
+  const d = await getKV(env, SHIP);
+  return d && Array.isArray(d.items) ? d.items : [];
+}
+function dateOrEmpty(v, label) {
+  const t = text(v, 10);
+  if (t && (!/^\d{4}-\d{2}-\d{2}$/.test(t) || Number.isNaN(Date.parse(t)))) throw new HttpError(400, `${label}: תאריך לא תקין`);
+  return t;
+}
+export async function saveShipment(env, id, input) {
+  if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
+  const item = { id, title: text(input.title, 120), supplier: text(input.supplier, 80), shipped: dateOrEmpty(input.shipped, 'תאריך יציאה'), eta: dateOrEmpty(input.eta, 'תאריך הגעה'), arrived: dateOrEmpty(input.arrived, 'תאריך הגעה בפועל'), notes: text(input.notes, 300), updatedAt: new Date().toISOString() };
+  if (!item.title && !item.supplier) throw new HttpError(400, 'רשמי למי המשלוח או מאיזה ספק');
+  const items = await listShipments(env);
+  const i = items.findIndex((x) => x.id === id);
+  if (i < 0 && items.length >= MAX_SHIP) throw new HttpError(400, 'יותר מדי משלוחים. מחקי ישנים.');
+  if (i < 0) items.push(item); else items[i] = item;
+  await env.CMS.put(SHIP, JSON.stringify({ items }));
+  return item;
+}
+export async function deleteShipment(env, id) {
+  const items = (await listShipments(env)).filter((x) => x.id !== id);
+  await env.CMS.put(SHIP, JSON.stringify({ items }));
+}
+
 export async function deleteLead(env, id) {
   await env.CMS.delete(LEAD + id);
 }
