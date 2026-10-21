@@ -39,6 +39,8 @@ const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }
 for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   kv.clear();
   const pg = await br.newPage({ viewport: { width: w, height: 900 } });
+  const money = async () => { if (await pg.locator('#sumBox').isHidden()) await pg.click('#moneyBtn'); };
+  const leadsV = async () => { if (await pg.locator('#sumBox').isVisible()) await pg.click('#backBtn'); };
   const errs = []; pg.on('pageerror', (e) => errs.push(e.message));
   await pg.goto(base + '/alternative');
   await pg.waitForSelector('#login:not([hidden])');
@@ -75,7 +77,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.innerText('#calc .pf')).includes('3,000'), `${tag}: without it the profit is computed`);
   await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: lead saved and listed`);
+  ok(await pg.locator('#sumBox').isHidden(), `${tag}: the money section is not on the leads page`);
+  await money();
   ok(/3,000/.test(await pg.innerText('#kpis')), `${tag}: expected profit KPI 3,000`);
+  await leadsV();
 
   await pg.click('[data-adv]'); await pg.waitForSelector('#veil');            // closing -> delivered opens editor
   ok(await pg.locator('.stg[aria-pressed="true"]').innerText() === 'קיבל סחורה', `${tag}: advanced to delivered`);
@@ -86,7 +91,9 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/נסגר ב/.test(await pg.innerText('.card')), `${tag}: card shows the closing date`);
   ok(/תוספות/.test(await pg.innerText('.card')) && /1,480/.test(await pg.innerText('.card')) && /400/.test(await pg.innerText('.card')), `${tag}: card shows extras total 1,480 and their profit 400`);
   ok(/אספקה ב/.test(await pg.innerText('.card')) && /A-4411/.test(await pg.innerText('.card')), `${tag}: card shows the supply date and receipt number`);
+  await money();
   ok(/3,400/.test(await pg.innerText(".kpi.big")), `${tag}: net profit after delivery: ${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')}`);
+  await leadsV();
   // telegram connect box
   await pg.click('#settingsBtn'); await pg.waitForSelector('#tg_token');
   await pg.fill('#tg_token', '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'); await pg.click('#tgConnect'); await pg.waitForSelector('#tgBox a');
@@ -142,6 +149,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#impGo'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok((await pg.locator('.card').count()) === 3 && /משה בדיקה/.test(await pg.innerText('#list')) && /נסגר ב/.test(await pg.innerText('#list')), `${tag}: imported lead added with its closing date`);
   // profits by a month of her choice
+  await money();
   const opts = await pg.locator('#period option').allInnerTexts();
   ok(opts.some((t) => /יולי 2026 \(1\)/.test(t)) && opts.some((t) => /אוקטובר 2026 \(1\)/.test(t)), `${tag}: months with deals are listed (${opts.join(' | ')})`);
   await pg.selectOption('#period', 'm:2026-07');
@@ -172,18 +180,21 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#cancelBtn');
   ok(await pg.locator('#expList').isHidden(), `${tag}: deleted from the manager`);
   await pg.selectOption('#period', 'm:2026-07');
+  await leadsV();
   // the closed tabs follow the chosen month
   await pg.click('[data-f="delivered"]');
-  ok((await pg.locator('#list .card').count()) === 0 && /יולי 2026/.test(await pg.innerText('#periodNote')), `${tag}: with July chosen the delivered tab shows no October deal`);
-  await pg.selectOption('#period', 'm:2026-10');
+  ok((await pg.locator('#list .card').count()) === 0 && /יולי 2026/.test(await pg.locator('#period2 option:checked').innerText()), `${tag}: with July chosen the delivered tab shows no October deal`);
+  await pg.selectOption('#period2', 'm:2026-10');
   ok((await pg.locator('#list .card').count()) === 1 && /דנה/.test(await pg.innerText('#list')), `${tag}: with October chosen it shows that deal`);
-  await pg.selectOption('#period', 'm:2026-07'); await pg.click('[data-f="all"]');
+  await pg.selectOption('#period2', 'm:2026-07'); await pg.click('[data-f="all"]');
   // bulk change of closing date (select mode)
   await pg.click('#selBtn'); await pg.click('#list .card:has-text("דנה")'); await pg.fill('#selDate', '2026-07-20'); await pg.click('#selApply');
   await pg.waitForFunction(() => /20\.7\.26/.test(document.querySelector('#list').innerText));
   await pg.click('#selOff');
+  await money();
   ok((await pg.locator('#period option:checked').innerText()).includes('יולי 2026 (2)'), `${tag}: after moving a deal to July the month has 2 deals`);
   await pg.selectOption('#period', 'all');
+  await leadsV();
   // a stale list from the server (eventually consistent storage) must not undo an update that was just saved
   await pg.click('.card h3'); await pg.fill('#f_product', 'מוצר מעודכן'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.route('**/api/alt/leads', async (route) => {
