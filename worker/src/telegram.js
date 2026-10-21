@@ -2,7 +2,7 @@
  * and two buttons; only "save" writes the lead. The bot token and the webhook secret live in KV (set from the lead page by the owner);
  * only chats paired with a one-time code from that page may talk to it. */
 import { HttpError } from './validate.js';
-import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit, leadProfit, listExpenses, listShipments, listProjects, projectRealized } from './crm.js';
+import { crmState, saveLead, extractFromImages, applyProposal, migrateLegacy, extrasProfit, leadProfit, listExpenses, listShipments, listProjects, projectRealized, projectTotals } from './crm.js';
 import { secretEquals } from './auth.js';
 
 const KEY = 'alt:tg';
@@ -145,7 +145,9 @@ async function summary(env, c, id) {
   }
   const mkt = (await listExpenses(env)).filter((x) => String(x.date).startsWith(ym)).reduce((s, x) => s + (Number(x.amount) || 0), 0);
   let pjProfit = 0, pjN = 0;
-  for (const p of await listProjects(env)) { if (p.status === 'done' && String(p.date || '').startsWith(ym)) { pjProfit += projectRealized(p, cfg); pjN++; } }
+  const byId = Object.fromEntries(leads.map((x) => [x.id, x]));
+  for (const p of await listProjects(env)) { const ld = byId[p.leadId], r = projectRealized(p, cfg); if (ld && ld.commission !== '' && ld.commission != null && (Math.abs(Number(ld.commission) - Math.round(r)) < 1 || Math.abs(Number(ld.commission) - Math.round(projectTotals(p, cfg).profit)) < 1)) continue;   // already counted with the customer's deal
+    if (p.status === 'done' && String(p.date || '').startsWith(ym)) { pjProfit += projectRealized(p, cfg); pjN++; } }
   profit += pjProfit; deals += pjN;                                   // finished projects count in the month's profit
   const ship = (await listShipments(env)).filter((x) => !x.arrived);
   const today = now.toISOString().slice(0, 10);

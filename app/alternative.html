@@ -279,7 +279,7 @@ function renderKpis(){
   var t={rev:0,vat:0,cost:0,sup:0,profit:0};
   var mkList=expenses.filter(function(x){return inPeriodStr(x.date)}),mk=mkList.reduce(function(s,x){return s+n(x.amount)},0);
   all.forEach(function(l){var c=calc(l);t.rev+=c.net;t.vat+=c.vat;t.cost+=c.cost;t.sup+=c.sup;t.profit+=c.profit});
-  var pjs=projects.filter(function(q){return q.status==='done'&&q.date&&inPeriodStr(q.date)}),pjP=0;
+  var pjs=projects.filter(function(q){return q.status==='done'&&q.date&&inPeriodStr(q.date)&&!pjPulled(q)}),pjP=0;
   pjs.forEach(function(q){pjP+=pjRealized(q)});
   t.profit+=pjP;
   var exp=0,expN=0;
@@ -585,7 +585,7 @@ function xf(c,label,v){return '<div class="f"><label>'+label+'</label><input cla
 function leadProjHtml(l,id){
   if(!id)return '';
   var ps=projects.filter(function(p){return p.leadId===id}),sum=0;
-  return '<fieldset id="row_proj"><legend>פרויקטים של הלקוחה</legend>'+(ps.length?ps.map(function(p){var t=pjTotals(p);sum+=t.profit;return '<div class="drow"><span>🏗️ '+esc(p.name)+' '+payPill(p)+'</span><b class="num">'+fmt(t.profit)+'</b><button type="button" class="btn sm" data-pjopen="'+p.id+'">פתיחה</button></div>'}).join('')+'<div class="drow"><span><b>סה״כ רווח מפרויקטים</b></span><b class="num">'+fmt(sum)+'</b></div>':'<p class="note">עוד אין פרויקט לחישוב עלויות של הלקוחה.</p>')+'<div style="margin-top:8px"><button type="button" class="btn sm" data-pjnew="'+id+'">＋ פרויקט ללקוחה</button></div></fieldset>';
+  return '<fieldset id="row_proj"><legend>פרויקטים של הלקוחה</legend>'+(ps.length?ps.map(function(p){var t=pjTotals(p);sum+=t.profit;return '<div class="drow"><span>🏗️ '+esc(p.name)+' '+payPill(p)+'</span><b class="num">'+fmt(t.profit)+'</b><button type="button" class="btn sm" data-pjopen="'+p.id+'">פתיחה</button><button type="button" class="btn sm" data-pjtocard="'+p.id+'" title="הרווח של הפרויקט יהפוך לרווח של הלקוחה בכרטיס">משיכת הרווח לכרטיס</button></div>'}).join('')+'<div class="drow"><span><b>סה״כ רווח מפרויקטים</b></span><b class="num">'+fmt(sum)+'</b></div>':'<p class="note">עוד אין פרויקט לחישוב עלויות של הלקוחה.</p>')+'<div style="margin-top:8px"><button type="button" class="btn sm" data-pjnew="'+id+'">＋ פרויקט ללקוחה</button></div></fieldset>';
 }
 function xRow(k,x){
   x=x||{};
@@ -859,6 +859,8 @@ function pjTotals(p){
   return {net:net,outVat:outVat,inVat:inVat,vatNet:outVat-inVat,exempt:exempt,entered:entered,licAmt:licAmt,exmAmt:exmAmt,planned:planned,actual:actual,hasActual:hasActual,by:by,pct:pct,reserve:reserve,over:over,left:reserve-over,profit:net-planned-reserve,profitNoOver:net-planned,profitActual:net-actual,margin:net>0?(net-planned-reserve)/net:0};
 }
 /* a finished project adds its profit by the actual costs when she wrote them, otherwise by the plan (no overrun budget); same rule as the server */
+/* a project whose profit was pulled into its customer's card (the card's profit equals the project's) is already counted with that deal */
+function pjPulled(p){var l=p.leadId?leads[p.leadId]:null;if(!l||DEAL.indexOf(l.stage)<0||l.commission===''||l.commission==null)return false;var c=n(l.commission);return Math.abs(c-Math.round(pjTotals(p).profit))<1||Math.abs(c-Math.round(pjRealized(p)))<1}
 function pjRealized(p){var t=pjTotals(p);return t.hasActual?t.profitActual:t.net-t.planned}
 function loadProjects(){return load()}
 var PAYS={none:'לא שולם',deposit:'מקדמה שולמה',partial:'שולם חלקית',paid:'שולם במלואו'};
@@ -1161,6 +1163,7 @@ document.addEventListener('click',function(e){
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
   if(t.id==='projBtn'){view='proj';SEL.on=false;SEL.ids={};loadProjects();render();window.scrollTo(0,0);return}
   if(t.id==='pjAdd'){openProject(null);return}
+  var pjc=t.closest('[data-pjtocard]');if(pjc){var pq=projects.filter(function(x){return x.id===pjc.dataset.pjtocard})[0];if(pq&&$('f_commission')){$('f_commission').value=String(Math.round(pjTotals(pq).profit));updCalc();toast('הרווח מהפרויקט נמשך לכרטיס. שמרי כדי לעדכן')}return}
   var pjp=t.closest('[data-pjpull]');if(pjp){var pll=leads[pjp.dataset.pjpull];if(pll){$('p_price').value=String(Math.round(calc(pll).gross));pjUpdate()}return}
   var pjn=t.closest('[data-pjnew]');if(pjn){var nl=leads[pjn.dataset.pjnew];if(nl){closeEditor();openProject(null,{leadId:nl.id,customer:nl.name||'',contactName:nl.name||'',contactPhone:nl.phone||'',price:calc(nl).has?Math.round(calc(nl).gross):'',vatIncl:nl.vatIncl!==false,status:'plan',payStatus:'none',contingencyPct:10,items:[]})}return}
   var pjo=t.closest('[data-pjopen]');if(pjo){openProject(pjo.dataset.pjopen);return}
