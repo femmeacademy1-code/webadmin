@@ -1145,6 +1145,7 @@ test('alternative leads: server owns the timeline, validates input, deletes', as
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'done', deliveryDate: 'מחר' } })).status, 400);
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', deliveryDate: '2026-10-09' } })).data.lead.deliveryDate, '2026-10-09');
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'delivered', receiptNo: ' 12345 ' } })).data.lead.receiptNo, '12345');
+  assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'season', follow: '2027-03-01' } })).data.lead.follow, '2027-03-01');   // next season keeps its call date
   const typed = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: '₪7,500', cost: ' 1,200.50 ', supplier: '   ' } })).data.lead;
   const q3 = (await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'דנה', stage: 'hot', price: 7500, qty: '3' } })).data.lead;
   assert.equal(q3.qty, 3);

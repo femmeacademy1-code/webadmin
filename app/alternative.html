@@ -15,13 +15,13 @@
 :root{
   --bg:#f7f3ef; --surface:#ffffff; --ink:#2b2321; --muted:#766a65; --line:#e6dcd5;
   --accent:#b8473f; --accent-ink:#ffffff; --good:#1f7a6d; --warn:#9a6a14; --bad:#b3261e; --chip:#f1e8e1;
-  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-catalog:#7e5bb5; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
+  --s-talked:#9a8f8a; --s-hot:#d9534f; --s-catalog:#7e5bb5; --s-season:#5f7fa8; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
   --f-display:"Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
-  --s-talked:#a89c96; --s-hot:#ef7a74; --s-catalog:#b79ae6; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
+  --s-talked:#a89c96; --s-hot:#ef7a74; --s-catalog:#b79ae6; --s-season:#9db6d9; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
@@ -186,7 +186,7 @@ legend{font-weight:800;padding:0 6px}
 (function(){
 'use strict';
 var STAGES=[
-  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'catalog',name:'קיבל קטלוג'},{id:'viewing',name:'הלך לראות'},
+  {id:'talked',name:'דיברנו'},{id:'hot',name:'ליד חם'},{id:'season',name:'לעונה הבאה'},{id:'catalog',name:'קיבל קטלוג'},{id:'viewing',name:'הלך לראות'},
   {id:'closing',name:'סוגר'},{id:'delivered',name:'קיבל סחורה'},{id:'done',name:'נסגר'},{id:'lost',name:'לא רלוונטי'}
 ];
 var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
@@ -303,8 +303,8 @@ function renderList(){
   }
   var td=today();
   $('list').innerHTML=ls.map(function(l){
-    var s=SM[l.stage]||SM.talked,c=calc(l),next=STAGES[s.i+1];
-    var nextBtn=(s.id!=='lost'&&s.id!=='done'&&next&&next.id!=='lost')?'<button class="btn sm" type="button" data-adv="'+l.id+'">→ '+next.name+'</button>':'';
+    var s=SM[l.stage]||SM.talked,c=calc(l),next=nextStageOf(s.id);
+    var nextBtn=(s.id!=='lost'&&s.id!=='done'&&next)?'<button class="btn sm" type="button" data-adv="'+l.id+'">→ '+next.name+'</button>':'';
     var closed=DEAL.indexOf(s.id)>-1&&l.dealAt?'<span class="due">נסגר ב-'+dstr(l.dealAt)+'</span>':'';
     var supply=l.deliveryDate&&DEAL.indexOf(s.id)>-1?'<span class="due">אספקה ב-'+dstr(l.deliveryDate)+'</span>':'';
     var due=closed||(l.follow&&s.id!=='done'&&s.id!=='lost'&&DEAL.indexOf(s.id)<0?'<span class="due'+(l.follow<td?' late':'')+'">'+(l.follow<td?'לחזור היה ':'לחזור ב')+dstr(l.follow)+'</span>':'');
@@ -312,13 +312,15 @@ function renderList(){
     var wa=waLink(l.phone);
     var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
     var catBtn=(s.id==='talked'||s.id==='hot')?'<button class="btn sm" type="button" data-cat="'+l.id+'">📖 קיבל קטלוג</button>':'';
+    var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
+    var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
-      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
+      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0&&DEAL.indexOf(s.id)>-1?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
-      '<div class="acts">'+nextBtn+catBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
+      '<div class="acts">'+nextBtn+catBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
 function renderSelBar(){
@@ -357,7 +359,7 @@ function potProfit(l){
   var sup=n(l.supplier)>0?n(l.supplier):net*pct;
   return {v:net-n(l.cost)*q-(cfg.supplierInCost?0:sup)+xp,est:est};
 }
-var POT_STAGES=['talked','hot','catalog','viewing','closing'];
+var POT_STAGES=['talked','hot','season','catalog','viewing','closing'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
   if(filter!=='open'||view==='money'){b.hidden=true;return}
@@ -447,9 +449,33 @@ function gotCatalog(id){
   var body=pick(l);body.qty=qtyOf(l);body.stage='catalog';
   save(id,body).then(function(){toast((l.name||'הליד')+' קיבל קטלוג 📖')}).catch(function(){});
 }
+/* the usual way forward; "לעונה הבאה" is a side branch (a postponed lead continues with the catalog) */
+var FLOW=['talked','hot','catalog','viewing','closing','delivered','done'];
+function nextStageOf(id){if(id==='season')return SM.catalog;var i=FLOW.indexOf(id);return i>-1&&i<FLOW.length-1?SM[FLOW[i+1]]:null}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function addMonths(n){var d=new Date();d.setMonth(d.getMonth()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function firstOf(m){var d=new Date(),y=d.getFullYear();if(m<=d.getMonth())y++;return y+'-'+pad2(m+1)+'-01'}
+/* a small dialog: when to talk to him again (and, from the card's season button, move him to "לעונה הבאה") */
+var folId=null,folSeason=false;
+function openFollow(id,toSeason){
+  var l=leads[id];if(!l)return;
+  lastFocus=document.activeElement;folId=id;folSeason=!!toSeason;
+  var chips=[['עוד שבוע',addDays(7)],['עוד חודש',addMonths(1)],['עוד 3 חודשים',addMonths(3)],['1 במרץ',firstOf(2)],['1 באפריל',firstOf(3)],['1 במאי',firstOf(4)]];
+  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="folForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(toSeason?'לעונה הבאה: מתי לדבר איתו?':'מתי לדבר עם '+esc(l.name||'הליד')+'?')+'</h2>'+
+   '<div class="stages">'+chips.map(function(c){return '<button type="button" class="stg" data-fchip="'+c[1]+'">'+c[0]+'</button>'}).join('')+'</div>'+
+   '<div class="f"><label for="f_fdate">תאריך</label><input id="f_fdate" type="date" value="'+esc(l.follow||'')+'"></div>'+
+   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(l.follow?'<button class="btn danger" type="button" id="folClear">ניקוי תאריך</button>':'')+'</div></form></div>';
+}
+function saveFollow(clear){
+  var l=leads[folId];if(!l)return;
+  var d=clear?'':val('f_fdate');
+  if(folSeason&&!d){toast('בחרי תאריך (אפשר גם להשאיר לעונה הבאה בלי תאריך דרך העריכה)');return}
+  var body=pick(l);body.qty=qtyOf(l);body.follow=d;if(folSeason)body.stage='season';
+  save(folId,body).then(function(){closeEditor();toast(folSeason?(l.name||'הליד')+' עבר לעונה הבאה 🗓️'+(d?' · לחזור ב-'+dstr(d):''):(d?'נקבע לחזור ב-'+dstr(d):'התאריך נוקה'))}).catch(function(){});
+}
 function advance(id){
   var l=leads[id];if(!l)return;
-  var i=(SM[l.stage]||SM.talked).i,nx=STAGES[i+1];if(!nx||nx.id==='lost')return;
+  var nx=nextStageOf(l.stage);if(!nx)return;
   var body=pick(l);body.stage=nx.id;
   save(id,body).then(function(sv){
     reveal(sv);
@@ -833,6 +859,10 @@ document.addEventListener('click',function(e){
   var tab=t.closest('[data-f]');if(tab){filter=tab.dataset.f;try{localStorage.setItem('crmFilter',filter)}catch(x){}render();return}
   var adv=t.closest('[data-adv]');if(adv){e.stopPropagation();advance(adv.dataset.adv);return}
   var stg=t.closest('[data-stg]');if(stg&&$('sheet')){$('sheet').dataset.stage=stg.dataset.stg;syncStage(stg.dataset.stg);[].forEach.call($('stages').children,function(b){b.setAttribute('aria-pressed',String(b===stg))});return}
+  var se=t.closest('[data-season]');if(se){e.stopPropagation();openFollow(se.dataset.season,true);return}
+  var fo=t.closest('[data-follow]');if(fo){e.stopPropagation();openFollow(fo.dataset.follow,false);return}
+  var fc=t.closest('[data-fchip]');if(fc){$('f_fdate').value=fc.dataset.fchip;return}
+  if(t.id==='folClear'){saveFollow(true);return}
   var ct=t.closest('[data-cat]');if(ct){e.stopPropagation();gotCatalog(ct.dataset.cat);return}
   var ir=t.closest('[data-irr]');if(ir){e.stopPropagation();irrelevant(ir.dataset.irr,true);return}
   var un=t.closest('[data-undo]');if(un){e.stopPropagation();irrelevant(un.dataset.undo,false);return}
@@ -899,6 +929,7 @@ document.addEventListener('submit',function(e){
   }
   if(e.target.id==='sheet')saveEditor();
   if(e.target.id==='expForm')saveExpense();
+  if(e.target.id==='folForm')saveFollow(false);
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}
     guard(api('PUT','/alt/config',{vat:v,supplierInCost:$('s_sup').checked,supplierPct:val('s_pct')})).then(function(d){cfg=d.cfg;closeEditor();render();toast('נשמר')}).catch(function(){});
