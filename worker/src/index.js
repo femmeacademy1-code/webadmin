@@ -218,7 +218,7 @@ async function altRoute(req, env, url, method) {
   }
   if (!(await altAuthed(req, env))) throw new HttpError(401, 'יש להתחבר');
   await migrateLegacy(env);
-  if (pathname === '/api/alt/leads' && method === 'GET') return json({ ...(await crmState(env)), catalog: CATALOG, expenses: await listExpenses(env), shipments: await listShipments(env) });
+  if (pathname === '/api/alt/leads' && method === 'GET') return json({ ...(await crmState(env)), catalog: CATALOG, expenses: await listExpenses(env), shipments: await listShipments(env), projects: await listProjects(env) });
   if (pathname === '/api/alt/import' && method === 'POST') return json(await importMany(env, await body(req)));
   if (pathname === '/api/alt/extract' && method === 'POST') return json(await extractFromImages(env, await body(req)));
   if (pathname === '/api/alt/config' && method === 'PUT') return json({ cfg: await saveCfg(env, await body(req)) });

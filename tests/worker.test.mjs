@@ -1416,6 +1416,15 @@ test('alternative: project costing is stored with its items, validated, updated,
   const p = r.data.project;
   assert.equal(p.name, 'בית עץ'); assert.equal(p.price, 100000); assert.equal(p.contingencyPct, 10);          // default budget for overruns
   assert.deepEqual(p.items.map((x) => [x.cat, x.label, x.qty, x.unit, x.actual]), [['material', 'עץ', 10, 1000, 11500], ['labor', 'עובד', 5, 800, ''], ['other', 'שונות', 1, 50, '']]);   // the empty row is dropped
+  await call('PUT', '/api/alt/leads/lead0009abcd', { cookie: alt, body: { name: 'מאיה', phone: '0501112222' } });
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'x', leadId: 'nonexist0001' } })).status, 400);        // the customer must be a real lead
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'x', leadId: 'BAD!' } })).status, 400);
+  const linked = await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'גג לבית', leadId: 'lead0009abcd', location: ' קיבוץ x ', payStatus: 'deposit', paidAmount: '₪20,000', contactName: 'יוסי', contactPhone: '050-1', team: 'דני, אבי', price: 80000 } });
+  assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  assert.deepEqual([linked.data.project.leadId, linked.data.project.location, linked.data.project.payStatus, linked.data.project.paidAmount, linked.data.project.contactName, linked.data.project.team], ['lead0009abcd', 'קיבוץ x', 'deposit', 20000, 'יוסי', 'דני, אבי']);
+  assert.equal((await call('PUT', '/api/alt/projects/proj00000003', { cookie: alt, body: { name: 'גג לבית', payStatus: 'bogus' } })).data.project.payStatus, 'none');
+  assert.ok((await call('GET', '/api/alt/leads', { cookie: alt })).data.projects.some((x) => x.id === 'proj00000003'));      // projects come with the leads so each lead card can show its project
+  await call('DELETE', '/api/alt/projects/proj00000003', { cookie: alt });
   await call('PUT', '/api/alt/projects/proj00000002', { cookie: alt, body: { name: 'שני' } });
   await call('PUT', '/api/alt/projects/proj00000001', { cookie: alt, body: { ...p, status: 'done' } });
   const all = (await call('GET', '/api/alt/projects', { cookie: alt })).data.projects;

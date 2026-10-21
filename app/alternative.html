@@ -361,13 +361,14 @@ function renderList(){
     var hotBtn=((s.id==='talked'||s.id==='season'||s.id==='catalog')&&!(next&&next.id==='hot'))?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
     var seaBtn=(s.id==='talked'||s.id==='hot'||s.id==='catalog'||s.id==='visit'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
+    var pjl=projects.filter(function(p){return p.leadId===l.id}).map(function(p){var t=pjTotals(p);return '<button type="button" class="btn sm" data-pjopen="'+p.id+'">🏗️ '+esc(p.name)+' · רווח '+fmt(t.profit)+' · '+PAYS[p.payStatus||'none']+'</button>'}).join('');
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
       '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='catalog'?'📖 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':s.id==='visit'?'🏕️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
-      '<div class="acts">'+nextBtn+hotBtn+catBtn+visBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
+      (pjl?'<div class="acts">'+pjl+'</div>':'')+'<div class="acts">'+nextBtn+hotBtn+catBtn+visBtn+seaBtn+folBtn+irr+(wa?'<a class="btn sm" href="'+wa+'" target="_blank" rel="noopener" data-stop="1">וואטסאפ</a>':'')+'</div></div>';
   }).join('');
 }
 function renderSelBar(){
@@ -469,6 +470,10 @@ function load(){
     Object.keys(shRecent).forEach(function(id){var r=shRecent[id];if(now-r.at>180000){delete shRecent[id];return}var sv=shm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))shm[id]=r.item;else delete shRecent[id]});
     Object.keys(shGone).forEach(function(id){if(now-shGone[id]>180000)delete shGone[id];else delete shm[id]});
     shipments=Object.keys(shm).map(function(id){return shm[id]});
+    var pjm={};(d.projects||[]).forEach(function(x){pjm[x.id]=x});
+    Object.keys(pjRecent).forEach(function(id){var r=pjRecent[id];if(now-r.at>180000){delete pjRecent[id];return}var sv=pjm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))pjm[id]=r.item;else delete pjRecent[id]});
+    Object.keys(pjGone).forEach(function(id){if(now-pjGone[id]>180000)delete pjGone[id];else delete pjm[id]});
+    projects=Object.keys(pjm).map(function(id){return pjm[id]});
     leads=m;cfg={vat:d.cfg.vat!=null?d.cfg.vat:18,supplierInCost:!!d.cfg.supplierInCost,supplierPct:d.cfg.supplierPct!=null?d.cfg.supplierPct:70};
     $('login').hidden=true;$('app').hidden=false;if(!$('veil'))render();
   }).catch(function(e){
@@ -568,6 +573,12 @@ function applyProposal(l,f,summary){
 }
 /* a closed deal needs a closing date, not a follow-up */
 function xf(c,label,v){return '<div class="f"><label>'+label+'</label><input class="'+c+'" type="text" inputmode="decimal" autocomplete="off" dir="ltr" value="'+esc(v==null?'':v)+'"></div>'}
+/* the projects of this customer (project costing), with their profit, inside her card */
+function leadProjHtml(l,id){
+  if(!id)return '';
+  var ps=projects.filter(function(p){return p.leadId===id}),sum=0;
+  return '<fieldset id="row_proj"><legend>פרויקטים של הלקוחה</legend>'+(ps.length?ps.map(function(p){var t=pjTotals(p);sum+=t.profit;return '<div class="drow"><span>🏗️ '+esc(p.name)+' '+payPill(p)+'</span><b class="num">'+fmt(t.profit)+'</b><button type="button" class="btn sm" data-pjopen="'+p.id+'">פתיחה</button></div>'}).join('')+'<div class="drow"><span><b>סה״כ רווח מפרויקטים</b></span><b class="num">'+fmt(sum)+'</b></div>':'<p class="note">עוד אין פרויקט לחישוב עלויות של הלקוחה.</p>')+'<div style="margin-top:8px"><button type="button" class="btn sm" data-pjnew="'+id+'">＋ פרויקט ללקוחה</button></div></fieldset>';
+}
 function xRow(k,x){
   x=x||{};
   var fixed=k!=='other',name=k==='insulation'?'בידוד':'הקמה';
@@ -632,6 +643,7 @@ function openEditor(id,hint){
      '<div class="calc" id="calc"></div>'+
    '</div></fieldset>'+
    extrasHtml(l)+
+   leadProjHtml(l,id)+
    (l.log&&l.log.length?'<ul class="log">'+l.log.slice().reverse().map(function(x){return '<li>'+(SM[x.s]?SM[x.s].name:x.s)+' · '+dstr(x.t)+'</li>'}).join('')+'</ul>':'')+
    '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+
    (id?'<button class="btn danger" type="button" id="delBtn">מחיקה</button>':'')+'</div>'+
@@ -825,24 +837,22 @@ function pjTotals(p){
   var pct=(p.contingencyPct===''||p.contingencyPct==null)?10:n(p.contingencyPct),reserve=planned*pct/100,over=actual-planned;
   return {net:net,planned:planned,actual:actual,hasActual:hasActual,by:by,pct:pct,reserve:reserve,over:over,left:reserve-over,profit:net-planned-reserve,profitNoOver:net-planned,profitActual:net-actual,margin:net>0?(net-planned-reserve)/net:0};
 }
-function loadProjects(){
-  return api('GET','/alt/projects').then(function(d){
-    var m={};(d.projects||[]).forEach(function(x){m[x.id]=x});var now=Date.now();
-    Object.keys(pjRecent).forEach(function(id){var r=pjRecent[id];if(now-r.at>180000){delete pjRecent[id];return}var sv=m[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))m[id]=r.item;else delete pjRecent[id]});
-    Object.keys(pjGone).forEach(function(id){if(now-pjGone[id]>180000)delete pjGone[id];else delete m[id]});
-    projects=Object.keys(m).map(function(id){return m[id]});
-    if(!$('veil'))render();
-  }).catch(function(e){if(e.status===401)showLogin()});
-}
+function loadProjects(){return load()}
+var PAYS={none:'לא שולם',deposit:'מקדמה שולמה',partial:'שולם חלקית',paid:'שולם במלואו'};
+function payColor(k){return k==='paid'?'var(--good)':k==='none'?'var(--bad)':'var(--warn)'}
+function payPill(p){return '<span class="pill" style="--c:'+payColor(p.payStatus||'none')+'">'+PAYS[p.payStatus||'none']+'</span>'}
 function renderProj(){
   var b=$('projBox');if(!b||view!=='proj')return;
   var list=projects.slice().sort(function(a,c){var o={doing:0,plan:1,done:2};return (o[a.status]-o[c.status])||String(c.updatedAt).localeCompare(String(a.updatedAt))});
   var h='<div class="sumhead"><h2>תמחור פרויקטים'+(list.length?' ('+list.length+')':'')+'</h2><button class="btn pri sm" type="button" id="pjAdd">＋ פרויקט חדש</button></div>';
-  if(!list.length)h+='<div class="empty"><b>עוד אין פרויקטים</b>פרויקט חדש מאפשר לחשב כמה עולה כל פריט, דלק, עובדים וחומרי גלם, כמה להקצות לחריגות וכמה נשאר רווח נקי.</div>';
+  if(!list.length)h+='<div class="empty"><b>עוד אין פרויקטים</b>פרויקט חדש מאפשר לחשב כמה עולה כל פריט, דלק, עובדים וחומרי גלם, כמה להקצות לחריגות וכמה נשאר רווח נקי. אפשר לשייך אותו ללקוחה מהלידים.</div>';
   h+='<div class="list">'+list.map(function(p){
-    var t=pjTotals(p);
+    var t=pjTotals(p),lead=p.leadId?leads[p.leadId]:null,cust=lead?lead.name:p.customer;
     return '<div class="card" role="button" tabindex="0" data-pjopen="'+p.id+'" style="--c:var(--s-'+(p.status==='done'?'done':p.status==='doing'?'closing':'talked')+')"><div class="row"><h3>🏗️ '+esc(p.name)+'</h3><span class="pill">'+PSTAT[p.status]+'</span></div>'+
-      (p.customer?'<div class="prod">'+esc(p.customer)+'</div>':'')+
+      '<div class="row"><span class="prod">'+(cust?'👤 '+esc(cust)+(p.leadId?' (בלידים)':''):'<span class="note">בלי לקוחה</span>')+'</span>'+payPill(p)+'</div>'+
+      (p.location?'<div class="prod">📍 '+esc(p.location)+'</div>':'')+
+      (p.contactName||p.contactPhone?'<div class="prod">📞 '+esc(p.contactName||'')+(p.contactPhone?' <span class="num">'+esc(p.contactPhone)+'</span>':'')+'</div>':'')+
+      (p.team?'<div class="prod">👷 '+esc(p.team)+'</div>':'')+
       '<div class="money"><span>מחיר <span class="num">'+fmt(t.net)+'</span></span><span>עלויות <span class="num">'+fmt(t.planned)+'</span></span><span>רווח נקי <b class="num'+(t.profit<0?' neg':'')+'">'+fmt(t.profit)+'</b></span></div></div>';
   }).join('')+'</div>';
   b.innerHTML=h;
@@ -868,7 +878,7 @@ function pjUpdate(){
   var s=$('pjSum');if(!s)return;
   var p;try{p=pjRead()}catch(e){return}
   [].forEach.call(document.querySelectorAll('#projForm .pjrow'),function(r){var q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value);r.querySelector('.pt').textContent=fmt((q===''?1:n(q))*n(u))});
-  var t=pjTotals(p);
+  var t=pjTotals(p),pay={status:$('p_pay')?$('p_pay').value:'none',paid:n(clean(val('p_paid'))),price:n(p.price)};
   PCATS.forEach(function(c){var e=$('pjsub_'+c.k);if(e)e.textContent=fmt(t.by[c.k]||0)});
   var row=function(l,v,cls){return '<div class="drow"><span>'+l+'</span><b class="num'+(cls?' '+cls:'')+'">'+v+'</b></div>'};
   s.innerHTML=row('הכנסה לפני מע״מ',fmt(t.net))+row('עלויות מתוכננות',fmt(t.planned))+
@@ -877,31 +887,54 @@ function pjUpdate(){
     '<div class="drow"><span><b>רווח נקי אחרי תקציב חריגות</b></span><b class="pjbig num'+(t.profit<0?' neg':'')+'">'+fmt(t.profit)+'</b></div>'+
     row('רווח נקי אם אין חריגות',fmt(t.profitNoOver))+
     (t.hasActual?row('רווח נקי לפי העלויות בפועל',fmt(t.profitActual),t.profitActual<0?'neg':''):'')+
-    (t.net>0?row('אחוז רווח מההכנסה',Math.round(t.margin*100)+'%'):'');
+    (t.net>0?row('אחוז רווח מההכנסה',Math.round(t.margin*100)+'%'):'')+
+    (pay.paid>0||pay.status!=='none'?row('שולם עד כה',fmt(pay.paid))+row('נותר לגבייה (מהמחיר ללקוחה)',fmt(Math.max(0,pay.price-pay.paid)),pay.price-pay.paid>0?'neg':''):'');
 }
-function openProject(id){
+function leadOptions(sel){
+  var ls=allLeads().sort(function(a,c){return String(a.name||'').localeCompare(String(c.name||''),'he')});
+  return '<option value="">— בלי קישור ללקוחה —</option>'+ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===sel?' selected':'')+'>'+esc((l.name||'ללא שם')+(l.phone?' · '+l.phone:''))+'</option>'}).join('');
+}
+function openProject(id,pre){
   lastFocus=document.activeElement;editingProj=id||null;
-  var p=id?projects.filter(function(x){return x.id===id})[0]:null;
-  var names={};Object.keys(leads).forEach(function(k){if(leads[k].name)names[leads[k].name]=1});
+  var p=id?projects.filter(function(x){return x.id===id})[0]:(pre||null);
   var items=(p&&p.items)||[];
-  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet wide" id="projForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(p?'פרויקט: '+esc(p.name):'פרויקט חדש')+'</h2>'+
+  var lead=p&&p.leadId?leads[p.leadId]:null;
+  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet wide" id="projForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(id&&p?'פרויקט: '+esc(p.name):'פרויקט חדש')+'</h2>'+
    '<div class="grid2"><div class="f"><label for="p_name">שם הפרויקט</label><input id="p_name" value="'+esc(p?p.name:'')+'" autocomplete="off"></div>'+
-   '<div class="f"><label for="p_customer">לקוחה</label><input id="p_customer" list="p_names" value="'+esc(p?p.customer:'')+'" autocomplete="off"><datalist id="p_names">'+Object.keys(names).map(function(k){return '<option value="'+esc(k)+'">'}).join('')+'</datalist></div>'+
-   field('p_price','מה הלקוחה משלמת (₪)',p?p.price:'','number',{})+field('p_pct','תקציב לחריגות (% מהעלויות)',p?p.contingencyPct:10,'number',{})+
+   '<div class="f"><label for="p_location">מיקום</label><input id="p_location" value="'+esc(p?p.location||'':'')+'" autocomplete="off"></div>'+
+   '<div class="f full"><label for="p_lead">לקוחה (מהלידים)</label><select id="p_lead">'+leadOptions(p?p.leadId:'')+'</select></div>'+
+   '<div class="f full" id="p_leadInfo"></div>'+
+   '<div class="f"><label for="p_customer">שם לקוחה (אם אין בלידים)</label><input id="p_customer" value="'+esc(p?p.customer||'':'')+'" autocomplete="off"></div>'+
+   '<div class="f"><label for="p_contact">איש קשר</label><input id="p_contact" value="'+esc(p?p.contactName||'':'')+'" autocomplete="off"></div>'+
+   field('p_contactPhone','טלפון איש הקשר',p?p.contactPhone:'','tel',{})+
+   '<div class="f"><label for="p_team">הצוות (מי עובד על זה)</label><input id="p_team" value="'+esc(p?p.team||'':'')+'" placeholder="למשל: יוסי, דני" autocomplete="off"></div>'+
+   field('p_price','מה הלקוחה משלמת (₪)',p?p.price:'','number',{})+field('p_pct','תקציב לחריגות (% מהעלויות)',p&&p.contingencyPct!=null?p.contingencyPct:10,'number',{})+
    '<label class="chk"><input type="checkbox" id="p_vat"'+(!p||p.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
-   '<div class="f"><label for="p_status">מצב</label><select id="p_status">'+Object.keys(PSTAT).map(function(k){return '<option value="'+k+'"'+((p?p.status:'plan')===k?' selected':'')+'>'+PSTAT[k]+'</option>'}).join('')+'</select></div></div>'+
+   '<div class="f"><label for="p_status">מצב הפרויקט</label><select id="p_status">'+Object.keys(PSTAT).map(function(k){return '<option value="'+k+'"'+((p&&p.status?p.status:'plan')===k?' selected':'')+'>'+PSTAT[k]+'</option>'}).join('')+'</select></div>'+
+   '<div class="f"><label for="p_pay">סטטוס תשלום</label><select id="p_pay">'+Object.keys(PAYS).map(function(k){return '<option value="'+k+'"'+((p&&p.payStatus?p.payStatus:'none')===k?' selected':'')+'>'+PAYS[k]+'</option>'}).join('')+'</select></div>'+
+   field('p_paid','שולם עד כה (₪)',p?p.paidAmount:'','number',{})+'</div>'+
    '<fieldset class="pjsum"><legend>סיכום</legend><div id="pjSum"></div></fieldset>'+
    PCATS.map(function(c){return '<div class="pjcat"><span>'+c.name+' · <span class="num" id="pjsub_'+c.k+'">₪0</span></span><button type="button" class="btn sm" data-pjadd="'+c.k+'">＋ שורה</button></div><div id="pj_'+c.k+'">'+items.filter(function(it){return it.cat===c.k}).map(function(it){return pjRowHtml(c.k,it)}).join('')+'</div>'}).join('')+
-   '<div class="f"><label for="p_notes">הערות</label><textarea id="p_notes" rows="2">'+esc(p?p.notes:'')+'</textarea></div>'+
-   '<p class="note">כמות × מחיר ליחידה = העלות המתוכננת. "בפועל" אופציונלי: כשרושמים אותו, מחושבת החריגה ממה שתוכנן.</p>'+
-   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(p?'<button class="btn danger" type="button" id="pjDelProject">מחיקה</button>':'')+'</div></form></div>';
-  pjUpdate();
-  setTimeout(function(){var ae=document.activeElement,f=$(p?'p_price':'p_name');if(f&&!(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)))f.focus()},30);
+   '<div class="f"><label for="p_notes">הערות</label><textarea id="p_notes" rows="2">'+esc(p?p.notes||'':'')+'</textarea></div>'+
+   '<p class="note">כמות × מחיר ליחידה = העלות המתוכננת. "בפועל" אופציונלי: כשרושמים אותו, מחושבת החריגה ממה שתוכנן. פרויקט ששויך ללקוחה מופיע גם בכרטיס שלה בלידים.</p>'+
+   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(id&&p?'<button class="btn danger" type="button" id="pjDelProject">מחיקה</button>':'')+'</div></form></div>';
+  pjLeadInfo();pjUpdate();
+  setTimeout(function(){var ae=document.activeElement,f=$(id?'p_price':'p_name');if(f&&!(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)))f.focus()},30);
+}
+/* the chosen lead: what she has in the leads, and a button to take her price */
+function pjLeadInfo(){
+  var box=$('p_leadInfo'),sel=$('p_lead');if(!box||!sel)return;
+  var l=sel.value?leads[sel.value]:null;
+  if(!l){box.innerHTML='';return}
+  var c=calc(l);
+  box.innerHTML='<div class="hint">לידים: <b>'+esc(l.name||'')+'</b> · '+esc((SM[l.stage]||{}).name||'')+(l.product?' · '+esc(l.product):'')+(c.has?' · מחיר בליד <span class="num">'+fmt(c.gross)+'</span> <button type="button" class="btn sm" data-pjpull="'+l.id+'">משיכת המחיר</button>':'')+'</div>';
 }
 function savePj(){
   var name=val('p_name');if(!name){toast('רשמי שם לפרויקט');return}
-  var r;try{r=pjRead();var pc=r.contingencyPct;if(pc!==''&&(!isFinite(Number(pc))||Number(pc)<0||Number(pc)>100))throw new Error('אחוז תקציב החריגות חייב להיות בין 0 ל-100')}catch(e){toast(e.message);return}
-  var id=editingProj||newId(),body={name:name,customer:val('p_customer'),price:r.price,vatIncl:r.vatIncl,contingencyPct:r.contingencyPct,status:$('p_status').value,notes:$('p_notes').value.trim(),items:r.items};
+  var r;try{r=pjRead();var pc=r.contingencyPct;if(pc!==''&&(!isFinite(Number(pc))||Number(pc)<0||Number(pc)>100))throw new Error('אחוז תקציב החריגות חייב להיות בין 0 ל-100');var paid=clean(val('p_paid'));if(paid!==''&&(!isFinite(Number(paid))||Number(paid)<0))throw new Error('הסכום ב"שולם עד כה" לא תקין')}catch(e){toast(e.message);return}
+  var id=editingProj||newId(),lid=$('p_lead').value,lead=lid?leads[lid]:null;
+  var body={name:name,leadId:lid,location:val('p_location'),customer:val('p_customer')||(lead?lead.name:''),contactName:val('p_contact'),contactPhone:val('p_contactPhone'),team:val('p_team'),payStatus:$('p_pay').value,paidAmount:clean(val('p_paid')),
+    price:r.price,vatIncl:r.vatIncl,contingencyPct:r.contingencyPct,status:$('p_status').value,notes:$('p_notes').value.trim(),items:r.items};
   guard(api('PUT','/alt/projects/'+id,body)).then(function(d){projects=projects.filter(function(x){return x.id!==id}).concat([d.project]);pjRecent[id]={item:d.project,at:Date.now()};delete pjGone[id];closeEditor();render();toast('הפרויקט נשמר')}).catch(function(){});
 }
 function pjDelProject(btn){
@@ -1094,6 +1127,8 @@ document.addEventListener('click',function(e){
   var pk=t.closest('[data-pickid]');if(pk){var pid=pk.dataset.pickid;if(SEL.ids[pid])delete SEL.ids[pid];else SEL.ids[pid]=1;render();return}
   if(t.id==='projBtn'){view='proj';SEL.on=false;SEL.ids={};loadProjects();render();window.scrollTo(0,0);return}
   if(t.id==='pjAdd'){openProject(null);return}
+  var pjp=t.closest('[data-pjpull]');if(pjp){var pll=leads[pjp.dataset.pjpull];if(pll){$('p_price').value=String(Math.round(calc(pll).gross));pjUpdate()}return}
+  var pjn=t.closest('[data-pjnew]');if(pjn){var nl=leads[pjn.dataset.pjnew];if(nl){closeEditor();openProject(null,{leadId:nl.id,customer:nl.name||'',contactName:nl.name||'',contactPhone:nl.phone||'',price:calc(nl).has?Math.round(calc(nl).gross):'',vatIncl:nl.vatIncl!==false,status:'plan',payStatus:'none',contingencyPct:10,items:[]})}return}
   var pjo=t.closest('[data-pjopen]');if(pjo){openProject(pjo.dataset.pjopen);return}
   var pja=t.closest('[data-pjadd]');if(pja){pjAddRow(pja.dataset.pjadd);return}
   if(t.closest('[data-pjdel]')){var rw=t.closest('.pjrow');if(rw)rw.remove();pjUpdate();return}
@@ -1159,7 +1194,8 @@ document.addEventListener('change',function(e){
   if(e.target.dataset&&e.target.dataset.imp!=null){IMP[+e.target.dataset.imp].on=e.target.checked;var on=IMP.filter(function(r){return r.on}).length,g=$('impGo');if(g){g.textContent='הוספה / עדכון של '+on;g.disabled=!on}return}
   if(e.target.dataset&&e.target.dataset.impstage!=null){var rr=IMP[+e.target.dataset.impstage];rr.lead.stage=e.target.value;if(DEAL.indexOf(rr.lead.stage)>-1&&!rr.closed&&impDateVal)rr.closed=impDateVal;paintImport();return}
   if(e.target.id==='period'||e.target.id==='period2'){period=e.target.value;render()}
-  if(e.target.id==='p_vat'||e.target.id==='p_status'){pjUpdate();return}
+  if(e.target.id==='p_lead'){pjLeadInfo();var pl=e.target.value?leads[e.target.value]:null;if(pl){if(!$('p_customer').value)$('p_customer').value=pl.name||'';if(!$('p_contact').value)$('p_contact').value=pl.name||'';if(!$('p_contactPhone').value)$('p_contactPhone').value=pl.phone||''}pjUpdate();return}
+  if(e.target.id==='p_vat'||e.target.id==='p_status'||e.target.id==='p_pay'){pjUpdate();return}
   if(e.target.id==='f_vatIncl'){autoSupplier();[].forEach.call(document.querySelectorAll('#row_extras .xo'),autoXProfit);updCalc()}
   if(e.target.classList&&e.target.classList.contains('xk'))updCalc();
 });

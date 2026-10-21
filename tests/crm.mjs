@@ -252,6 +252,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(await pg.locator('#tabs').isHidden() && await pg.locator('#projBox').isVisible(), `${tag}: the projects view replaces the leads page`);
   await pg.click('#pjAdd'); await pg.waitForSelector('#p_name'); await pg.waitForTimeout(150);
   await pg.fill('#p_name', 'בית עץ'); await pg.fill('#p_price', '100,000');
+  const leadVal = await pg.evaluate(() => [...document.querySelectorAll('#p_lead option')].find((o) => /דנה כהן/.test(o.textContent)).value);
+  await pg.selectOption('#p_lead', leadVal);
+  ok(/דנה כהן/.test(await pg.innerText('#p_leadInfo')) && /משיכת המחיר/.test(await pg.innerText('#p_leadInfo')) && await pg.inputValue('#p_contactPhone') === '0501234567', `${tag}: choosing a real lead fills the contact and shows her lead details`);
+  await pg.fill('#p_location', 'קיבוץ הדוגמה'); await pg.fill('#p_team', 'יוסי, דני'); await pg.selectOption('#p_pay', 'deposit'); await pg.fill('#p_paid', '20,000');
   const addRow = async (cat, label, q, u) => { await pg.click(`[data-pjadd="${cat}"]`); const r = pg.locator(`#pj_${cat} .pjrow`).last(); await r.locator('.pl').fill(label); await r.locator('.pq').fill(q); await r.locator('.pu').fill(u); return r; };
   const mat = await addRow('material', 'עץ', '10', '1000'); await addRow('labor', 'עובד', '5', '800'); await addRow('fuel', 'דלק', '4', '250'); await addRow('accessory', 'ברגים', '1', '500');
   let ps = await pg.innerText('#pjSum');
@@ -259,8 +263,17 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await mat.locator('.pa').fill('11,500');
   ps = await pg.innerText('#pjSum');
   ok(/חריגה בפועל/.test(ps) && /1,500/.test(ps) && /נשאר מתקציב החריגות[\s\S]*50/.test(ps) && /67,746/.test(ps), `${tag}: actual overrun 1,500 of the 1,550 budget, profit by actuals 67,746`);
+  ok(/נותר לגבייה/.test(await pg.innerText('#pjSum')) && /שולם עד כה/.test(await pg.innerText('#pjSum')), `${tag}: payments: paid so far and what is left to collect`);
   await pg.click('#projForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/בית עץ/.test(await pg.innerText('#projBox')) && /67,696/.test(await pg.innerText('#projBox')), `${tag}: the project card shows the net profit`);
+  const pc = await pg.innerText('#projBox');
+  ok(/קיבוץ הדוגמה/.test(pc) && /יוסי, דני/.test(pc) && /מקדמה שולמה/.test(pc) && /דנה כהן \(בלידים\)/.test(pc), `${tag}: the project card shows location, team, payment status and the linked customer`);
+  await pg.click('#backBtn');
+  const lc = await pg.innerText('#list .card:has-text("דנה כהן")');
+  ok(/בית עץ/.test(lc) && /רווח/.test(lc) && /מקדמה שולמה/.test(lc), `${tag}: the lead's card shows her project with its profit and payment status`);
+  await pg.click('#list .card:has-text("דנה כהן") h3'); await pg.waitForSelector('#row_proj');
+  ok(/בית עץ/.test(await pg.innerText('#row_proj')) && /סה״כ רווח מפרויקטים/.test(await pg.innerText('#row_proj')), `${tag}: inside her card: the project and its profit`);
+  await pg.click('#cancelBtn'); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
   await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
   await pg.click('#pjDelProject'); await pg.click('#pjDelProject'); await pg.waitForSelector('#veil', { state: 'detached' });
