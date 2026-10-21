@@ -113,6 +113,9 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-f="all"]');
   ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
   ok(/הערה לדוגמה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: the card's notes are visible in the list`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-cat]');
+  await pg.waitForFunction(() => /📖 פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-cat]').count() === 0, `${tag}: one tap marks 'received the catalog' with 📖 on the card`);
   await pg.click('#list .card:has-text("פוטנציאל") [data-irr]');
   await pg.waitForSelector('#list .card.lostc');
   ok(/לא רלוונטי/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && (await pg.locator('#list .card:has-text("פוטנציאל")').innerText()).includes('🚫 פוטנציאל') && await pg.locator('#list .card:has-text("פוטנציאל") [data-undo]').count() === 1, `${tag}: one tap marks it not relevant with 🚫 on the card`);
@@ -120,7 +123,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.locator('#list .card:has-text("פוטנציאל")').count()) === 0, `${tag}: it leaves the open tab`);
   await pg.click('[data-f="all"]'); await pg.click('#list .card:has-text("פוטנציאל") [data-undo]');
   await pg.waitForFunction(() => !document.querySelector('#list .card.lostc'));
-  ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: ↩ brings it back to the stage it came from`);
+  ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: ↩ brings it back to the stage it came from`);
   await pg.click('#list .card:has-text("פוטנציאל")'); await pg.click('#delBtn'); await pg.click('#delBtn'); await pg.waitForSelector('#veil', { state: 'detached' });
   // moving a lead to a stage outside the open tab must not make it vanish
   await pg.click('[data-f="hot"]'); await pg.click('.card h3'); await pg.click('[data-stg="lost"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
