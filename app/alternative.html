@@ -548,8 +548,8 @@ function saveFollow(clear){
   var l=leads[folId];if(!l)return;
   var d=clear?'':val('f_fdate');
   if(folSeason&&!d){toast('בחרי תאריך (אפשר גם להשאיר לעונה הבאה בלי תאריך דרך העריכה)');return}
-  var body=pick(l);body.qty=qtyOf(l);body.follow=d;if(folSeason)body.stage='season';
-  save(folId,body).then(function(){closeEditor();toast(folSeason?(l.name||'הליד')+' עבר לעונה הבאה 🗓️'+(d?' · לחזור ב-'+dstr(d):''):(d?'נקבע לחזור ב-'+dstr(d):'התאריך נוקה'))}).catch(function(){});
+  var body=pick(l);body.qty=qtyOf(l);body.follow=d;if(folSeason)body.stage='season';else if(l.stage==='hot'&&d)body.stage='talked';      // a hot lead pushed to another date is no longer hot
+  save(folId,body).then(function(){closeEditor();toast(folSeason?(l.name||'הליד')+' עבר לעונה הבאה 🗓️'+(d?' · לחזור ב-'+dstr(d):''):(d?'נקבע לחזור ב-'+dstr(d)+(l.stage==='hot'?' · עבר מ"ליד חם" ל"שוחחנו"':''):'התאריך נוקה'))}).catch(function(){});
 }
 function advance(id){
   var l=leads[id];if(!l)return;

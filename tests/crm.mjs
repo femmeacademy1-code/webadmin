@@ -158,6 +158,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
   await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-hot]').count() === 0, `${tag}: one tap marks it hot with 🔥`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-follow]'); await pg.waitForSelector('#folForm'); await pg.click('[data-fchip]:has-text("עוד חודש")'); await pg.click('#folForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.waitForFunction(() => !/🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/שוחחנו|דיברנו/.test(await pg.locator('#list .card:has-text("פוטנציאל") .pill').innerText()), `${tag}: a hot lead moved to another date leaves "ליד חם"`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-adv]'); await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
   // the new stage "מבקשים ביקור" and the tab order (next season now sits just before not relevant)
   const tabNames = (await pg.locator('#tabs .tab').allInnerTexts()).map((t) => t.replace(/\s*\d+\s*$/, '').trim());
   const ti = (n) => tabNames.findIndex((t) => t.includes(n));
