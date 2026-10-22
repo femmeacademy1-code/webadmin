@@ -161,7 +161,10 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#list .card:has-text("פוטנציאל") [data-follow]'); await pg.waitForSelector('#folForm'); await pg.click('[data-fchip]:has-text("עוד חודש")'); await pg.click('#folForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.waitForFunction(() => !/🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/שוחחנו|דיברנו/.test(await pg.locator('#list .card:has-text("פוטנציאל") .pill').innerText()), `${tag}: a hot lead moved to another date leaves "ליד חם"`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-adv]'); await pg.waitForFunction(() => /ℹ️ פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/קיבל מידע/.test(await pg.locator('#list .card:has-text("פוטנציאל") .pill').innerText()) && (await pg.locator('#tabs .tab').allInnerTexts()).some((t) => /קיבל מידע/.test(t)), `${tag}: the new stage "קיבל מידע" sits after "דיברנו" and has its own tab`);
   await pg.click('#list .card:has-text("פוטנציאל") [data-adv]'); await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(true, `${tag}: from "קיבל מידע" the next step is "ליד חם"`);
   // the new stage "מבקשים ביקור" and the tab order (next season now sits just before not relevant)
   const tabNames = (await pg.locator('#tabs .tab').allInnerTexts()).map((t) => t.replace(/\s*\d+\s*$/, '').trim());
   const ti = (n) => tabNames.findIndex((t) => t.includes(n));
