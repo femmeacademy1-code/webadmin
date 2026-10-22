@@ -10,7 +10,7 @@ const api = (env) => env.TELEGRAM_API || 'https://api.telegram.org';
 const getKV = async (env, k) => { const v = await env.CMS.get(k); return v ? JSON.parse(v) : null; };
 const rand = (n, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') => { const r = crypto.getRandomValues(new Uint8Array(n)); return [...r].map((x) => alphabet[x % alphabet.length]).join(''); };
 const LABEL = { name: 'שם', phone: 'טלפון', product: 'מוצר', source: 'מקור', follow: 'לחזור ב', notes: 'הערות', suppName: 'ספק', qty: 'כמות', commission: 'העמלה (רווח)', receiptNo: 'מספר קבלה', deliveryDate: 'תאריך אספקה', price: 'מחיר', cost: 'עלות מוצר', supplier: 'הספק קיבל', stage: 'שלב', vatIncl: 'המחיר כולל מע״מ' };
-const STAGE = { talked: 'דיברנו', info: 'קיבל מידע', hot: 'ליד חם', season: 'לעונה הבאה', catalog: 'קיבל קטלוג', visit: 'מבקשים ביקור', viewing: 'הלך לראות', closing: 'סוגר', done: 'נסגר', lost: 'לא רלוונטי' };
+const STAGE = { talked: 'דיברנו', info: 'קיבל מידע', hot: 'ליד חם', season: 'לעונה הבאה', visit: 'מבקשים ביקור', viewing: 'הלך לראות', closing: 'סוגר', done: 'נסגר', lost: 'לא רלוונטי' };
 const money = (v) => '₪' + Math.round(v).toLocaleString('en-US');
 
 async function tg(env, token, method, body) {

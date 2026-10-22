@@ -1442,7 +1442,7 @@ test('alternative: a proposal moves a lead forward but never pushes a closed dea
   const at = (stage, v) => applyProposal({ name: 'x', stage }, { stage: v }).lead.stage;
   assert.equal(at('talked', 'hot'), 'hot');
   assert.equal(at('hot', 'talked'), 'hot');                  // never backwards
-  assert.equal(at('catalog', 'visit'), 'visit');
+  assert.equal(at('info', 'visit'), 'visit');
   assert.equal(at('hot', 'season'), 'season');
   assert.equal(at('season', 'hot'), 'hot');                  // a postponed lead that wakes up moves forward again
   assert.equal(at('done', 'season'), 'done'); assert.equal(at('done', 'lost'), 'done');
@@ -1470,4 +1470,13 @@ test('alternative: who made first contact and who followed up (and when) are sav
   assert.equal((await call('PUT', `/api/alt/leads/${id}`, { cookie: alt, body: { name: 'רונית', followups: [{ by: 'אורין', date: '5/10' }] } })).status, 400);
   const p = await call('PUT', '/api/alt/projects/proj00000009', { cookie: alt, body: { name: 'חופה', price: 11800, status: 'done', date: '2026-10-10', items: [{ cat: 'materials', label: 'עץ', qty: 1, unit: 2000 }] } });
   assert.equal(p.status, 200, JSON.stringify(p.data)); assert.equal(p.data.project.date, '2026-10-10');
+});
+
+test('alternative: the removed stage "קיבל קטלוג" (catalog) counts as "קיבל מידע": old leads and old requests', async () => {
+  const alt = await altCookieFor();
+  await env.CMS.put('alt:l:old0catalog001', JSON.stringify({ name: 'ישנה', stage: 'catalog' }));
+  const r = (await call('GET', '/api/alt/leads', { cookie: alt })).data.leads.find((l) => l.id === 'old0catalog001');
+  assert.equal(r.stage, 'info');
+  const w = (await call('PUT', '/api/alt/leads/old0catalog001', { cookie: alt, body: { name: 'ישנה', stage: 'catalog' } })).data.lead;
+  assert.equal(w.stage, 'info');
 });

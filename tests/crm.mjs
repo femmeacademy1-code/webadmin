@@ -126,11 +126,11 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
   ok(/הערה לדוגמה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: the card's notes are visible in the list`);
   await pg.click('#list .card:has-text("פוטנציאל") [data-adv]');
-  await pg.waitForFunction(() => /📖 פוטנציאל/.test(document.querySelector('#list').innerText));
-  ok(/קיבל קטלוג/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: one tap marks 'received the catalog' with 📖 on the card`);
-  // no duplicate buttons: a hot lead's → button already says 'received the catalog'
+  await pg.waitForFunction(() => /🏕️ פוטנציאל/.test(document.querySelector('#list').innerText));
+  ok(/מבקשים ביקור/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: a hot lead's → button moves it to 'asks to visit' with 🏕️`);
+  // no duplicate buttons: a hot lead's → button already says 'asks to visit'
   await pg.click('[data-f="hot"]');
-  ok(await pg.locator('#list .card:has-text("רונית") [data-adv]').innerText().then((t) => /קיבל קטלוג/.test(t)) && await pg.locator('#list .card:has-text("רונית") [data-cat]').count() === 0, `${tag}: no second 'received the catalog' button`);
+  ok(await pg.locator('#list .card:has-text("רונית") [data-adv]').innerText().then((t) => /מבקשים ביקור/.test(t)) && await pg.locator('#list .card:has-text("רונית") [data-visit]').count() === 0, `${tag}: no second 'asks to visit' button`);
   await pg.click('[data-f="all"]');
   // the logo at the top
   ok(await pg.evaluate(() => { const i = document.querySelector('#app .brand img'); return !!i && i.complete && i.naturalWidth > 100; }), `${tag}: the Alternative logo is shown`);
@@ -154,7 +154,8 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.fill('#f_name', ' דנה  כהן '); await pg.waitForSelector('#dupHint:not([hidden])');
   ok(/אותו שם/.test(await pg.innerText('#dupHint')), `${tag}: the same name is caught too`);
   await pg.click('#cancelBtn');
-  // a one-tap "hot" button for a lead that is not hot (here: it received the catalog)
+  // a one-tap "hot" button for a lead that is not hot (here: set back to 'talked' in the editor)
+  await pg.click('#list .card:has-text("פוטנציאל") h3'); await pg.waitForSelector('#veil'); await pg.click('[data-stg="talked"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.click('#list .card:has-text("פוטנציאל") [data-hot]');
   await pg.waitForFunction(() => /🔥 פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/ליד חם/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')) && await pg.locator('#list .card:has-text("פוטנציאל") [data-hot]').count() === 0, `${tag}: one tap marks it hot with 🔥`);
@@ -168,8 +169,8 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   // the new stage "מבקשים ביקור" and the tab order (next season now sits just before not relevant)
   const tabNames = (await pg.locator('#tabs .tab').allInnerTexts()).map((t) => t.replace(/\s*\d+\s*$/, '').trim());
   const ti = (n) => tabNames.findIndex((t) => t.includes(n));
-  ok(ti('קיבל קטלוג') < ti('מבקשים ביקור') && ti('מבקשים ביקור') < ti('הלך לראות') && ti('נסגר') < ti('לעונה הבאה') && ti('לעונה הבאה') < ti('לא רלוונטי'), `${tag}: tabs order: ${tabNames.join(' > ')}`);
-  await pg.click('#list .card:has-text("פוטנציאל") [data-visit]');
+  ok(ti('קיבל מידע') < ti('מבקשים ביקור') && ti('מבקשים ביקור') < ti('הלך לראות') && ti('נסגר') < ti('לעונה הבאה') && ti('לעונה הבאה') < ti('לא רלוונטי'), `${tag}: tabs order: ${tabNames.join(' > ')}`);
+  await pg.click('#list .card:has-text("פוטנציאל") [data-adv]');
   await pg.waitForFunction(() => /🏕️ פוטנציאל/.test(document.querySelector('#list').innerText));
   ok(/מבקשים ביקור/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: one tap marks 'asks to visit' with 🏕️ on the card`);
   // next season: one button, a date to call him (chips or any date), 🗓️ on the card
