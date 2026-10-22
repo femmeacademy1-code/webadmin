@@ -190,12 +190,12 @@ legend{font-weight:800;padding:0 6px}
     <details id="expList" hidden></details>
   </section>
 
+  <section class="sum" id="potBox" hidden aria-label="רווח פוטנציאלי"></section>
   <section class="sum" id="shipBox" aria-label="משלוחים בדרך" hidden></section>
   <section class="sum" id="projBox" aria-label="תמחור פרויקטים" hidden></section>
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
   <div class="row" id="periodBar" hidden><span class="note" id="periodNote"></span><select id="period2" aria-label="חודש" style="width:auto"></select></div>
   <div class="list" id="list" aria-live="polite"></div>
-  <section class="sum" id="potBox" hidden aria-label="רווח פוטנציאלי"></section>
 </div>
 
 <div id="sheetHost"></div>
@@ -417,7 +417,7 @@ function potProfit(l){
 var POT_STAGES=['talked','info','hot','visit','viewing','closing','season'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
-  if(filter!=='open'||view!=='leads'){b.hidden=true;return}
+  if(view!=='money'){b.hidden=true;return}
   var rows=POT_STAGES.map(function(id){
     var ls=allLeads().filter(function(l){return l.stage===id}),sum=0,withP=0,est=0;
     ls.forEach(function(l){var p=potProfit(l);if(p){sum+=p.v;withP++;if(p.est)est++}});
@@ -437,7 +437,7 @@ function renderPot(){
 function applyView(){
   var m=view!=='leads';
   $('sumBox').hidden=view!=='money';$('shipBox').hidden=view!=='ship';$('projBox').hidden=view!=='proj';$('tabs').hidden=m;$('list').hidden=m;
-  if(m){$('periodBar').hidden=true;$('potBox').hidden=true}
+  if(m){$('periodBar').hidden=true}
   ['shotBtn','impBtn','selBtn','newBtn','moneyBtn','shipBtn','projBtn'].forEach(function(id){$(id).hidden=m});
   $('backBtn').hidden=!m;
   var act=shipments.filter(function(x){return !x.arrived}).length;

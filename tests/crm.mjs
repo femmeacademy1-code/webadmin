@@ -120,10 +120,11 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   // potential profit of open leads (bottom of the open tab)
   await pg.click('#newBtn'); await pg.waitForSelector('#f_name'); await pg.waitForTimeout(150);
   await pg.fill('#f_name', 'פוטנציאל'); await pg.fill('#f_product', 'לוטוס 5M'); await pg.fill('#f_notes', 'הערה לדוגמה: מחכה לתשובה'); await pg.click('[data-stg="hot"]'); await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
-  await pg.click('[data-f="open"]');
-  ok((await pg.locator('#potBox').isVisible()) && /1,907/.test(await pg.innerText('#potBox')), `${tag}: potential profit from the catalog (7,500 -> 1,907) shown at the bottom of the open tab`);
+  await money();
+  ok((await pg.locator('#potBox').isVisible()) && /1,907/.test(await pg.innerText('#potBox')), `${tag}: potential profit from the catalog (7,500 -> 1,907) shown in the finance view`);
+  await leadsV();
+  ok(await pg.locator('#potBox').isHidden(), `${tag}: not shown in the leads view`);
   await pg.click('[data-f="all"]');
-  ok(await pg.locator('#potBox').isHidden(), `${tag}: hidden outside the open tab`);
   ok(/הערה לדוגמה/.test(await pg.innerText('#list .card:has-text("פוטנציאל")')), `${tag}: the card's notes are visible in the list`);
   await pg.click('#list .card:has-text("פוטנציאל") [data-adv]');
   await pg.waitForFunction(() => /🏕️ פוטנציאל/.test(document.querySelector('#list').innerText));
