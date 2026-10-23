@@ -77,6 +77,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.innerText('#calc .pf')).includes('3,000'), `${tag}: without it the profit is computed`);
   await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: lead saved and listed`);
+  ok((await pg.locator('#list .card:has-text("דנה כהן") a.call').getAttribute('href')) === 'tel:0501234567' && /חיוג/.test(await pg.locator('#list .card:has-text("דנה כהן") a.call').innerText()), `${tag}: a green call button dials the lead's phone`);
   ok(await pg.locator('#sumBox').isHidden(), `${tag}: the money section is not on the leads page`);
   await money();
   ok(/3,000/.test(await pg.innerText('#kpis')), `${tag}: expected profit KPI 3,000`);
