@@ -79,6 +79,12 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: lead saved and listed`);
   ok((await pg.locator('#list .card:has-text("דנה כהן") a.call').getAttribute('href')) === 'tel:0501234567' && /חיוג/.test(await pg.locator('#list .card:has-text("דנה כהן") a.call').innerText()), `${tag}: a green call button dials the lead's phone`);
   ok(await pg.locator('#sumBox').isHidden(), `${tag}: the money section is not on the leads page`);
+  await pg.click('#themeBtn');
+  ok(await pg.evaluate(() => document.documentElement.dataset.theme) === 'dark' && /בהיר/.test(await pg.innerText('#themeBtn')), `${tag}: the theme button switches to dark`);
+  await pg.reload(); await pg.waitForSelector('#list');
+  ok(await pg.evaluate(() => document.documentElement.dataset.theme) === 'dark', `${tag}: dark is remembered after a reload`);
+  await pg.click('#themeBtn');
+  ok(await pg.evaluate(() => document.documentElement.dataset.theme) === 'light', `${tag}: and back to light`);
   await money();
   ok(/3,000/.test(await pg.innerText('#kpis')), `${tag}: expected profit KPI 3,000`);
   await leadsV();
