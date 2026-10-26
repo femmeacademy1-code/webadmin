@@ -302,12 +302,13 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/בית עץ/.test(lc) && /רווח/.test(lc) && /מקדמה שולמה/.test(lc), `${tag}: the lead's card shows her project with its profit and payment status`);
   await pg.click('#list .card:has-text("דנה כהן") h3'); await pg.waitForSelector('#row_proj');
   ok(/בית עץ/.test(await pg.innerText('#row_proj')) && /סה״כ רווח מפרויקטים/.test(await pg.innerText('#row_proj')), `${tag}: inside her card: the project and its profit`);
-  const pjProfitShown = (await pg.locator('#row_proj .drow b.num').first().innerText()).replace(/[^\d-]/g, '');
+  const pjProfitShown = (await pg.locator('[data-pjtocard]').first().innerText()).replace(/[^\d-]/g, '');
   await pg.click('[data-pjtocard]');
   ok((await pg.inputValue('#f_commission')) === pjProfitShown, `${tag}: pulling the project's profit puts it as the customer's profit in the card (${pjProfitShown})`);
   await pg.click('#cancelBtn'); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
   await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
+  ok(/עלות כוללת/.test(await pg.innerText('#pjSum .pjfinal')) && /עלות ספק/.test(await pg.innerText('#pjSum .pjfinal')) && /רווח/.test(await pg.innerText('#pjSum .pjfinal')), `${tag}: the summary ends with total cost, supplier cost and profit`);
   ok(await pg.evaluate(() => { const f = document.getElementById('projForm'), sm = document.getElementById('pjSum'), last = [...f.querySelectorAll('.pjrow')].pop(), notes = document.getElementById('p_notes'); return !!(last.compareDocumentPosition(sm) & 4) && !!(notes.compareDocumentPosition(sm) & 4); }), `${tag}: the summary sits at the end, after all the items and the notes`);
   await pg.click('[data-pjadd="tent"]'); await pg.locator('#pj_tent .pjrow').last().locator('.pl').fill('אוהל לוטוס'); await pg.locator('#pj_tent .pjrow').last().locator('.pq').fill('2'); await pg.locator('#pj_tent .pjrow').last().locator('.pu').fill('1000');
   ok(/2,000/.test(await pg.innerText('#pjsub_tent')) && await pg.locator('#pj_tent .pjrow .pv').count() === 1, `${tag}: a purchased-tents category with quantity and a licensed/exempt choice`);
