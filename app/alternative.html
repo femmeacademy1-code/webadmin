@@ -922,7 +922,7 @@ function runImport(){
 }
 
 /* project costing: every item with its cost (materials, accessories, workers, fuel, other), the budget kept for overruns, the net profit */
-var PCATS=[{k:'tent',name:'אוהלים שנרכשו',ph:'איזה אוהל (כמות = כמה יחידות, מחיר = ליחידה)'},{k:'material',name:'חומרי גלם',ph:'למשל: עץ, בד, ברגים'},{k:'accessory',name:'מוצרים נלווים',ph:'מוצר נלווה'},{k:'labor',name:'עובדים',ph:'עובד (כמות = ימים, מחיר = יומית)'},{k:'fuel',name:'דלק',ph:'דלק (כמות = נסיעות, מחיר = עלות נסיעה)'},{k:'other',name:'אחר',ph:'הוצאה אחרת'}];
+var PCATS=[{k:'tent',name:'אוהלים שנרכשו',ph:'איזה אוהל (מחיר = ליחידה; ברווח כותבים כמה אנחנו מרוויחים)'},{k:'material',name:'חומרי גלם',ph:'למשל: עץ, בד, ברגים'},{k:'accessory',name:'מוצרים נלווים',ph:'מוצר נלווה'},{k:'labor',name:'עובדים',ph:'עובד (כמות = ימים, מחיר = יומית)'},{k:'fuel',name:'דלק',ph:'דלק (כמות = נסיעות, מחיר = עלות נסיעה)'},{k:'other',name:'אחר',ph:'הוצאה אחרת'}];
 var PSTAT={plan:'בתכנון',doing:'בביצוע',done:'הסתיים'};
 /* VAT in project costing. "עוסק מורשה": the price is with or without VAT, and VAT paid to licensed suppliers (amount entered includes VAT) is recovered, so only
  * its net counts as a cost. "עוסק פטור": no VAT on the income, no VAT to recover, every amount counts as entered. Each cost row says whether its supplier is licensed or exempt. */
@@ -931,7 +931,8 @@ function pjTotals(p){
   var net=exempt?price:(p.vatIncl===false?price:price/(1+vat)),outVat=exempt?0:(p.vatIncl===false?price*vat:price-net);
   var entered=0,planned=0,actual=0,inVat=0,licAmt=0,exmAmt=0,hasActual=false,by={},supCost=0;
   (p.items||[]).forEach(function(it){
-    var q=(it.qty===''||it.qty==null)?1:n(it.qty),pl=q*n(it.unit),has=it.actual!==''&&it.actual!=null,ac=has?n(it.actual):pl;
+    var q=(it.qty===''||it.qty==null)?1:n(it.qty),full=q*n(it.unit),wp=it.cat==='tent'&&it.profit!==''&&it.profit!=null;
+    var pl=wp?Math.max(0,full-n(it.profit)):full,has=!wp&&it.actual!==''&&it.actual!=null,ac=has?n(it.actual):pl;      /* a purchased tent with our profit written costs the price minus that profit */
     var lic=it.vatType==='lic',f=(!exempt&&lic)?1/(1+vat):1;
     if(has)hasActual=true;
     entered+=pl;planned+=pl*f;actual+=ac*f;if(!exempt&&lic)inVat+=pl-pl*f;
@@ -970,7 +971,7 @@ function pjRowHtml(cat,it){
   it=it||{};var c=PCATS.filter(function(x){return x.k===cat})[0];
   var vt=it.vatType||'exempt';
   return '<div class="pjrow" data-cat="'+cat+'"><div class="pjh"><input class="pl" aria-label="פריט" placeholder="'+esc(c.ph)+'" value="'+esc(it.label||'')+'"><button type="button" class="btn sm" data-pjdel="1" aria-label="הסרת שורה">✕</button></div>'+
-    '<div class="x3p">'+xf('pq','כמות',it.qty==null||it.qty===''?(it.label||it.unit!==undefined&&it.unit!==''?1:''):it.qty)+xf('pu','מחיר ליחידה (₪)',it.unit)+xf('pa','בפועל, סה״כ (₪)',it.actual)+'</div>'+
+    '<div class="x3p">'+xf('pq','כמות',it.qty==null||it.qty===''?(it.label||it.unit!==undefined&&it.unit!==''?1:''):it.qty)+xf('pu','מחיר ליחידה (₪)',it.unit)+(cat==='tent'?xf('pr','הרווח שלנו (₪)',it.profit!==undefined&&it.profit!==''?it.profit:(it.actual!==undefined&&it.actual!==''?it.actual:'')):xf('pa','בפועל, סה״כ (₪)',it.actual))+'</div>'+
     '<div class="f"><label>ספק</label><select class="pv" aria-label="סוג הספק"><option value="lic"'+(vt==='lic'?' selected':'')+'>ספק עוסק מורשה (הסכום כולל מע״מ)</option><option value="exempt"'+(vt!=='lic'?' selected':'')+'>ספק עוסק פטור / בלי מע״מ</option></select></div>'+
     '<div class="note">סה״כ מתוכנן: <b class="pt num">₪0</b></div></div>';
 }
@@ -978,17 +979,18 @@ function pjAddRow(cat){var box=$('pj_'+cat);if(!box)return;var lastSel=box.query
 function pjRead(){
   var items=[];
   [].forEach.call(document.querySelectorAll('#projForm .pjrow'),function(r){
-    var q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value),a=clean(r.querySelector('.pa').value),l=r.querySelector('.pl').value.trim();
-    [q,u,a].forEach(function(v){if(v!==''&&(!isFinite(Number(v))||Number(v)<0))throw new Error('בשורה "'+(l||'ללא שם')+'" יש מספר לא תקין')});
-    if(!l&&u===''&&a==='')return;
-    items.push({cat:r.dataset.cat,label:l,qty:q===''?1:q,unit:u,actual:a,vatType:r.querySelector('.pv').value});
+    var tent=r.dataset.cat==='tent',q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value),a=tent?'':clean(r.querySelector('.pa').value),pr=tent?clean(r.querySelector('.pr').value):'',l=r.querySelector('.pl').value.trim();
+    [q,u,a,pr].forEach(function(v){if(v!==''&&(!isFinite(Number(v))||Number(v)<0))throw new Error('בשורה "'+(l||'ללא שם')+'" יש מספר לא תקין')});
+    if(!l&&u===''&&a===''&&pr==='')return;
+    items.push({cat:r.dataset.cat,label:l,qty:q===''?1:q,unit:u,actual:a,profit:pr,vatType:r.querySelector('.pv').value});
   });
   return {price:clean(val('p_price')),vatIncl:$('p_vat').checked,vatMode:$('p_vatmode').value,contingencyPct:clean(val('p_pct')),items:items};
 }
 function pjUpdate(){
   var s=$('pjSum');if(!s)return;
   var p;try{p=pjRead()}catch(e){return}
-  [].forEach.call(document.querySelectorAll('#projForm .pjrow'),function(r){var q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value);r.querySelector('.pt').textContent=fmt((q===''?1:n(q))*n(u))});
+  [].forEach.call(document.querySelectorAll('#projForm .pjrow'),function(r){var q=clean(r.querySelector('.pq').value),u=clean(r.querySelector('.pu').value),tot=(q===''?1:n(q))*n(u),pe=r.querySelector('.pr'),pv=pe?clean(pe.value):'';
+    r.querySelector('.pt').textContent=pe&&pv!==''?fmt(tot)+' · הספק מקבל '+fmt(Math.max(0,tot-n(pv)))+' · הרווח שלנו '+fmt(n(pv)):fmt(tot)});
   var t=pjTotals(p),pay={status:$('p_pay')?$('p_pay').value:'none',paid:n(clean(val('p_paid'))),price:n(p.price)};
   PCATS.forEach(function(c){var e=$('pjsub_'+c.k);if(e)e.textContent=fmt(t.by[c.k]||0)});
   var row=function(l,v,cls){return '<div class="drow"><span>'+l+'</span><b class="num'+(cls?' '+cls:'')+'">'+v+'</b></div>'};

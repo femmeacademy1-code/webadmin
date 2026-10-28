@@ -229,9 +229,9 @@ export async function saveProject(env, id, input) {
   const items = (Array.isArray(input.items) ? input.items : []).slice(0, 150).map((x) => {
     const qty = x && x.qty !== '' && x.qty != null ? Number(String(x.qty).replace(/[,\s]/g, '')) : 1;
     if (!Number.isFinite(qty) || qty < 0 || qty > 1e6) throw new HttpError(400, 'כמות לא תקינה');
-    const unit = money(x && x.unit, 'מחיר ליחידה'), actual = money(x && x.actual, 'עלות בפועל');
-    if ((unit !== '' && unit < 0) || (actual !== '' && actual < 0)) throw new HttpError(400, 'סכום לא יכול להיות שלילי');
-    return { cat: PCATS.includes(x && x.cat) ? x.cat : 'other', label: text(x && x.label, 80), qty, unit, actual, vatType: x && x.vatType === 'lic' ? 'lic' : 'exempt' };      // exempt = no VAT to recover (also how old rows without the field are read)
+    const unit = money(x && x.unit, 'מחיר ליחידה'), actual = money(x && x.actual, 'עלות בפועל'), profit = x && x.cat === 'tent' ? money(x.profit, 'רווח') : '';
+    if ((unit !== '' && unit < 0) || (actual !== '' && actual < 0) || (profit !== '' && profit < 0)) throw new HttpError(400, 'סכום לא יכול להיות שלילי');
+    return { cat: PCATS.includes(x && x.cat) ? x.cat : 'other', label: text(x && x.label, 80), qty, unit, actual, profit, vatType: x && x.vatType === 'lic' ? 'lic' : 'exempt' };      // exempt = no VAT to recover (also how old rows without the field are read)
   }).filter((x) => x.label || x.unit !== '' || x.actual !== '');
   const leadId = text(input.leadId, 32);
   if (leadId && !/^[a-z0-9]{8,32}$/.test(leadId)) throw new HttpError(400, 'הלקוחה לא תקינה');
@@ -256,7 +256,8 @@ export function projectTotals(p, cfg) {
   const net = exempt ? price : (p.vatIncl === false ? price : price / (1 + vat));
   let planned = 0, actual = 0, hasActual = false;
   for (const it of p.items || []) {
-    const q = it.qty === '' || it.qty == null ? 1 : Number(it.qty) || 0, pl = q * (Number(it.unit) || 0), has = it.actual !== '' && it.actual != null, ac = has ? Number(it.actual) || 0 : pl;
+    const q = it.qty === '' || it.qty == null ? 1 : Number(it.qty) || 0, full = q * (Number(it.unit) || 0), withProfit = it.cat === 'tent' && it.profit !== '' && it.profit != null;
+    const pl = withProfit ? Math.max(0, full - (Number(it.profit) || 0)) : full, has = !withProfit && it.actual !== '' && it.actual != null, ac = has ? Number(it.actual) || 0 : pl;      // a purchased tent with our profit written costs the price minus that profit (what the supplier gets)
     const f = !exempt && it.vatType === 'lic' ? 1 / (1 + vat) : 1;
     if (has) hasActual = true;
     planned += pl * f; actual += ac * f;

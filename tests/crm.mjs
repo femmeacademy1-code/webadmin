@@ -332,6 +332,11 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(await pg.evaluate(() => { const f = document.getElementById('projForm'), sm = document.getElementById('pjSum'), last = [...f.querySelectorAll('.pjrow')].pop(), notes = document.getElementById('p_notes'); return !!(last.compareDocumentPosition(sm) & 4) && !!(notes.compareDocumentPosition(sm) & 4); }), `${tag}: the summary sits at the end, after all the items and the notes`);
   await pg.click('[data-pjadd="tent"]'); await pg.locator('#pj_tent .pjrow').last().locator('.pl').fill('אוהל לוטוס'); await pg.locator('#pj_tent .pjrow').last().locator('.pq').fill('2'); await pg.locator('#pj_tent .pjrow').last().locator('.pu').fill('1000');
   ok(/2,000/.test(await pg.innerText('#pjsub_tent')) && await pg.locator('#pj_tent .pjrow .pv').count() === 1, `${tag}: a purchased-tents category with quantity and a licensed/exempt choice`);
+  const tr = pg.locator('#pj_tent .pjrow').last();
+  ok(await tr.locator('.pr').count() === 1 && await tr.locator('.pa').count() === 0, `${tag}: a purchased-tent row asks for "הרווח שלנו" instead of the actual total`);
+  await tr.locator('.pr').fill('600');
+  ok(/הספק מקבל ₪1,400/.test(await tr.locator('.pt').innerText()) && /הרווח שלנו ₪600/.test(await tr.locator('.pt').innerText()), `${tag}: the row shows what the supplier gets (2,000 - 600) and our profit`);
+  await tr.locator('.pr').fill('');
   const mon = new Date().toISOString().slice(0, 7);
   await pg.selectOption('#p_status', 'done'); await pg.fill('#p_date', mon + '-12');
   const pjProfitText = (await pg.innerText('#pjSum'));

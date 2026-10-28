@@ -1498,3 +1498,17 @@ test('alternative: payments on the way are saved, validated, marked received, de
   assert.equal((await call('DELETE', '/api/alt/incoming/inc000000002', { cookie: alt })).status, 200);
   assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.incoming.length, 1);
 });
+
+test('alternative: a purchased tent row with our profit costs the price minus that profit', async () => {
+  const { projectTotals } = await import('../worker/src/crm.js');
+  const base = { price: 20000, vatIncl: false, vatMode: 'exempt', contingencyPct: 0 };
+  const t = (items) => projectTotals({ ...base, items }, { vat: 18 });
+  assert.equal(t([{ cat: 'tent', qty: 1, unit: 9100, actual: '', profit: 2240, vatType: 'exempt' }]).actual, 6860);
+  assert.equal(t([{ cat: 'tent', qty: 1, unit: 9100, actual: '', profit: 2240, vatType: 'exempt' }]).profitActual, 20000 - 6860);
+  assert.equal(t([{ cat: 'tent', qty: 2, unit: 9100, actual: '', profit: '', vatType: 'exempt' }]).actual, 18200);        // no profit written: the full amount as before
+  assert.equal(t([{ cat: 'material', qty: 1, unit: 1000, actual: 800, profit: 500, vatType: 'exempt' }]).actual, 800);     // profit only counts on tent rows
+  const alt = await altCookieFor();
+  const r = await call('PUT', '/api/alt/projects/proj00000008', { cookie: alt, body: { name: 'עם אוהל', price: 20000, items: [{ cat: 'tent', label: 'לוטוס', qty: 1, unit: 9100, profit: '2,240' }, { cat: 'labor', label: 'עובד', qty: 1, unit: 100, profit: 50 }] } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.project.items[0].profit, 2240); assert.equal(r.data.project.items[1].profit, '');
+});
