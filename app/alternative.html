@@ -222,6 +222,7 @@ var DEAL=['done'];
 
 var view='leads';
 var projects=[],pjRecent={},pjGone={},editingProj=null;
+var incoming=[],inRecent={},inGone={},editingInc=null;
 var catalog=[],shipments=[],shRecent={},shGone={},editingShip=null,expenses=[],expRecent={},expGone={},editingExp=null;
 var leads={},cfg={vat:18,supplierInCost:false,supplierPct:70},filter='open',period='all',editing=null,lastFocus=null;
 
@@ -300,7 +301,8 @@ function openPays(){
     var op=pr-n(p.paidAmount);
     if(op>0.5)out.push({kind:'cust',t:'proj',id:p.id,name:'🏗️ '+p.name,amount:op,full:pr,date:p.date});
   });
-  return out.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))});
+  incoming.forEach(function(x){if(!x.received&&n(x.amount)>0)out.push({kind:x.kind==='supp'?'supp':'cust',t:'inc',id:x.id,name:x.from,amount:n(x.amount),date:x.eta,eta:x.eta,notes:x.notes,onway:true})});
+  return out.sort(function(a,b){return String(a.date||'9999').localeCompare(String(b.date||'9999'))});
 }
 function renderPay(){
   var b=$('payBox');if(!b)return;
@@ -308,12 +310,44 @@ function renderPay(){
   var sum=function(a){return a.reduce(function(s,x){return s+x.amount},0)};
   var list=payF==='cust'?cu:payF==='supp'?su:all;
   var chip=function(k,l,a){return '<button type="button" class="pchip" data-payf="'+k+'" aria-pressed="'+(payF===k)+'">'+l+' <em>'+fmt(sum(a))+'</em></button>'};
-  b.innerHTML='<div class="sumhead"><h2>תשלומים פתוחים</h2></div><div class="stages" style="margin-bottom:8px">'+chip('all','הכל',all)+chip('cust','מלקוחות',cu)+chip('supp','מספקים',su)+'</div>'+
-    (list.length?list.map(function(x){return '<div class="drow"><span class="pill">'+(x.kind==='cust'?'מלקוחה':'מספק')+'</span><button type="button" class="xrow" '+(x.t==='proj'?'data-pjopen="':'data-open="')+x.id+'" style="flex:1;border:0;padding:0"><span>'+esc(x.name)+'</span></button><b class="num">'+fmt(x.amount)+'</b><button type="button" class="btn sm" data-paidnow="'+x.kind+':'+x.t+':'+x.id+'">✔ שולם</button></div>'}).join(''):'<p class="note">אין תשלומים פתוחים'+(payF==='all'?'':' בקטגוריה הזאת')+'. 🎉</p>')+
+  b.innerHTML='<div class="sumhead"><h2>תשלומים פתוחים</h2><button class="btn sm" type="button" id="incAdd">＋ תשלום בדרך</button></div><div class="stages" style="margin-bottom:8px">'+chip('all','הכל',all)+chip('cust','מלקוחות',cu)+chip('supp','מספקים',su)+'</div>'+
+    (list.length?list.map(function(x){return '<div class="drow"><span class="pill">'+(x.kind==='cust'?'מלקוחה':'מספק')+(x.onway?' · בדרך':'')+'</span><button type="button" class="xrow" '+(x.t==='proj'?'data-pjopen="':x.t==='inc'?'data-incedit="':'data-open="')+x.id+'" style="flex:1;border:0;padding:0"><span>'+esc(x.name)+(x.onway&&x.eta?' <span class="note">· צפוי '+dstr(x.eta)+'</span>':'')+'</span></button><b class="num">'+fmt(x.amount)+'</b><button type="button" class="btn sm" data-paidnow="'+x.kind+':'+x.t+':'+x.id+'">✔ שולם</button></div>'}).join(''):'<p class="note">אין תשלומים פתוחים'+(payF==='all'?'':' בקטגוריה הזאת')+'. 🎉</p>')+
     '<p class="note">מלקוחות: מחיר העסקה (כולל תוספות) פחות מה ששולם. מספקים: העמלה שלנו פחות מה שהתקבל. "שולם" מסמן שהתקבל הכל. אפשר לעדכן סכום חלקי בכרטיס הליד.</p>';
+}
+function openIncoming(id){
+  lastFocus=document.activeElement;editingInc=id||null;
+  var x=id?incoming.filter(function(s){return s.id===id})[0]:null;
+  var names={};Object.keys(leads).forEach(function(k){var l=leads[k];if(l.name)names[l.name]=1;if(l.suppName)names[l.suppName]=1});
+  incoming.forEach(function(s){if(s.from)names[s.from]=1});
+  var chips=[['עוד שבוע',7],['שבועיים',14],['עוד חודש',30]];
+  $('sheetHost').innerHTML='<div class="veil" id="veil" dir="rtl" lang="he"><form class="sheet" id="incForm" role="dialog" aria-modal="true" aria-labelledby="sh"><h2 id="sh">'+(x?'עריכת תשלום בדרך':'תשלום בדרך')+'</h2>'+
+   '<div class="f"><label for="i_from">ממי</label><input id="i_from" list="i_names" value="'+esc(x?x.from:'')+'" autocomplete="off"><datalist id="i_names">'+Object.keys(names).map(function(k){return '<option value="'+esc(k)+'">'}).join('')+'</datalist></div>'+
+   '<div class="f"><label for="i_kind">סוג</label><select id="i_kind"><option value="cust"'+(!x||x.kind!=='supp'?' selected':'')+'>מלקוחה</option><option value="supp"'+(x&&x.kind==='supp'?' selected':'')+'>מספק</option></select></div>'+
+   '<div class="grid2">'+field('i_amount','סכום (₪)',x?x.amount:'','number',{})+field('i_eta','מתי צפוי להגיע',x?x.eta:'','date',{})+'</div>'+
+   '<div class="stages"><span class="note">צפוי בעוד:</span>'+chips.map(function(c){return '<button type="button" class="stg" data-incdays="'+c[1]+'">'+c[0]+'</button>'}).join('')+'</div>'+
+   '<div class="f"><label for="i_notes">הערות</label><textarea id="i_notes" rows="2">'+esc(x?x.notes||'':'')+'</textarea></div>'+
+   '<div class="sbar"><div style="display:flex;gap:8px"><button class="btn pri" type="submit">שמירה</button><button class="btn" type="button" id="cancelBtn">סגירה</button></div>'+(x?'<button class="btn danger" type="button" id="incDel">מחיקה</button>':'')+'</div></form></div>';
+}
+function saveIncomingForm(){
+  var from=val('i_from'),amt=clean(val('i_amount'));
+  if(!from){toast('רשמי ממי התשלום');return}
+  if(!(Number(amt)>0)){toast('רשמי סכום');return}
+  var id=editingInc||newId(),old=incoming.filter(function(s){return s.id===id})[0];
+  var body={from:from,kind:$('i_kind').value,amount:amt,eta:val('i_eta'),received:old?old.received:'',notes:$('i_notes').value.trim()};
+  guard(api('PUT','/alt/incoming/'+id,body)).then(function(d){incoming=incoming.filter(function(s){return s.id!==id}).concat([d.payment]);inRecent[id]={item:d.payment,at:Date.now()};delete inGone[id];closeEditor();render();toast('התשלום נשמר')}).catch(function(){});
+}
+function delIncoming(btn){
+  if(!btn.dataset.arm){btn.dataset.arm='1';btn.textContent='בטוחה? לחצי שוב';setTimeout(function(){if(btn.isConnected){delete btn.dataset.arm;btn.textContent='מחיקה'}},4000);return}
+  var id=editingInc;
+  guard(api('DELETE','/alt/incoming/'+id)).then(function(){incoming=incoming.filter(function(s){return s.id!==id});inGone[id]=Date.now();delete inRecent[id];closeEditor();render();toast('התשלום נמחק')}).catch(function(){});
 }
 function markPaid(spec){
   var a=spec.split(':'),kind=a[0],t=a[1],id=a[2];
+  if(t==='inc'){
+    var x=incoming.filter(function(s){return s.id===id})[0];if(!x)return;
+    guard(api('PUT','/alt/incoming/'+id,{from:x.from,kind:x.kind,amount:x.amount,eta:x.eta,received:today(),notes:x.notes})).then(function(d){incoming=incoming.filter(function(s){return s.id!==id}).concat([d.payment]);inRecent[id]={item:d.payment,at:Date.now()};render();toast('התשלום התקבל ✔')}).catch(function(){});
+    return;
+  }
   if(t==='lead'){
     var l=leads[id];if(!l)return;var c=calc(l),body=pick(l);body.qty=qtyOf(l);body.extras=l.extras||[];
     if(kind==='cust')body.custPaid=Math.round(c.gross+extrasTotal(l));else body.suppPaid=Math.round(c.profit);
@@ -528,6 +562,10 @@ function load(){
     Object.keys(shRecent).forEach(function(id){var r=shRecent[id];if(now-r.at>180000){delete shRecent[id];return}var sv=shm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))shm[id]=r.item;else delete shRecent[id]});
     Object.keys(shGone).forEach(function(id){if(now-shGone[id]>180000)delete shGone[id];else delete shm[id]});
     shipments=Object.keys(shm).map(function(id){return shm[id]});
+    var inm={};(d.incoming||[]).forEach(function(x){inm[x.id]=x});
+    Object.keys(inRecent).forEach(function(id){var r=inRecent[id];if(now-r.at>180000){delete inRecent[id];return}var sv=inm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))inm[id]=r.item;else delete inRecent[id]});
+    Object.keys(inGone).forEach(function(id){if(now-inGone[id]>180000)delete inGone[id];else delete inm[id]});
+    incoming=Object.keys(inm).map(function(id){return inm[id]});
     var pjm={};(d.projects||[]).forEach(function(x){pjm[x.id]=x});
     Object.keys(pjRecent).forEach(function(id){var r=pjRecent[id];if(now-r.at>180000){delete pjRecent[id];return}var sv=pjm[id];if(!sv||(sv.updatedAt||'')<(r.item.updatedAt||''))pjm[id]=r.item;else delete pjRecent[id]});
     Object.keys(pjGone).forEach(function(id){if(now-pjGone[id]>180000)delete pjGone[id];else delete pjm[id]});
@@ -1244,6 +1282,10 @@ document.addEventListener('click',function(e){
   if(t.id==='selAll'){var vis=[].map.call(document.querySelectorAll('#list [data-pickid]'),function(e){return e.dataset.pickid});var allOn=vis.every(function(i){return SEL.ids[i]});vis.forEach(function(i){if(allOn)delete SEL.ids[i];else SEL.ids[i]=1});render();return}
   if(t.id==='selApply'){applySelDate();return}
   var pf=t.closest('[data-payf]');if(pf){payF=pf.dataset.payf;renderPay();return}
+  if(t.id==='incAdd'){openIncoming();return}
+  var ie=t.closest('[data-incedit]');if(ie){openIncoming(ie.dataset.incedit);return}
+  var idy=t.closest('[data-incdays]');if(idy){var d0=new Date();d0.setDate(d0.getDate()+(+idy.dataset.incdays));$('i_eta').value=d0.toISOString().slice(0,10);return}
+  if(t.id==='incDel'){delIncoming(t);return}
   var pn=t.closest('[data-paidnow]');if(pn){markPaid(pn.dataset.paidnow);return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
@@ -1300,6 +1342,7 @@ document.addEventListener('submit',function(e){
   if(e.target.id==='expForm')saveExpense();
   if(e.target.id==='folForm')saveFollow(false);
   if(e.target.id==='shForm')saveShipmentForm();
+  if(e.target.id==='incForm')saveIncomingForm();
   if(e.target.id==='projForm')savePj();
   if(e.target.id==='setForm'){
     var v=n(val('s_vat'));if(v<0||v>100){toast('אחוז מע״מ לא תקין');return}

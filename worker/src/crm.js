@@ -186,6 +186,31 @@ export async function deleteShipment(env, id) {
   await env.CMS.put(SHIP, JSON.stringify({ items }));
 }
 
+/* Payments on the way: one document (alt:pay). Who it comes from, whether from a customer or a supplier, the amount, when it is expected and when it arrived. */
+const INC = 'alt:pay';
+const MAX_INC = 300;
+export async function listIncoming(env) {
+  const d = await getKV(env, INC);
+  return d && Array.isArray(d.items) ? d.items : [];
+}
+export async function saveIncoming(env, id, input) {
+  if (!input || typeof input !== 'object') throw new HttpError(400, 'בקשה לא תקינה');
+  const amount = money(input.amount, 'סכום');
+  if (!(Number(amount) > 0)) throw new HttpError(400, 'רשמי סכום גדול מאפס');
+  const item = { id, from: text(input.from, 120), kind: input.kind === 'supp' ? 'supp' : 'cust', amount, eta: dateOrEmpty(input.eta, 'תאריך צפוי'), received: dateOrEmpty(input.received, 'תאריך קבלה'), notes: text(input.notes, 300), updatedAt: new Date().toISOString() };
+  if (!item.from) throw new HttpError(400, 'רשמי ממי התשלום');
+  const items = await listIncoming(env);
+  const i = items.findIndex((x) => x.id === id);
+  if (i < 0 && items.length >= MAX_INC) throw new HttpError(400, 'יותר מדי תשלומים. מחקי ישנים.');
+  if (i < 0) items.push(item); else items[i] = item;
+  await env.CMS.put(INC, JSON.stringify({ items }));
+  return item;
+}
+export async function deleteIncoming(env, id) {
+  const items = (await listIncoming(env)).filter((x) => x.id !== id);
+  await env.CMS.put(INC, JSON.stringify({ items }));
+}
+
 /* Project costing: what a project costs (materials, accessories, workers, fuel, other), the budget kept for overruns, and the net profit.
  * One document (alt:proj) with all projects. Each item: category, what, quantity, unit price (planned) and an optional actual total. */
 const PROJ = 'alt:proj';

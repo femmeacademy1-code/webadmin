@@ -1480,3 +1480,21 @@ test('alternative: the removed stage "קיבל קטלוג" (catalog) counts as "
   const w = (await call('PUT', '/api/alt/leads/old0catalog001', { cookie: alt, body: { name: 'ישנה', stage: 'catalog' } })).data.lead;
   assert.equal(w.stage, 'info');
 });
+
+test('alternative: payments on the way are saved, validated, marked received, deleted and listed with the leads', async () => {
+  const alt = await altCookieFor();
+  assert.equal((await call('PUT', '/api/alt/incoming/inc000000001', { body: { from: 'x', amount: 5 } })).status, 401);
+  assert.equal((await call('PUT', '/api/alt/incoming/inc000000001', { cookie: alt, body: { amount: 500 } })).status, 400);              // from whom
+  assert.equal((await call('PUT', '/api/alt/incoming/inc000000001', { cookie: alt, body: { from: 'x', amount: 0 } })).status, 400);     // an amount above zero
+  assert.equal((await call('PUT', '/api/alt/incoming/inc000000001', { cookie: alt, body: { from: 'x', amount: 5, eta: '5/12' } })).status, 400);
+  const a = await call('PUT', '/api/alt/incoming/inc000000001', { cookie: alt, body: { from: ' דנה ', kind: 'cust', amount: '2,500', eta: '2026-12-01' } });
+  assert.equal(a.status, 200, JSON.stringify(a.data)); assert.equal(a.data.payment.from, 'דנה'); assert.equal(a.data.payment.amount, 2500); assert.equal(a.data.payment.kind, 'cust');
+  await call('PUT', '/api/alt/incoming/inc000000002', { cookie: alt, body: { from: 'ספק א', kind: 'supp', amount: 4000 } });
+  let r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.equal(r.incoming.length, 2); assert.equal(r.incoming.find((x) => x.id === 'inc000000002').kind, 'supp');
+  await call('PUT', '/api/alt/incoming/inc000000001', { cookie: alt, body: { ...a.data.payment, received: '2026-12-02' } });
+  r = (await call('GET', '/api/alt/leads', { cookie: alt })).data;
+  assert.equal(r.incoming.find((x) => x.id === 'inc000000001').received, '2026-12-02');
+  assert.equal((await call('DELETE', '/api/alt/incoming/inc000000002', { cookie: alt })).status, 200);
+  assert.equal((await call('GET', '/api/alt/leads', { cookie: alt })).data.incoming.length, 1);
+});

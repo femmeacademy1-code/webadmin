@@ -112,6 +112,17 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#payBox [data-paidnow]');
   await pg.waitForFunction((n) => document.querySelectorAll('#payBox .drow').length < n, custRows);
   ok(true, `${tag}: marking a customer payment as paid removes it from the open list`);
+  await pg.click('#incAdd'); await pg.waitForSelector('#i_from'); await pg.fill('#i_from', 'מחסן הצפון'); await pg.selectOption('#i_kind', 'supp'); await pg.fill('#i_amount', '4,200'); await pg.click('[data-incdays="14"]');
+  await pg.click('#incForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
+  await pg.click('[data-payf="supp"]');
+  ok(/מחסן הצפון/.test(await pg.innerText('#payBox')) && /בדרך/.test(await pg.innerText('#payBox')) && /4,200/.test(await pg.innerText('#payBox')) && /צפוי/.test(await pg.innerText('#payBox')), `${tag}: a payment on the way is added with who it comes from, amount and expected date`);
+  await pg.click('#payBox [data-incedit]'); await pg.waitForSelector('#i_from');
+  ok(await pg.inputValue('#i_from') === 'מחסן הצפון' && await pg.inputValue('#i_kind') === 'supp', `${tag}: it opens for editing`);
+  await pg.click('#cancelBtn');
+  const before = await pg.locator('#payBox .drow').count();
+  await pg.locator('#payBox .drow:has-text("מחסן הצפון") [data-paidnow]').click();
+  await pg.waitForFunction((n) => document.querySelectorAll('#payBox .drow').length < n, before);
+  ok(!/מחסן הצפון/.test(await pg.innerText('#payBox')), `${tag}: "✔ שולם" marks it received and it leaves the open list`);
   await pg.click('[data-payf="all"]');
   await leadsV();
   // telegram connect box
