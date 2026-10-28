@@ -108,6 +108,7 @@ legend{font-weight:800;padding:0 6px}
 .stages{display:flex;gap:6px;flex-wrap:wrap}
 .stg{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-weight:600;font-size:14px}
 .stg[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
+.pchip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-weight:600;font-size:14px;color:inherit}.pchip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}.pchip em{font-style:normal;opacity:.8;margin-inline-start:4px}
 .log{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .sbar{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;position:sticky;bottom:0;background:var(--bg);padding:10px 0}
 .toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;z-index:40;max-width:90vw}
@@ -187,6 +188,7 @@ legend{font-weight:800;padding:0 6px}
   </header>
 
   <section class="sum" id="sumBox" aria-label="ניהול כספי" hidden>
+    <div id="payBox" style="margin-bottom:22px"></div>
     <div class="sumhead">
       <h2>הכסף שנכנס</h2>
       <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="expAdd">＋ הוצאת שיווק</button><button class="btn sm" type="button" id="expMgr">✎ עריכת הוצאות</button><select id="period" aria-label="תקופה"></select></span>
@@ -281,6 +283,46 @@ function renderPeriod(){
   if(period.indexOf('m:')===0&&!cnt[period.slice(2)])o.push([period,monthName(period.slice(2))+' (0)']);
   var oh=o.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===period?' selected':'')+'>'+x[1]+'</option>'}).join('');
   $('period').innerHTML=oh;$('period2').innerHTML=oh;
+}
+/* open payments: what the customers still owe us and what the suppliers still owe us (our commission), for closed deals and for projects */
+var payF='all';
+function openPays(){
+  var out=[];
+  allLeads().forEach(function(l){
+    if(DEAL.indexOf(l.stage)<0)return;
+    var c=calc(l);if(!c.has)return;
+    var tot=c.gross+extrasTotal(l),op=tot-n(l.custPaid);
+    if(tot>0&&op>0.5)out.push({kind:'cust',t:'lead',id:l.id,name:l.name||l.phone||'',amount:op,full:tot,date:l.dealAt});
+    if(c.profit>0.5){var os=c.profit-n(l.suppPaid);if(os>0.5)out.push({kind:'supp',t:'lead',id:l.id,name:(l.name||l.phone||'')+(l.suppName?' · '+l.suppName:''),amount:os,full:c.profit,date:l.dealAt})}
+  });
+  projects.forEach(function(p){
+    var pr=n(p.price);if(!(pr>0)||p.payStatus==='paid')return;
+    var op=pr-n(p.paidAmount);
+    if(op>0.5)out.push({kind:'cust',t:'proj',id:p.id,name:'🏗️ '+p.name,amount:op,full:pr,date:p.date});
+  });
+  return out.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))});
+}
+function renderPay(){
+  var b=$('payBox');if(!b)return;
+  var all=openPays(),cu=all.filter(function(x){return x.kind==='cust'}),su=all.filter(function(x){return x.kind==='supp'});
+  var sum=function(a){return a.reduce(function(s,x){return s+x.amount},0)};
+  var list=payF==='cust'?cu:payF==='supp'?su:all;
+  var chip=function(k,l,a){return '<button type="button" class="pchip" data-payf="'+k+'" aria-pressed="'+(payF===k)+'">'+l+' <em>'+fmt(sum(a))+'</em></button>'};
+  b.innerHTML='<div class="sumhead"><h2>תשלומים פתוחים</h2></div><div class="stages" style="margin-bottom:8px">'+chip('all','הכל',all)+chip('cust','מלקוחות',cu)+chip('supp','מספקים',su)+'</div>'+
+    (list.length?list.map(function(x){return '<div class="drow"><span class="pill">'+(x.kind==='cust'?'מלקוחה':'מספק')+'</span><button type="button" class="xrow" '+(x.t==='proj'?'data-pjopen="':'data-open="')+x.id+'" style="flex:1;border:0;padding:0"><span>'+esc(x.name)+'</span></button><b class="num">'+fmt(x.amount)+'</b><button type="button" class="btn sm" data-paidnow="'+x.kind+':'+x.t+':'+x.id+'">✔ שולם</button></div>'}).join(''):'<p class="note">אין תשלומים פתוחים'+(payF==='all'?'':' בקטגוריה הזאת')+'. 🎉</p>')+
+    '<p class="note">מלקוחות: מחיר העסקה (כולל תוספות) פחות מה ששולם. מספקים: העמלה שלנו פחות מה שהתקבל. "שולם" מסמן שהתקבל הכל. אפשר לעדכן סכום חלקי בכרטיס הליד.</p>';
+}
+function markPaid(spec){
+  var a=spec.split(':'),kind=a[0],t=a[1],id=a[2];
+  if(t==='lead'){
+    var l=leads[id];if(!l)return;var c=calc(l),body=pick(l);body.qty=qtyOf(l);body.extras=l.extras||[];
+    if(kind==='cust')body.custPaid=Math.round(c.gross+extrasTotal(l));else body.suppPaid=Math.round(c.profit);
+    save(id,body).then(function(){toast('סומן כשולם')}).catch(function(){});
+  }else{
+    var p=projects.filter(function(x){return x.id===id})[0];if(!p)return;
+    var body2={name:p.name,leadId:p.leadId||'',location:p.location||'',customer:p.customer||'',contactName:p.contactName||'',contactPhone:p.contactPhone||'',team:p.team||'',payStatus:'paid',paidAmount:p.price,price:p.price,vatIncl:p.vatIncl,vatMode:p.vatMode,contingencyPct:p.contingencyPct,status:p.status,date:p.date||'',notes:p.notes||'',items:p.items||[]};
+    guard(api('PUT','/alt/projects/'+id,body2)).then(function(d){projects=projects.filter(function(x){return x.id!==id}).concat([d.project]);pjRecent[id]={item:d.project,at:Date.now()};delete pjGone[id];render();toast('סומן כשולם')}).catch(function(){});
+  }
 }
 function renderKpis(){
   var all=allLeads().filter(function(l){return DEAL.indexOf(l.stage)>-1&&inPeriod(l)});
@@ -452,7 +494,7 @@ function applyView(){
   var act=shipments.filter(function(x){return !x.arrived}).length;
   $('shipBtn').textContent='🚚 משלוחים בדרך'+(act?' ('+act+')':'');
 }
-function render(){renderProj();renderShip();renderPot();renderPeriod();renderKpis();renderTabs();renderList();renderSelBar();applyView()}
+function render(){renderPay();renderProj();renderShip();renderPot();renderPeriod();renderKpis();renderTabs();renderList();renderSelBar();applyView()}
 
 /* ---------- writes ---------- */
 function api(method,path,body){
@@ -461,7 +503,7 @@ function api(method,path,body){
 }
 function guard(p){return p.catch(function(e){if(e&&e.status===401)showLogin();else toast(e&&e.message&&e.status?e.message:'אין חיבור, נסי שוב.');throw e})}
 function newId(){var a='abcdefghijklmnopqrstuvwxyz0123456789',o='';var r=crypto.getRandomValues(new Uint8Array(12));for(var i=0;i<12;i++)o+=a[r[i]%36];return o}
-function pick(l){var o={};['name','phone','product','source','firstBy','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
+function pick(l){var o={};['name','phone','product','source','firstBy','custPaid','suppPaid','follow','deliveryDate','receiptNo','qty','notes','price','cost','supplier','commission','suppName','stage'].forEach(function(k){o[k]=l[k]==null?'':l[k]});o.vatIncl=l.vatIncl!==false;return o}
 /* The server's list can briefly lag behind what was just saved (eventually consistent storage), so for a few minutes the page keeps its own newest copy instead of letting a stale list overwrite it. */
 var SEL={on:false,ids:{}};
 var recent={},gone={};
@@ -650,6 +692,7 @@ function openEditor(id,hint){
      field('f_price','מחיר לאוהל אחד (₪)',l.price,'number',{})+field('f_qty','כמות אוהלים',l.qty||1,'number',{})+field('f_cost','עלות לאוהל אחד (₪)',l.cost,'number',{})+
      field('f_supplier','כמה הספק קיבל (₪) · '+n(cfg.supplierPct)+'% לפני מע״מ',l.supplier,'number',{})+field('f_suppName','שם הספק',l.suppName,'text',{})+
      field('f_commission','העמלה שלנו = הרווח (₪). אם ריק, מחושב',l.commission,'number',{full:true})+
+     field('f_custPaid','שולם עד כה ע״י הלקוחה (₪)',l.custPaid,'number',{})+field('f_suppPaid','התקבל מהספק עד כה (₪)',l.suppPaid,'number',{})+
      '<div class="f full"><button type="button" class="btn sm" id="supReset" style="align-self:flex-start">↻ חישוב הספק לפי '+n(cfg.supplierPct)+'%</button></div>'+
      '<label class="chk"><input type="checkbox" id="f_vatIncl"'+(l.vatIncl!==false?' checked':'')+'> המחיר כולל מע״מ ('+n(cfg.vat)+'%)</label>'+
      '<div class="calc" id="calc"></div>'+
@@ -698,9 +741,9 @@ function fuRow(f){f=f||{by:'',date:today(),note:''};return '<div class="drow fu"
 function readFollowups(){return [].slice.call(document.querySelectorAll('#fuList .fu')).map(function(r){return {by:r.querySelector('.fu-by').value,date:r.querySelector('.fu-date').value,note:r.querySelector('.fu-note').value.trim()}})}
 function saveEditor(){
   var stg=$('sheet').dataset.stage;
-  var mp,mc,ms,mm;try{mp=moneyVal('f_price','מחיר ללקוח');mc=moneyVal('f_cost','עלות');ms=moneyVal('f_supplier','הספק קיבל');mm=moneyVal('f_commission','העמלה');var ex=readExtras()}catch(e){toast(e.message);return}
+  var mp,mc,ms,mm;try{mp=moneyVal('f_price','מחיר ללקוח');mc=moneyVal('f_cost','עלות');ms=moneyVal('f_supplier','הספק קיבל');mm=moneyVal('f_commission','העמלה');var mcp=moneyVal('f_custPaid','שולם ע״י הלקוחה'),msp=moneyVal('f_suppPaid','התקבל מהספק');var ex=readExtras()}catch(e){toast(e.message);return}
   var d={name:val('f_name'),phone:val('f_phone'),product:val('f_product'),source:val('f_source'),follow:DEAL.indexOf(stg)>-1?'':val('f_follow'),closedDate:DEAL.indexOf(stg)>-1?val('f_closed'):'',deliveryDate:DEAL.indexOf(stg)>-1?val('f_supply'):'',extras:ex,receiptNo:DEAL.indexOf(stg)>-1?val('f_receipt'):(leads[editing]&&leads[editing].receiptNo)||'',notes:$('f_notes').value.trim(),
-    price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg,firstBy:$('f_firstBy').value,followups:readFollowups()};
+    price:mp,qty:qtyOf({qty:val('f_qty')}),cost:mc,supplier:ms,commission:mm,custPaid:mcp,suppPaid:msp,suppName:val('f_suppName'),vatIncl:$('f_vatIncl').checked,stage:stg,firstBy:$('f_firstBy').value,followups:readFollowups()};
   if(!d.name&&!d.phone){toast('רשמי לפחות שם או טלפון');return}
   var orig0=editing?leads[editing]:null,changed0=!orig0||d.phone!==(orig0.phone||'')||d.name!==(orig0.name||'');
   if(changed0&&!dupForce&&findDups(d.name,d.phone,editing).length){paintDup();toast('ליד זה כבר קיים במערכת');var dh=$('dupHint');if(dh&&dh.scrollIntoView)dh.scrollIntoView({block:'center'});return}
@@ -1200,6 +1243,8 @@ document.addEventListener('click',function(e){
   if(t.id==='selOff'){SEL.on=false;SEL.ids={};render();return}
   if(t.id==='selAll'){var vis=[].map.call(document.querySelectorAll('#list [data-pickid]'),function(e){return e.dataset.pickid});var allOn=vis.every(function(i){return SEL.ids[i]});vis.forEach(function(i){if(allOn)delete SEL.ids[i];else SEL.ids[i]=1});render();return}
   if(t.id==='selApply'){applySelDate();return}
+  var pf=t.closest('[data-payf]');if(pf){payF=pf.dataset.payf;renderPay();return}
+  var pn=t.closest('[data-paidnow]');if(pn){markPaid(pn.dataset.paidnow);return}
   var op=t.closest('[data-open]');if(op){openEditor(op.dataset.open);return}
   if(t.id==='tgConnect'){var tk=$('tg_token').value.trim();if(tk)tgConnect(tk);return}
   if(t.id==='tgLink'){tgConnect('');return}

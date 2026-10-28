@@ -104,6 +104,15 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok(/אספקה ב/.test(await pg.innerText('.card')) && /A-4411/.test(await pg.innerText('.card')), `${tag}: card shows the supply date and receipt number`);
   await money();
   ok(/3,400/.test(await pg.innerText(".kpi.big")), `${tag}: net profit after delivery: ${(await pg.innerText('.kpi.big')).replace(/\n/g, ' ')}`);
+  ok(/תשלומים פתוחים/.test(await pg.innerText('#payBox')) && (await pg.locator('#payBox .drow').count()) >= 2, `${tag}: open payments section at the top of the finance view lists the closed deal's customer and supplier amounts`);
+  await pg.click('[data-payf="supp"]');
+  ok((await pg.locator('#payBox .drow .pill').allInnerTexts()).every((t) => t === 'מספק') && (await pg.locator('#payBox .drow').count()) === 1, `${tag}: the suppliers filter shows only what suppliers owe`);
+  await pg.click('[data-payf="cust"]');
+  const custRows = await pg.locator('#payBox .drow').count();
+  await pg.click('#payBox [data-paidnow]');
+  await pg.waitForFunction((n) => document.querySelectorAll('#payBox .drow').length < n, custRows);
+  ok(true, `${tag}: marking a customer payment as paid removes it from the open list`);
+  await pg.click('[data-payf="all"]');
   await leadsV();
   // telegram connect box
   await pg.click('#settingsBtn'); await pg.waitForSelector('#tg_token');
@@ -306,7 +315,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('[data-pjtocard]');
   ok((await pg.inputValue('#f_commission')) === pjProfitShown, `${tag}: pulling the project's profit puts it as the customer's profit in the card (${pjProfitShown})`);
   await pg.click('#cancelBtn'); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd');
-  await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
+  await pg.click('#projBox [data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   ok(/15,500/.test(await pg.innerText('#pjSum')) && (await pg.locator('#projForm .pjrow').count()) === 4, `${tag}: reopened with its 4 items`);
   ok(/עלות כוללת/.test(await pg.innerText('#pjSum .pjfinal')) && /עלות ספק/.test(await pg.innerText('#pjSum .pjfinal')) && /רווח/.test(await pg.innerText('#pjSum .pjfinal')), `${tag}: the summary ends with total cost, supplier cost and profit`);
   ok(await pg.evaluate(() => { const f = document.getElementById('projForm'), sm = document.getElementById('pjSum'), last = [...f.querySelectorAll('.pjrow')].pop(), notes = document.getElementById('p_notes'); return !!(last.compareDocumentPosition(sm) & 4) && !!(notes.compareDocumentPosition(sm) & 4); }), `${tag}: the summary sits at the end, after all the items and the notes`);
@@ -318,7 +327,7 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   await pg.click('#projForm button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   await pg.click('#backBtn'); await money(); await pg.selectOption('#period', 'month');
   ok(/פרויקטים שהסתיימו/.test(await pg.innerText('.kpi.big')) && /בית עץ/.test(await pg.locator('#dealList').textContent()), `${tag}: a finished project enters the month's profit and is listed`);
-  await leadsV(); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd'); await pg.click('[data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
+  await leadsV(); await pg.click('#projBtn'); await pg.waitForSelector('#pjAdd'); await pg.click('#projBox [data-pjopen]'); await pg.waitForSelector('#projForm'); await pg.waitForTimeout(150);
   await pg.click('#pjDelProject'); await pg.click('#pjDelProject'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/עוד אין פרויקטים/.test(await pg.innerText('#projBox')), `${tag}: deleted`);
   await pg.click('#backBtn');

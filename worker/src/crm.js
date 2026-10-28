@@ -94,6 +94,8 @@ export async function saveLead(env, id, input) {
     stage, price: money(input.price, 'מחיר'), cost: money(input.cost, 'עלות'), supplier: money(input.supplier, 'ספק'), qty: input.qty === undefined ? qtyOf(old || {}) : qtyOf(input), commission: money(input.commission, 'עמלה'), vatIncl: input.vatIncl !== false,
     createdAt: (old && old.createdAt) || now, updatedAt: now, log,
   };
+  lead.custPaid = input.custPaid === undefined ? ((old && old.custPaid) ?? '') : money(input.custPaid, 'שולם מהלקוחה');        // what the customer has paid so far
+  lead.suppPaid = input.suppPaid === undefined ? ((old && old.suppPaid) ?? '') : money(input.suppPaid, 'התקבל מהספק');        // the commission received from the supplier so far
   lead.firstBy = input.firstBy === undefined ? ((old && old.firstBy) || '') : text(input.firstBy, 40);          // who made the first contact
   lead.followups = input.followups === undefined ? ((old && old.followups) || [])                            // who followed up and when
     : (Array.isArray(input.followups) ? input.followups.slice(0, 40).map((x) => ({ by: text(x && x.by, 40), date: dateOrEmpty(x && x.date, 'תאריך פולואפ'), note: text(x && x.note, 200) })).filter((x) => x.by || x.date || x.note) : []);
