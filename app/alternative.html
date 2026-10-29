@@ -18,17 +18,17 @@
 :root{
   --bg:#f7f3ef; --surface:#ffffff; --ink:#2b2321; --muted:#766a65; --line:#e6dcd5;
   --accent:#b8473f; --accent-ink:#ffffff; --good:#1f7a6d; --warn:#9a6a14; --bad:#b3261e; --chip:#f1e8e1;
-  --s-talked:#9a8f8a; --s-info:#6f8f6a; --s-hot:#d9534f; --s-visit:#b5589a; --s-season:#5f7fa8; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
+  --s-talked:#9a8f8a; --s-info:#6f8f6a; --s-offer:#3e8e9e; --s-hot:#d9534f; --s-visit:#b5589a; --s-season:#5f7fa8; --s-viewing:#c98a1b; --s-closing:#2f7fb8; --s-delivered:#1f7a6d; --s-done:#4a5d57; --s-lost:#b5aaa4;
   --f-display:"Assistant",system-ui,sans-serif; --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
-  --s-talked:#a89c96; --s-info:#8fb58a; --s-hot:#ef7a74; --s-visit:#e08fc5; --s-season:#9db6d9; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
+  --s-talked:#a89c96; --s-info:#8fb58a; --s-offer:#6cc0d0; --s-hot:#ef7a74; --s-visit:#e08fc5; --s-season:#9db6d9; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#1c1716; --surface:#271f1f; --ink:#f3ebe7; --muted:#ab9d97; --line:#3b3231;
   --accent:#e57d72; --accent-ink:#2b1210; --good:#5cc4b6; --warn:#e0b04a; --bad:#f0837a; --chip:#33292a;
-  --s-talked:#a89c96; --s-info:#8fb58a; --s-hot:#ef7a74; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}
+  --s-talked:#a89c96; --s-info:#8fb58a; --s-offer:#6cc0d0; --s-hot:#ef7a74; --s-viewing:#e3a845; --s-closing:#6db3e3; --s-delivered:#5cc4b6; --s-done:#8fa8a0; --s-lost:#7f726d; color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -215,7 +215,7 @@ legend{font-weight:800;padding:0 6px}
 (function(){
 'use strict';
 var STAGES=[
-  {id:'talked',name:'דיברנו'},{id:'info',name:'קיבל מידע'},{id:'hot',name:'ליד חם'},{id:'visit',name:'מבקשים ביקור'},{id:'viewing',name:'הלך לראות'},
+  {id:'talked',name:'דיברנו'},{id:'info',name:'קיבל מידע'},{id:'offer',name:'קיבל הצעה'},{id:'hot',name:'ליד חם'},{id:'visit',name:'מבקשים ביקור'},{id:'viewing',name:'הלך לראות'},
   {id:'closing',name:'סוגר'},{id:'done',name:'נסגר'},{id:'season',name:'לעונה הבאה'},{id:'lost',name:'לא רלוונטי'}
 ];
 var SM={};STAGES.forEach(function(s,i){s.i=i;SM[s.id]=s});
@@ -418,7 +418,7 @@ function paintDup(){
   h.hidden=false;
   h.innerHTML='<b>⚠ ליד זה כבר קיים במערכת</b>'+ds.map(dupLine).join('')+(dupForce?'':'<div class="row" style="margin-top:8px"><button type="button" class="btn sm" id="dupForce">זה אדם אחר, להוסיף בכל זאת</button></div>');
 }
-var RANK=['hot','visit','info','talked','viewing','closing','done','season','lost'];
+var RANK=['hot','visit','offer','info','talked','viewing','closing','done','season','lost'];
 function rankOf(st){var i=RANK.indexOf(st);return i<0?99:i}
 function renderList(){
   var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
@@ -454,9 +454,9 @@ function renderList(){
     var money=c.has?'<div class="money"><span>מחיר <span class="num">'+fmt(c.gross)+'</span></span><span>רווח <b class="num'+(c.profit<0?' neg':'')+'">'+fmt(c.profit)+'</b></span></div>':'';
     var wa=waLink(l.phone),tel=telLink(l.phone);
     var irr=s.id==='lost'?'<button class="btn sm" type="button" data-undo="'+l.id+'">↩ החזרה</button>':(DEAL.indexOf(s.id)<0?'<button class="btn sm" type="button" data-irr="'+l.id+'">🚫 לא רלוונטי</button>':'');
-    var visBtn=((s.id==='talked'||s.id==='info'||s.id==='hot')&&!(next&&next.id==='visit'))?'<button class="btn sm" type="button" data-visit="'+l.id+'">🏕️ מבקשים ביקור</button>':'';
-    var hotBtn=((s.id==='talked'||s.id==='info'||s.id==='season')&&!(next&&next.id==='hot'))?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
-    var seaBtn=(s.id==='talked'||s.id==='info'||s.id==='hot'||s.id==='visit'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
+    var visBtn=((s.id==='talked'||s.id==='info'||s.id==='offer'||s.id==='hot')&&!(next&&next.id==='visit'))?'<button class="btn sm" type="button" data-visit="'+l.id+'">🏕️ מבקשים ביקור</button>':'';
+    var hotBtn=((s.id==='talked'||s.id==='info'||s.id==='offer'||s.id==='season')&&!(next&&next.id==='hot'))?'<button class="btn sm" type="button" data-hot="'+l.id+'">🔥 ליד חם</button>':'';
+    var seaBtn=(s.id==='talked'||s.id==='info'||s.id==='offer'||s.id==='hot'||s.id==='visit'||s.id==='viewing')?'<button class="btn sm" type="button" data-season="'+l.id+'">🗓️ לעונה הבאה</button>':'';
     var folBtn=(DEAL.indexOf(s.id)<0&&s.id!=='lost')?'<button class="btn sm" type="button" data-follow="'+l.id+'" title="מתי לדבר איתו" aria-label="תאריך לחזור">📅</button>':'';
     var pjl=projects.filter(function(p){return p.leadId===l.id}).map(function(p){var t=pjTotals(p);return '<button type="button" class="btn sm" data-pjopen="'+p.id+'">🏗️ '+esc(p.name)+' · רווח '+fmt(t.profit)+' · '+PAYS[p.payStatus||'none']+'</button>'}).join('');
     var fu=(l.followups||[]).slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date))}),lf=fu[fu.length-1];
@@ -464,7 +464,7 @@ function renderList(){
     var note=l.notes?'<div class="cnote">'+esc(l.notes)+'</div>':'';
     note+=who;
     return '<div class="card'+(s.id==='lost'?' lostc':'')+(SEL.on?' pick'+(SEL.ids[l.id]?' sel':''):'')+'" role="button" tabindex="0" '+(SEL.on?'data-pickid="':'data-open="')+l.id+'" style="--c:'+stageColor(s.id)+'">'+
-      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':s.id==='info'?'ℹ️ ':s.id==='visit'?'🏕️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
+      '<div class="row"><h3>'+(s.id==='lost'?'🚫 ':s.id==='season'?'🗓️ ':s.id==='hot'?'🔥 ':s.id==='info'?'ℹ️ ':s.id==='offer'?'📄 ':s.id==='visit'?'🏕️ ':'')+esc(l.name||'ללא שם')+'</h3><span class="pill">'+s.name+'</span></div>'+
       (l.product||qtyOf(l)>1?'<div class="prod">'+esc(l.product||'')+(qtyOf(l)>1?' <b>× '+qtyOf(l)+'</b>':'')+'</div>':'')+
       '<div class="row">'+(l.phone?'<span class="num">'+esc(l.phone)+'</span>':'<span></span>')+due+'</div>'+note+(extrasTotal(l)>0?'<div class="money"><span>תוספות <b class="num" style="color:var(--ink)">'+fmt(extrasTotal(l))+'</b> (רווח '+fmt(extrasProfit(l))+') · '+esc((l.extras||[]).map(function(x){return x.label||(x.k==='insulation'?'בידוד':'הקמה')}).join(', '))+'</span></div>':'')+(supply?'<div class="row">'+supply+(l.receiptNo?'<span class="due">קבלה <span class="num">'+esc(l.receiptNo)+'</span></span>':'')+'</div>':'')+
       money+
@@ -507,7 +507,7 @@ function potProfit(l){
   var sup=n(l.supplier)>0?n(l.supplier):net*pct;
   return {v:net-n(l.cost)*q-(cfg.supplierInCost?0:sup)+xp,est:est};
 }
-var POT_STAGES=['talked','info','hot','visit','viewing','closing','season'];
+var POT_STAGES=['talked','info','offer','hot','visit','viewing','closing','season'];
 function renderPot(){
   var b=$('potBox');if(!b)return;
   if(view!=='money'){b.hidden=true;return}
@@ -619,7 +619,7 @@ function gotHot(id){
   save(id,body).then(function(){toast((l.name||'הליד')+' סומן כליד חם 🔥')}).catch(function(){});
 }
 /* the usual way forward; "לעונה הבאה" is a side branch (a postponed lead continues with "קיבל מידע") */
-var FLOW=['talked','info','hot','visit','viewing','closing','done'];
+var FLOW=['talked','info','offer','hot','visit','viewing','closing','done'];
 function nextStageOf(id){if(id==='season')return SM.info;var i=FLOW.indexOf(id);return i>-1&&i<FLOW.length-1?SM[FLOW[i+1]]:null}
 function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
 function addMonths(n){var d=new Date();d.setMonth(d.getMonth()+n);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
