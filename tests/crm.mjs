@@ -77,6 +77,14 @@ for (const [w, tag] of [[1100, 'desktop'], [390, 'mobile']]) {
   ok((await pg.innerText('#calc .pf')).includes('3,000'), `${tag}: without it the profit is computed`);
   await pg.click('#sheet button[type=submit]'); await pg.waitForSelector('#veil', { state: 'detached' });
   ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: lead saved and listed`);
+  await pg.fill('#q', 'כהן');
+  ok((await pg.locator('#list .card').count()) >= 1 && /דנה כהן/.test(await pg.innerText('#list')) && /נמצאו/.test(await pg.innerText('#qNote')), `${tag}: the search bar finds a lead by part of the name`);
+  await pg.fill('#q', '050 123-4567');
+  ok(/דנה כהן/.test(await pg.innerText('#list')), `${tag}: ... and by phone, however it is typed`);
+  await pg.fill('#q', 'zzzxxx');
+  ok(/לא נמצא/.test(await pg.innerText('#list')) && (await pg.locator('#list .card').count()) === 0, `${tag}: nothing found says so`);
+  await pg.fill('#q', '');
+  ok((await pg.locator('#list .card').count()) >= 1 && (await pg.innerText('#qNote')) === '', `${tag}: clearing the search brings the list back`);
   ok((await pg.locator('#list .card:has-text("דנה כהן") a.call').getAttribute('href')) === 'tel:0501234567' && /חיוג/.test(await pg.locator('#list .card:has-text("דנה כהן") a.call').innerText()), `${tag}: a green call button dials the lead's phone`);
   ok(await pg.locator('#sumBox').isHidden(), `${tag}: the money section is not on the leads page`);
   await pg.click('#themeBtn');

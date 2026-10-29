@@ -65,6 +65,7 @@ select,input,textarea{background:var(--bg);border:1.5px solid var(--line);border
 .kpi.big b{font-size:34px;color:var(--good)}
 .kpi small{font-size:13px;color:var(--muted)}
 
+.searchbar{margin:2px 0 10px}.searchbar input{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:16px}.searchbar .note{display:block;margin:4px 6px 0;min-height:1px}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 .tab{flex:none;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;display:flex;gap:8px;align-items:center;font-weight:600}
 .tab i{width:9px;height:9px;border-radius:50%;background:var(--c,var(--muted))}
@@ -201,6 +202,7 @@ legend{font-weight:800;padding:0 6px}
   <section class="sum" id="potBox" hidden aria-label="רווח פוטנציאלי"></section>
   <section class="sum" id="shipBox" aria-label="משלוחים בדרך" hidden></section>
   <section class="sum" id="projBox" aria-label="תמחור פרויקטים" hidden></section>
+  <div class="searchbar" id="searchBar"><input id="q" type="search" placeholder="🔍 חיפוש ליד: שם, טלפון, מוצר, הערה…" autocomplete="off" aria-label="חיפוש ליד"><span class="note" id="qNote"></span></div>
   <div class="tabs" id="tabs" role="group" aria-label="שלבים"></div>
   <div class="row" id="periodBar" hidden><span class="note" id="periodNote"></span><select id="period2" aria-label="חודש" style="width:auto"></select></div>
   <div class="list" id="list" aria-live="polite"></div>
@@ -254,6 +256,8 @@ function calc(l){
 }
 
 /* ---------- list ---------- */
+var q='';
+function qMatch(l,t){var h=[l.name,l.phone,l.product,l.notes,l.source,l.suppName,l.receiptNo,l.firstBy].join(' ').toLowerCase(),d=String(l.phone||'').replace(/\D/g,''),td=t.replace(/\D/g,'');return t.split(/\s+/).every(function(w){return h.indexOf(w)>-1})||(td.length>=3&&d.indexOf(td)>-1)}
 function allLeads(){return Object.keys(leads).map(function(k){return Object.assign({id:k},leads[k])})}
 function inPeriod(l){
   if(period==='all')return true;
@@ -420,7 +424,10 @@ function renderList(){
   var byMonth=DEAL.indexOf(filter)>-1&&period!=='all';       // in the closed tabs only the deals closed in the chosen month
   var bar=$('periodBar'),note=$('periodNote'),closedTab=DEAL.indexOf(filter)>-1&&view==='leads';
   if(bar){bar.hidden=!closedTab;if(closedTab){var so=$('period').selectedOptions[0];note.textContent=byMonth?'מוצגות רק עסקאות שנסגרו ב:':'מוצגות כל העסקאות. אפשר לבחור חודש:'}}
+  var qt=q.trim().toLowerCase();
+  if(qt){byMonth=false;if(bar)bar.hidden=true}
   var ls=allLeads().filter(function(l){
+    if(qt)return qMatch(l,qt);      // searching looks in every stage
     if(byMonth)return l.stage===filter&&inPeriod(l);
     if(filter==='all')return true;
     if(filter==='open')return l.stage!=='done'&&l.stage!=='lost';
@@ -431,6 +438,8 @@ function renderList(){
     if(filter!=='all'&&filter!=='open')return (b.updatedAt||'').localeCompare(a.updatedAt||'');
     return rankOf(a.stage)-rankOf(b.stage)||fa.localeCompare(fb)||(b.updatedAt||'').localeCompare(a.updatedAt||'');     // hot first, then received the catalog, talked, next season
   });
+  var qn=$('qNote');if(qn)qn.textContent=qt?(ls.length?'נמצאו '+ls.length+' לידים בכל השלבים':'לא נמצא'):'';
+  if(!ls.length&&qt){$('list').innerHTML='<div class="empty"><b>לא נמצא ליד</b>נסי חלק מהשם או מהטלפון.</div>';return}
   if(!ls.length){
     $('list').innerHTML='<div class="empty"><b>'+(Object.keys(leads).length?'אין לידים בשלב הזה':'עוד אין לידים')+'</b>'+(Object.keys(leads).length?'בחרי שלב אחר למעלה.':'כל פעם שדיברת עם מישהו, לחצי "ליד חדש" ורשמי שם וטלפון.')+'</div>';
     return;
@@ -521,7 +530,7 @@ function renderPot(){
 function applyView(){
   paintTheme();
   var m=view!=='leads';
-  $('sumBox').hidden=view!=='money';$('shipBox').hidden=view!=='ship';$('projBox').hidden=view!=='proj';$('tabs').hidden=m;$('list').hidden=m;
+  $('sumBox').hidden=view!=='money';$('shipBox').hidden=view!=='ship';$('projBox').hidden=view!=='proj';$('tabs').hidden=m;$('searchBar').hidden=m;$('list').hidden=m;
   if(m){$('periodBar').hidden=true}
   ['shotBtn','impBtn','selBtn','newBtn','moneyBtn','shipBtn','projBtn'].forEach(function(id){$(id).hidden=m});
   $('backBtn').hidden=!m;
@@ -1314,6 +1323,7 @@ document.addEventListener('keydown',function(e){
   if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.card')){e.preventDefault();openEditor(e.target.dataset.open)}
 });
 document.addEventListener('input',function(e){
+  if(e.target.id==='q'){q=e.target.value;renderList();return}
   if(e.target.closest&&e.target.closest('#projForm'))pjUpdate();
   if(e.target.id==='f_supplier')e.target.dataset.manual='1';
   if(e.target.id==='f_name'||e.target.id==='f_phone'){dupForce=false;paintDup()}
